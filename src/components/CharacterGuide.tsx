@@ -26,13 +26,24 @@ export function CharacterGuide({
       }} className="relative z-20 -mb-4">
           <svg width="160" height="180" viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-2xl">
             <defs>
-              <linearGradient id="sareeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#D4745E" />
-                <stop offset="100%" stopColor="#B85F45" />
+              <linearGradient id="sareeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#E85D75" />
+                <stop offset="50%" stopColor="#D4456A" />
+                <stop offset="100%" stopColor="#B83A5A" />
               </linearGradient>
               <linearGradient id="skinGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#F5D5C0" />
-                <stop offset="100%" stopColor="#E6C2A8" />
+                <stop offset="0%" stopColor="#FCECD9" />
+                <stop offset="100%" stopColor="#E8CDB5" />
+              </linearGradient>
+              <linearGradient id="hairGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#4A4A4A" />
+                <stop offset="30%" stopColor="#6B6B6B" />
+                <stop offset="100%" stopColor="#3D3D3D" />
+              </linearGradient>
+              <linearGradient id="blushGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#FFB4B4" stopOpacity="0" />
+                <stop offset="50%" stopColor="#FFB4B4" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#FFB4B4" stopOpacity="0" />
               </linearGradient>
               <filter id="softShadow">
                 <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
@@ -45,69 +56,160 @@ export function CharacterGuide({
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                <feMerge>
+                  <feMergeNode in="coloredBlur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
             </defs>
 
             {/* Saree Drape with Pattern */}
-            <path d="M25 180V110C25 110 35 85 80 85C125 85 135 110 135 110V180H25Z" fill="url(#sareeGradient)" filter="url(#softShadow)" />
+            <path d="M25 180V115C25 115 40 90 80 90C120 90 135 115 135 115V180H25Z" fill="url(#sareeGradient)" filter="url(#softShadow)" />
 
-            {/* Saree Border Pattern */}
-            <path d="M25 180V175L30 170L35 175L40 170L45 175L50 170L55 175L60 170L65 175L70 170L75 175L80 170L85 175L90 170L95 175L100 170L105 175L110 170L115 175L120 170L125 175L130 170L135 175V180H25Z" fill="#D4AF37" />
+            {/* Saree decorative patterns */}
+            <path d="M30 140C35 138 40 142 45 140C50 138 55 142 60 140" stroke="#D4AF37" strokeWidth="1" opacity="0.6" />
+            <path d="M100 140C105 138 110 142 115 140C120 138 125 142 130 140" stroke="#D4AF37" strokeWidth="1" opacity="0.6" />
 
-            {/* Saree Pallu (shoulder drape) */}
-            <path d="M80 85C70 85 50 95 25 125V180H45V130C60 100 75 90 80 85Z" fill="#8B0000" fillOpacity="0.4" />
+            {/* Saree Border Pattern - more intricate */}
+            <path d="M25 180V173L28 168L31 173L34 168L37 173L40 168L43 173L46 168L49 173L52 168L55 173L58 168L61 173L64 168L67 173L70 168L73 173L76 168L79 173L82 168L85 173L88 168L91 173L94 168L97 173L100 168L103 173L106 168L109 173L112 168L115 173L118 168L121 173L124 168L127 173L130 168L133 173L135 180H25Z" fill="#D4AF37" />
+            <path d="M25 180V177H135V180H25Z" fill="#B8860B" />
 
-            {/* Blouse */}
-            <ellipse cx="80" cy="85" rx="30" ry="15" fill="#8B0000" />
+            {/* Saree Pallu (shoulder drape) with pattern */}
+            <path d="M80 90C70 90 45 100 25 135V180H50V140C65 110 75 95 80 90Z" fill="#B83A5A" fillOpacity="0.5" />
+            <circle cx="35" cy="155" r="3" fill="#D4AF37" opacity="0.7" />
+            <circle cx="42" cy="145" r="2" fill="#D4AF37" opacity="0.7" />
 
-            {/* Neck */}
-            <rect x="72" y="70" width="16" height="15" fill="url(#skinGradient)" rx="3" />
+            {/* Blouse with embroidery */}
+            <ellipse cx="80" cy="92" rx="32" ry="12" fill="#8B0000" />
+            <path d="M60 92C65 90 75 88 80 88C85 88 95 90 100 92" stroke="#D4AF37" strokeWidth="1" opacity="0.8" />
 
-            {/* Head */}
-            <circle cx="80" cy="55" r="38" fill="url(#skinGradient)" filter="url(#softShadow)" />
+            {/* Neck - more feminine, slender */}
+            <path d="M72 75L74 90H86L88 75Z" fill="url(#skinGradient)" />
 
-            {/* Hair Bun with Detail */}
-            <circle cx="80" cy="35" r="42" fill="#3A3A3A" />
-            <circle cx="80" cy="35" r="38" fill="#4A4A4A" />
-            <circle cx="85" cy="32" r="8" fill="#3A3A3A" opacity="0.5" />
+            {/* Face - more oval/feminine shape */}
+            <ellipse cx="80" cy="52" rx="32" ry="36" fill="url(#skinGradient)" filter="url(#softShadow)" />
 
-            {/* Hair Parting */}
-            <path d="M50 50C50 50 60 25 80 25C100 25 110 50 110 50" stroke="#3A3A3A" strokeWidth="2" />
+            {/* Subtle jaw definition for feminine face */}
+            <path d="M50 55Q55 85 80 88Q105 85 110 55" fill="url(#skinGradient)" />
 
-            {/* Earrings */}
-            <circle cx="45" cy="60" r="5" fill="#D4AF37" stroke="#F4C430" strokeWidth="1" />
-            <circle cx="115" cy="60" r="5" fill="#D4AF37" stroke="#F4C430" strokeWidth="1" />
-            <circle cx="45" cy="68" r="3" fill="#D4AF37" />
-            <circle cx="115" cy="68" r="3" fill="#D4AF37" />
+            {/* Hair - feminine style with grey streaks */}
+            <ellipse cx="80" cy="28" rx="38" ry="32" fill="url(#hairGradient)" />
+            {/* Hair volume on sides */}
+            <path d="M45 35Q42 50 48 65" stroke="#5A5A5A" strokeWidth="8" strokeLinecap="round" />
+            <path d="M115 35Q118 50 112 65" stroke="#5A5A5A" strokeWidth="8" strokeLinecap="round" />
 
-            {/* Glasses with Reflection */}
-            <g opacity="0.95">
-              <circle cx="65" cy="55" r="10" stroke="#D4AF37" strokeWidth="2.5" fill="rgba(255,255,255,0.1)" />
-              <circle cx="95" cy="55" r="10" stroke="#D4AF37" strokeWidth="2.5" fill="rgba(255,255,255,0.1)" />
-              <path d="M75 55H85" stroke="#D4AF37" strokeWidth="2.5" />
-              <path d="M55 55H50" stroke="#D4AF37" strokeWidth="2" />
-              <path d="M105 55H110" stroke="#D4AF37" strokeWidth="2" />
-              {/* Lens reflection */}
-              <circle cx="68" cy="52" r="3" fill="white" opacity="0.6" />
-              <circle cx="98" cy="52" r="3" fill="white" opacity="0.6" />
+            {/* Grey hair streaks */}
+            <path d="M55 25Q60 15 80 12Q100 15 105 25" stroke="#9A9A9A" strokeWidth="2" opacity="0.7" />
+            <path d="M60 30Q70 20 80 18Q90 20 100 30" stroke="#8A8A8A" strokeWidth="1.5" opacity="0.5" />
+
+            {/* Hair bun at back */}
+            <circle cx="80" cy="18" r="18" fill="#4A4A4A" />
+            <circle cx="80" cy="18" r="14" fill="#5A5A5A" />
+            {/* Bun decoration - flowers */}
+            <circle cx="68" cy="12" r="4" fill="#FFFFFF" opacity="0.9" />
+            <circle cx="68" cy="12" r="2" fill="#FFD700" />
+            <circle cx="92" cy="12" r="4" fill="#FFFFFF" opacity="0.9" />
+            <circle cx="92" cy="12" r="2" fill="#FFD700" />
+
+            {/* Sindoor in hair parting */}
+            <path d="M80 18V35" stroke="#FF4500" strokeWidth="3" />
+
+            {/* Earrings - jhumkas */}
+            <circle cx="48" cy="58" r="4" fill="#D4AF37" stroke="#F4C430" strokeWidth="1" />
+            <ellipse cx="48" cy="68" rx="5" ry="7" fill="#D4AF37" />
+            <circle cx="48" cy="68" r="3" fill="#8B0000" />
+            <circle cx="48" cy="75" r="2" fill="#D4AF37" />
+
+            <circle cx="112" cy="58" r="4" fill="#D4AF37" stroke="#F4C430" strokeWidth="1" />
+            <ellipse cx="112" cy="68" rx="5" ry="7" fill="#D4AF37" />
+            <circle cx="112" cy="68" r="3" fill="#8B0000" />
+            <circle cx="112" cy="75" r="2" fill="#D4AF37" />
+
+            {/* Rosy cheeks */}
+            <ellipse cx="55" cy="62" rx="8" ry="5" fill="#FFB4B4" opacity="0.4" />
+            <ellipse cx="105" cy="62" rx="8" ry="5" fill="#FFB4B4" opacity="0.4" />
+
+            {/* Eyebrows - feminine, groomed */}
+            <path d="M56 42Q65 38 74 42" stroke="#4A4A4A" strokeWidth="2" strokeLinecap="round" fill="none" />
+            <path d="M86 42Q95 38 104 42" stroke="#4A4A4A" strokeWidth="2" strokeLinecap="round" fill="none" />
+
+            {/* Eyes - larger, more feminine with lashes */}
+            <g>
+              {/* Left eye */}
+              <ellipse cx="65" cy="50" rx="8" ry="5" fill="white" />
+              <circle cx="65" cy="50" r="4" fill="#3D2314" />
+              <circle cx="65" cy="50" r="2" fill="black" />
+              <circle cx="66" cy="49" r="1" fill="white" />
+              {/* Left eyelashes */}
+              <path d="M57 47L55 44" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M59 46L58 43" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M62 45L62 42" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M65 45L66 42" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M68 45L70 43" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M71 47L73 44" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              {/* Left lower lash line */}
+              <path d="M58 53Q65 56 72 53" stroke="#5A5A5A" strokeWidth="1" fill="none" />
+            </g>
+            <g>
+              {/* Right eye */}
+              <ellipse cx="95" cy="50" rx="8" ry="5" fill="white" />
+              <circle cx="95" cy="50" r="4" fill="#3D2314" />
+              <circle cx="95" cy="50" r="2" fill="black" />
+              <circle cx="96" cy="49" r="1" fill="white" />
+              {/* Right eyelashes */}
+              <path d="M87 47L85 44" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M89 46L88 43" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M92 45L92 42" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M95 45L96 42" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M98 45L100 43" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M101 47L103 44" stroke="#3A3A3A" strokeWidth="1.5" strokeLinecap="round" />
+              {/* Right lower lash line */}
+              <path d="M88 53Q95 56 102 53" stroke="#5A5A5A" strokeWidth="1" fill="none" />
             </g>
 
-            {/* Bindi (larger, more detailed) */}
-            <circle cx="80" cy="40" r="4" fill="#8B0000" />
-            <circle cx="80" cy="40" r="2.5" fill="#A52A2A" />
+            {/* Glasses with delicate gold frame */}
+            <g opacity="0.9">
+              <ellipse cx="65" cy="50" rx="12" ry="10" stroke="#D4AF37" strokeWidth="2" fill="none" />
+              <ellipse cx="95" cy="50" rx="12" ry="10" stroke="#D4AF37" strokeWidth="2" fill="none" />
+              <path d="M77 50H83" stroke="#D4AF37" strokeWidth="2" />
+              <path d="M53 48L48 46" stroke="#D4AF37" strokeWidth="1.5" />
+              <path d="M107 48L112 46" stroke="#D4AF37" strokeWidth="1.5" />
+            </g>
 
-            {/* Nose Ring */}
-            <circle cx="75" cy="62" r="2" fill="none" stroke="#D4AF37" strokeWidth="1.5" />
+            {/* Bindi - decorative with glow */}
+            <circle cx="80" cy="36" r="5" fill="#8B0000" filter="url(#glow)" />
+            <circle cx="80" cy="36" r="3" fill="#FF0000" />
+            <circle cx="79" cy="35" r="1" fill="white" opacity="0.6" />
 
-            {/* Smile with warmth */}
-            <path d="M62 70Q80 78 98 70" stroke="#8B4513" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+            {/* Nose - feminine, delicate */}
+            <path d="M80 52L78 62L80 64L82 62Z" fill="#E0B89D" />
 
-            {/* Eyes (closed, peaceful) */}
-            <path d="M60 52Q65 54 70 52" stroke="#4A4A4A" strokeWidth="2" strokeLinecap="round" />
-            <path d="M90 52Q95 54 100 52" stroke="#4A4A4A" strokeWidth="2" strokeLinecap="round" />
+            {/* Nose Ring - delicate nath */}
+            <circle cx="76" cy="63" r="2.5" fill="none" stroke="#D4AF37" strokeWidth="1.5" />
+            <circle cx="74" cy="64" r="1" fill="#D4AF37" />
 
-            {/* Necklace */}
-            <ellipse cx="80" cy="75" rx="25" ry="5" fill="none" stroke="#D4AF37" strokeWidth="2" />
-            <circle cx="80" cy="78" r="4" fill="#D4AF37" stroke="#F4C430" strokeWidth="1" />
+            {/* Lips - feminine, fuller */}
+            <path d="M70 72Q75 70 80 70Q85 70 90 72" fill="#C4686A" />
+            <path d="M70 72Q80 78 90 72" fill="#D47B7D" />
+            <path d="M75 72Q80 74 85 72" fill="#E88B8D" opacity="0.5" />
+
+            {/* Smile lines - gentle */}
+            <path d="M68 74Q69 76 70 74" stroke="#C9A88C" strokeWidth="0.5" fill="none" />
+            <path d="M90 74Q91 76 92 74" stroke="#C9A88C" strokeWidth="0.5" fill="none" />
+
+            {/* Mangalsutra necklace */}
+            <path d="M55 78Q80 85 105 78" stroke="#3A3A3A" strokeWidth="1.5" fill="none" />
+            <circle cx="70" cy="82" r="2" fill="#3A3A3A" />
+            <circle cx="80" cy="84" r="3" fill="#D4AF37" />
+            <circle cx="90" cy="82" r="2" fill="#3A3A3A" />
+
+            {/* Gold necklace */}
+            <path d="M52 75Q80 82 108 75" stroke="#D4AF37" strokeWidth="2" fill="none" />
+            <circle cx="80" cy="80" r="4" fill="#D4AF37" stroke="#F4C430" strokeWidth="1" />
+            <circle cx="68" cy="78" r="2" fill="#D4AF37" />
+            <circle cx="92" cy="78" r="2" fill="#D4AF37" />
 
             {/* Subtle breathing animation */}
             <motion.g animate={{
