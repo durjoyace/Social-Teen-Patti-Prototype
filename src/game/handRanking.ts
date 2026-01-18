@@ -218,3 +218,145 @@ export function getHandProbability(rank: HandRank): string {
   };
   return probabilities[rank];
 }
+
+// Hand strength values for AI decision making (0.0 to 1.0)
+const HAND_STRENGTH_VALUES: Record<HandRank, number> = {
+  'trail': 1.0,
+  'pure_sequence': 0.85,
+  'sequence': 0.65,
+  'color': 0.5,
+  'pair': 0.3,
+  'high_card': 0.1
+};
+
+// Calculate hand strength for AI decisions
+// Returns a value between 0.0 (worst) and 1.0 (best)
+export function calculateHandStrength(cards: Card[], variant: GameVariant = 'classic'): number {
+  const result = evaluateHand(cards, variant);
+  let baseStrength = HAND_STRENGTH_VALUES[result.rank];
+
+  // In Muflis variant, invert the strength (low is better)
+  if (variant === 'muflis') {
+    baseStrength = 1 - baseStrength;
+  }
+
+  // Adjust strength based on high card within the rank
+  // For example, a pair of Aces is stronger than a pair of 2s
+  const highCardBonus = (result.highCard - 2) / 12 * 0.15; // Max +0.15 for Ace
+  const adjustedStrength = Math.min(1, baseStrength + highCardBonus);
+
+  return adjustedStrength;
+}
+
+// AI Personality types
+export type AIPersonality = 'conservative' | 'balanced' | 'aggressive';
+
+// AI decision parameters based on personality
+export interface AIDecisionParams {
+  foldThreshold: number;      // Strength below this = likely to fold
+  raiseThreshold: number;     // Strength above this = likely to raise
+  bluffChance: number;        // Chance to bluff with weak hand
+  slowPlayChance: number;     // Chance to just call with strong hand
+  thinkingTimeBase: number;   // Base thinking time in ms
+  thinkingTimeVariance: number; // Random variance in ms
+}
+
+const AI_PERSONALITY_PARAMS: Record<AIPersonality, AIDecisionParams> = {
+  conservative: {
+    foldThreshold: 0.35,
+    raiseThreshold: 0.7,
+    bluffChance: 0.05,
+    slowPlayChance: 0.3,
+    thinkingTimeBase: 2000,
+    thinkingTimeVariance: 1500
+  },
+  balanced: {
+    foldThreshold: 0.25,
+    raiseThreshold: 0.6,
+    bluffChance: 0.15,
+    slowPlayChance: 0.2,
+    thinkingTimeBase: 1500,
+    thinkingTimeVariance: 1000
+  },
+  aggressive: {
+    foldThreshold: 0.15,
+    raiseThreshold: 0.45,
+    bluffChance: 0.35,
+    slowPlayChance: 0.1,
+    thinkingTimeBase: 1000,
+    thinkingTimeVariance: 800
+  }
+};
+
+export function getAIPersonalityParams(personality: AIPersonality): AIDecisionParams {
+  return AI_PERSONALITY_PARAMS[personality];
+}
+
+// Calculate AI thinking time based on hand strength and personality
+// Stronger hands = faster decisions (more confident)
+export function calculateAIThinkingTime(
+  handStrength: number,
+  personality: AIPersonality
+): number {
+  const params = AI_PERSONALITY_PARAMS[personality];
+
+  // Inverse relationship: stronger hand = faster decision
+  const strengthFactor = 1 - handStrength * 0.5; // 0.5 to 1.0
+
+  const baseTime = params.thinkingTimeBase * strengthFactor;
+  const variance = (Math.random() - 0.5) * 2 * params.thinkingTimeVariance;
+
+  return Math.max(500, Math.round(baseTime + variance)); // Minimum 500ms
+}
+
+// Make AI decision based on hand strength, personality, and game state
+export interface AIDecisionContext {
+  handStrength: number;
+  personality: AIPersonality;
+  potOdds: number;           // currentBet / pot ratio
+  playersRemaining: number;
+  isBlind: boolean;
+  roundNumber: number;
+}
+
+export type AIAction = 'pack' | 'chaal' | 'blind' | 'raise' | 'show';
+
+export function makeAIDecision(context: AIDecisionContext): { action: AIAction; shouldRaise: boolean } {
+  const params = getAIPersonalityParams(context.personality);
+  const rand = Math.random();
+
+  // Determine if we should fold
+  if (context.handStrength < params.foldThreshold) {
+    // Weak hand - might fold or bluff
+    if (rand < params.bluffChance) {
+      // Bluffing - raise with weak hand!
+      return { action: 'raise', shouldRaise: true };
+    }
+    // More likely to fold as more players remain and pot odds are bad
+    const foldChance = (1 - context.handStrength) * (1 + context.potOdds * 0.5) * (context.playersRemaining / 4);
+    if (rand < foldChance * 0.8) {
+      return { action: 'pack', shouldRaise: false };
+    }
+  }
+
+  // Determine if we should raise
+  if (context.handStrength > params.raiseThreshold) {
+    // Strong hand - might raise or slow play
+    if (rand < params.slowPlayChance) {
+      // Slow playing - just call with strong hand
+      return { action: context.isBlind ? 'blind' : 'chaal', shouldRaise: false };
+    }
+    return { action: 'raise', shouldRaise: true };
+  }
+
+  // Medium strength hand - mostly call/continue
+  // Slightly more likely to raise in later rounds
+  const raiseChance = (context.handStrength - params.foldThreshold) /
+                      (params.raiseThreshold - params.foldThreshold) * 0.3;
+
+  if (rand < raiseChance) {
+    return { action: 'raise', shouldRaise: true };
+  }
+
+  return { action: context.isBlind ? 'blind' : 'chaal', shouldRaise: false };
+}

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, Trophy, Star, Plus, Search, Filter, Sparkles,
-  Crown, Zap, Gift, Bell, Settings, ChevronRight, Flame
+  Users, Plus, Search, Filter, Sparkles,
+  Crown, Zap, Gift, Bell, Settings, ChevronRight, Flame,
+  Play, Hash
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useGameStore } from '../stores/gameStore';
@@ -31,10 +32,12 @@ const variantConfig: Record<GameVariant, { color: string; icon: typeof Sparkles;
 interface LobbyScreenProps {
   onJoinGame: (room: GameRoom) => void;
   onCreateGame: () => void;
+  onQuickPlay: () => void;
+  onJoinByCode: () => void;
   onNavigate: (screen: string) => void;
 }
 
-export function LobbyScreen({ onJoinGame, onCreateGame, onNavigate }: LobbyScreenProps) {
+export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCode, onNavigate }: LobbyScreenProps) {
   const { user } = useAuthStore();
   const { setRooms } = useGameStore();
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,6 +142,55 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onNavigate }: LobbyScree
               transition={{ repeat: Infinity, duration: 1.5, delay: 0.5 }}
             />
           </motion.div>
+
+          {/* Quick Play Button */}
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onQuickPlay}
+            className="w-full p-4 rounded-2xl bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 shadow-lg shadow-green-500/40 mb-4 relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent shimmer" />
+            <div className="relative flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Play className="w-6 h-6 text-white fill-white" />
+              </div>
+              <div className="text-left">
+                <p className="text-white font-bold text-lg">Quick Play</p>
+                <p className="text-white/80 text-sm">Play instantly with AI opponents</p>
+              </div>
+              <ChevronRight className="w-6 h-6 text-white/60 ml-auto" />
+            </div>
+          </motion.button>
+
+          {/* Action Buttons Row */}
+          <div className="flex gap-2 mb-4">
+            <motion.button
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onCreateGame}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30"
+            >
+              <Plus className="w-5 h-5" />
+              Create Table
+            </motion.button>
+            <motion.button
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.35 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onJoinByCode}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white font-semibold border border-white/20"
+            >
+              <Hash className="w-5 h-5" />
+              Join by Code
+            </motion.button>
+          </div>
 
           {/* Tab navigation */}
           <div className="flex gap-2 mb-4">
@@ -324,18 +376,6 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onNavigate }: LobbyScree
             </div>
           )}
         </div>
-
-        {/* Create table FAB */}
-        <motion.button
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={onCreateGame}
-          className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-gradient-to-br from-yellow-500 to-orange-600 shadow-lg shadow-orange-500/50 flex items-center justify-center z-20"
-        >
-          <Plus className="w-6 h-6 text-white" />
-        </motion.button>
 
         {/* Navigation */}
         <NavigationBar currentScreen="home" onNavigate={onNavigate} />

@@ -81,6 +81,7 @@ export interface GameRoom {
 export interface GameSession {
   id: string;
   roomId: string;
+  variant: GameVariant;
   dealerPosition: number;
   currentTurn: number;
   pot: number;
@@ -88,6 +89,7 @@ export interface GameSession {
   bootAmount: number;
   status: GameStatus;
   roundNumber: number;
+  round: number; // Alias for roundNumber
   players: GamePlayer[];
   communityCards?: Card[];
   startedAt: Date;

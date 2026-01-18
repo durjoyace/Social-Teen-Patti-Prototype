@@ -50,7 +50,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   const { user } = useAuthStore();
   const { soundEnabled, toggleSound } = useUIStore();
-  const { aiThinking } = useSimulatedMultiplayer();
+  const { aiThinking, currentAIPlayer } = useSimulatedMultiplayer();
   const { play, playCardDeal, playChipSound } = useSound();
   const { onTurn, onWin, onButtonPress } = useHaptics();
 
@@ -250,10 +250,10 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
           <AnimatePresence>
             {aiThinking && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute top-24 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-24 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/70 backdrop-blur-sm border border-white/10"
               >
                 <motion.div
                   className="flex gap-1"
@@ -261,13 +261,15 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   {[0, 1, 2].map((i) => (
                     <motion.div
                       key={i}
-                      className="w-1.5 h-1.5 bg-white/60 rounded-full"
-                      animate={{ y: [0, -5, 0] }}
-                      transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.1 }}
+                      className="w-2 h-2 bg-yellow-400 rounded-full"
+                      animate={{ y: [0, -6, 0], opacity: [0.4, 1, 0.4] }}
+                      transition={{ repeat: Infinity, duration: 0.8, delay: i * 0.15 }}
                     />
                   ))}
                 </motion.div>
-                <span className="text-xs text-white/60">Thinking...</span>
+                <span className="text-sm text-white font-medium">
+                  {currentAIPlayer || 'AI'} is thinking...
+                </span>
               </motion.div>
             )}
           </AnimatePresence>

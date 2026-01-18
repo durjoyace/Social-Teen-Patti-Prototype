@@ -6,11 +6,15 @@ import { useUIStore } from '../stores/uiStore';
 import {
   ServerToClientEvents,
   ClientToServerEvents,
-  GameSession,
   GameRoom,
-  ChatMessage,
   ActionType
 } from '../types';
+import {
+  calculateHandStrength,
+  calculateAIThinkingTime,
+  makeAIDecision,
+  AIPersonality
+} from '../game/handRanking';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -223,41 +227,127 @@ export function useSocket(): UseSocketReturn {
   };
 }
 
+// AI Player names and their personalities
+const AI_PLAYER_CONFIG: Record<string, { name: string; personality: AIPersonality }> = {
+  'ai-sharma': { name: 'Sharma Ji', personality: 'conservative' },
+  'ai-priya': { name: 'Priya', personality: 'balanced' },
+  'ai-bunty': { name: 'Bunty', personality: 'aggressive' }
+};
+
+// Action messages for AI players
+const getAIActionMessage = (playerName: string, action: ActionType, isBluff?: boolean): string => {
+  const messages: Record<ActionType, string[]> = {
+    pack: [
+      `${playerName} folded`,
+      `${playerName} packed their cards`,
+      `${playerName} is out this round`
+    ],
+    chaal: [
+      `${playerName} called`,
+      `${playerName} matched the bet`,
+      `${playerName} is staying in`
+    ],
+    blind: [
+      `${playerName} played blind`,
+      `${playerName} continues blind`,
+      `${playerName} trusts their luck`
+    ],
+    raise: isBluff ? [
+      `${playerName} raised! (Bluffing?)`,
+      `${playerName} bumped it up!`,
+      `${playerName} is feeling bold!`
+    ] : [
+      `${playerName} raised!`,
+      `${playerName} increased the stakes`,
+      `${playerName} is confident!`
+    ],
+    show: [
+      `${playerName} called for a show`,
+      `${playerName} wants to see cards`,
+      `${playerName} revealed!`
+    ],
+    sideshow: [
+      `${playerName} called sideshow`,
+      `${playerName} challenged their neighbor`
+    ],
+    boot: [
+      `${playerName} posted the boot`,
+      `${playerName} is in`
+    ]
+  };
+
+  const actionMessages = messages[action] || [`${playerName} made a move`];
+  return actionMessages[Math.floor(Math.random() * actionMessages.length)];
+};
+
 // Simulated multiplayer for demo (no server required)
 export function useSimulatedMultiplayer() {
-  const { gameState, performAction } = useGameStore();
+  const { gameState, performAction, setGameMessage } = useGameStore();
   const [aiThinking, setAiThinking] = useState(false);
+  const [currentAIPlayer, setCurrentAIPlayer] = useState<string | null>(null);
 
-  // Simulate AI players taking turns
+  // Simulate AI players taking turns with smart decisions
   useEffect(() => {
     if (!gameState || gameState.isGameOver) return;
 
     const currentPlayer = gameState.session.players.find(p => p.isTurn);
     if (!currentPlayer || currentPlayer.seatPosition === 0) return; // Player 0 is the user
 
-    // AI takes action after a delay
+    // Get AI configuration
+    const aiConfig = AI_PLAYER_CONFIG[currentPlayer.userId] || {
+      name: `Player ${currentPlayer.seatPosition + 1}`,
+      personality: 'balanced' as AIPersonality
+    };
+
+    setCurrentAIPlayer(aiConfig.name);
     setAiThinking(true);
-    const delay = 1500 + Math.random() * 2000; // 1.5-3.5 seconds
+
+    // Calculate hand strength for smart decisions
+    let handStrength = 0.5; // Default if no cards
+    if (currentPlayer.cards && currentPlayer.cards.length === 3) {
+      handStrength = calculateHandStrength(
+        currentPlayer.cards,
+        gameState.session.variant
+      );
+    }
+
+    // Calculate thinking time based on hand strength and personality
+    const thinkingTime = calculateAIThinkingTime(handStrength, aiConfig.personality);
+
+    // Calculate game context for decision
+    const activePlayers = gameState.session.players.filter(
+      p => p.status === 'playing' || p.status === 'show'
+    ).length;
+    const potOdds = gameState.session.currentBet / Math.max(1, gameState.session.pot);
 
     const timer = setTimeout(() => {
       setAiThinking(false);
+      setCurrentAIPlayer(null);
 
-      // Simple AI logic
-      const rand = Math.random();
-      if (rand < 0.1) {
-        // 10% chance to pack
-        performAction('pack');
-      } else if (rand < 0.3) {
-        // 20% chance to raise
-        performAction('raise');
-      } else {
-        // 70% chance to chaal/blind
-        performAction(currentPlayer.isBlind ? 'blind' : 'chaal');
-      }
-    }, delay);
+      // Make AI decision
+      const decision = makeAIDecision({
+        handStrength,
+        personality: aiConfig.personality,
+        potOdds,
+        playersRemaining: activePlayers,
+        isBlind: currentPlayer.isBlind,
+        roundNumber: gameState.session.round
+      });
+
+      // Show action message
+      const actionMessage = getAIActionMessage(
+        aiConfig.name,
+        decision.action,
+        decision.shouldRaise && handStrength < 0.3 // Potential bluff
+      );
+      setGameMessage(actionMessage);
+
+      // Perform the action
+      performAction(decision.action);
+    }, thinkingTime);
 
     return () => clearTimeout(timer);
-  }, [gameState, performAction]);
+  }, [gameState, performAction, setGameMessage]);
 
-  return { aiThinking };
+  return { aiThinking, currentAIPlayer };
 }

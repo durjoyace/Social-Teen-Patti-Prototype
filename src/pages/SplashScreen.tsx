@@ -1,16 +1,43 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+
 interface SplashScreenProps {
   onComplete: () => void;
 }
+
 export function SplashScreen({
   onComplete
 }: SplashScreenProps) {
-  useEffect(() => {
-    const timer = setTimeout(onComplete, 3500);
-    return () => clearTimeout(timer);
+  const [progress, setProgress] = useState(0);
+
+  const handleSkip = useCallback(() => {
+    onComplete();
   }, [onComplete]);
-  return <div className="h-full w-full bg-gradient-to-b from-[#1a0a0a] via-[#2C0E0E] to-[#1a0a0a] flex flex-col items-center justify-center relative overflow-hidden">
+
+  useEffect(() => {
+    // Progress animation - completes in 1.5s
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(progressInterval);
+          return 100;
+        }
+        return prev + 4; // ~25 steps to reach 100 in 1.5s (60ms intervals)
+      });
+    }, 60);
+
+    const timer = setTimeout(onComplete, 1500);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(progressInterval);
+    };
+  }, [onComplete]);
+
+  return (
+    <div
+      onClick={handleSkip}
+      className="h-full w-full bg-gradient-to-b from-[#1a0a0a] via-[#2C0E0E] to-[#1a0a0a] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer"
+    >
       {/* Multiple Background Glows for Depth */}
       <motion.div className="absolute w-96 h-96 bg-[#D4745E] rounded-full blur-[120px] opacity-20" animate={{
       scale: [1, 1.3, 1],
@@ -145,28 +172,33 @@ export function SplashScreen({
         </motion.div>
       </div>
 
-      {/* Enhanced Loading Text */}
-      <motion.div initial={{
-      opacity: 0
-    }} animate={{
-      opacity: 1
-    }} transition={{
-      delay: 2.2
-    }} className="absolute bottom-12 flex flex-col items-center gap-3">
-        <p className="text-stone-400 text-xs tracking-wider">
-          Loading Culture...
-        </p>
-        <div className="flex gap-1">
-          {[0, 1, 2].map(i => <motion.div key={i} className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full" animate={{
-          scale: [1, 1.5, 1],
-          opacity: [0.3, 1, 0.3]
-        }} transition={{
-          repeat: Infinity,
-          duration: 1.5,
-          delay: i * 0.2,
-          ease: 'easeInOut'
-        }} />)}
+      {/* Enhanced Loading with Progress Bar */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="absolute bottom-12 flex flex-col items-center gap-3 w-full px-12"
+      >
+        {/* Progress Bar */}
+        <div className="w-full max-w-48 h-1 bg-white/10 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-[#D4AF37] to-[#F4C430] rounded-full"
+            initial={{ width: '0%' }}
+            animate={{ width: `${progress}%` }}
+            transition={{ ease: 'linear' }}
+          />
         </div>
+        <p className="text-stone-400 text-xs tracking-wider">
+          Loading...
+        </p>
+        <motion.p
+          className="text-stone-500 text-xs"
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+        >
+          Tap anywhere to skip
+        </motion.p>
       </motion.div>
-    </div>;
+    </div>
+  );
 }

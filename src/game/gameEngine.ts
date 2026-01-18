@@ -46,6 +46,7 @@ export function initializeGame(
   const session: GameSession = {
     id: sessionId,
     roomId,
+    variant,
     dealerPosition: dealerIndex,
     currentTurn: firstPlayerIndex,
     pot: bootAmount * players.length,
@@ -53,6 +54,7 @@ export function initializeGame(
     bootAmount,
     status: 'playing',
     roundNumber: 1,
+    round: 1,
     players: gamePlayers,
     startedAt: new Date()
   };

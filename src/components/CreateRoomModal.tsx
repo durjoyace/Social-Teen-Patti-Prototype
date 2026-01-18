@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Crown, Sparkles, Zap, Flame, Lock, Globe, Users, Coins } from 'lucide-react';
+import { X, Crown, Sparkles, Zap, Flame, Lock, Globe, Coins, UserPlus } from 'lucide-react';
 import { GameVariant } from '../types';
 import { cn } from '../utils/cn';
 
@@ -8,6 +8,7 @@ interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (config: RoomConfig) => void;
+  createdRoomCode?: string | null;
 }
 
 interface RoomConfig {
@@ -34,7 +35,7 @@ const buyInPresets = [
   { min: 5000, max: 50000, boot: 500, label: 'VIP' }
 ];
 
-export function CreateRoomModal({ isOpen, onClose, onCreate }: CreateRoomModalProps) {
+export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode }: CreateRoomModalProps) {
   const [config, setConfig] = useState<RoomConfig>({
     name: '',
     variant: 'classic',
@@ -47,12 +48,31 @@ export function CreateRoomModal({ isOpen, onClose, onCreate }: CreateRoomModalPr
 
   const [step, setStep] = useState(1);
 
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1);
+    }
+  }, [isOpen]);
+
   const handleCreate = () => {
     if (!config.name.trim()) {
       setConfig({ ...config, name: `${variants.find(v => v.id === config.variant)?.name} Table` });
     }
     onCreate(config);
-    onClose();
+  };
+
+  const handleQuickPrivate = () => {
+    // Quick create a private room with default settings
+    onCreate({
+      name: 'Friends Game',
+      variant: 'classic',
+      minBuyIn: 500,
+      maxBuyIn: 5000,
+      bootAmount: 50,
+      maxPlayers: 6,
+      isPrivate: true
+    });
   };
 
   const selectPreset = (preset: typeof buyInPresets[0]) => {
@@ -117,6 +137,28 @@ export function CreateRoomModal({ isOpen, onClose, onCreate }: CreateRoomModalPr
                     animate={{ opacity: 1, x: 0 }}
                     className="space-y-4"
                   >
+                    {/* Quick Private Room Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleQuickPrivate}
+                      className="w-full p-4 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-800 border border-purple-400/30 flex items-center gap-3"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="text-white font-semibold">Quick Private Room</p>
+                        <p className="text-white/70 text-sm">Create & get room code instantly</p>
+                      </div>
+                    </motion.button>
+
+                    <div className="flex items-center gap-3 my-4">
+                      <div className="flex-1 h-px bg-white/10" />
+                      <span className="text-white/40 text-xs">or customize</span>
+                      <div className="flex-1 h-px bg-white/10" />
+                    </div>
+
                     <h3 className="text-white/80 text-sm font-medium">Choose Game Variant</h3>
                     <div className="grid grid-cols-2 gap-3">
                       {variants.map((variant) => {
