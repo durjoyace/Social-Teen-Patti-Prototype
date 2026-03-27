@@ -68,6 +68,9 @@ const roomManager = setupSocketHandlers(io);
 
 async function start() {
   try {
+    console.log('[BOOT] Starting Teen Patti server...');
+    console.log(`[BOOT] PORT=${env.port}, NODE_ENV=${env.nodeEnv}`);
+
     // Test database connection
     await prisma.$connect();
     console.log('[DB] Connected to database');
@@ -80,10 +83,20 @@ async function start() {
       console.log('');
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('[FATAL] Failed to start server:', error);
     process.exit(1);
   }
 }
+
+// Catch unhandled errors
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[FATAL] Unhandled rejection:', err);
+  process.exit(1);
+});
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
