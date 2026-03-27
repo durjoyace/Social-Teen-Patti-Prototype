@@ -57,7 +57,7 @@ paymentsRouter.post('/create-order', async (req: Request, res: Response) => {
       }),
     });
 
-    const order = await orderResponse.json();
+    const order = await orderResponse.json() as any;
 
     if (!order.id) {
       res.status(500).json({ error: 'Failed to create Razorpay order' });
@@ -107,7 +107,7 @@ paymentsRouter.post('/verify', async (req: Request, res: Response) => {
     const orderResponse = await fetch(`https://api.razorpay.com/v1/orders/${orderId}`, {
       headers: { 'Authorization': `Basic ${auth}` },
     });
-    const order = await orderResponse.json();
+    const order = await orderResponse.json() as any;
 
     const packageId = order.notes?.packageId;
     const pkg = CHIP_PACKAGES[packageId];
