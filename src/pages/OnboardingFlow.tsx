@@ -1,24 +1,38 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CharacterGuide } from '../components/CharacterGuide';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Shield, Users, Sparkles } from 'lucide-react';
+
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
-export function OnboardingFlow({
-  onComplete
-}: OnboardingFlowProps) {
+
+const steps = [
+  {
+    emoji: '🙏',
+    title: 'Welcome to Teen Patti Social',
+    text: 'India\'s first provably fair card game. Every hand verified. Every deal honest.',
+    accent: 'from-yellow-500 to-orange-500',
+    icon: Sparkles,
+  },
+  {
+    emoji: '🔐',
+    title: 'Provably Fair',
+    text: 'Before every hand, we show you a cryptographic hash. After the hand, verify it wasn\'t changed. Don\'t trust us — verify.',
+    accent: 'from-green-500 to-emerald-500',
+    icon: Shield,
+  },
+  {
+    emoji: '🎉',
+    title: 'Play With Friends',
+    text: 'Voice chat at the table. Send gifts. Join clubs. Compete in tournaments. It feels like playing at home with family.',
+    accent: 'from-blue-500 to-purple-500',
+    icon: Users,
+  },
+];
+
+export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(0);
-  const steps = [{
-    text: 'Namaste beta! Welcome to our home. I am Lakshmi Ma. Let me show you how we play Teen Patti with heart and honor.',
-    bg: 'bg-[#FFF8DC]'
-  }, {
-    text: "Here, we don't just play for chips. We play for family pride! Invite your cousins, send them ladoos, and have fun.",
-    bg: 'bg-[#FFF8DC]'
-  }, {
-    text: 'Remember, a good player knows when to be bold like a tiger, and when to be patient like an elephant. Ready to join the table?',
-    bg: 'bg-[#FFF8DC]'
-  }];
+
   const handleNext = () => {
     if (step < steps.length - 1) {
       setStep(step + 1);
@@ -26,44 +40,89 @@ export function OnboardingFlow({
       onComplete();
     }
   };
-  return <div className={`h-full w-full ${steps[step].bg} relative flex flex-col p-6 transition-colors duration-500`}>
-      {/* Skip Button */}
-      <div className="flex justify-end pt-4">
-        <button onClick={onComplete} className="text-stone-400 text-sm font-medium hover:text-[#8B0000]">
+
+  const current = steps[step];
+
+  return (
+    <div className="h-full w-full bg-gradient-to-b from-[#0a1628] via-[#0f1f35] to-[#0a1628] relative flex flex-col overflow-hidden">
+      {/* Background effects */}
+      <div className="absolute inset-0 pointer-events-none">
+        <motion.div
+          key={step}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 0.15 }}
+          className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-[120px] bg-gradient-to-r ${current.accent}`}
+        />
+      </div>
+
+      {/* Skip */}
+      <div className="flex justify-end px-6 pt-6 relative z-10">
+        <button onClick={onComplete} className="text-white/40 text-sm font-medium hover:text-white/70 transition">
           Skip
         </button>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 flex flex-col items-center justify-center -mt-20">
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 relative z-10">
         <AnimatePresence mode="wait">
-          <motion.div key={step} initial={{
-          opacity: 0,
-          scale: 0.9
-        }} animate={{
-          opacity: 1,
-          scale: 1
-        }} exit={{
-          opacity: 0,
-          scale: 1.1
-        }} className="w-full max-w-xs aspect-square bg-white rounded-full shadow-2xl border-4 border-[#D4AF37]/20 flex items-center justify-center mb-8 overflow-hidden relative">
-            {/* Illustrative Scenes per step (Abstract/Icon based) */}
-            {step === 0 && <div className="text-6xl">🙏</div>}
-            {step === 1 && <div className="text-6xl">👨‍👩‍👧‍👦</div>}
-            {step === 2 && <div className="text-6xl">🃏</div>}
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -30, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 20 }}
+            className="flex flex-col items-center text-center"
+          >
+            {/* Emoji in glowing circle */}
+            <div className="relative mb-8">
+              <motion.div
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ repeat: Infinity, duration: 3 }}
+                className={`w-32 h-32 rounded-full bg-gradient-to-br ${current.accent} opacity-20 absolute -inset-4 blur-2xl`}
+              />
+              <div className={`relative w-28 h-28 rounded-full bg-gradient-to-br ${current.accent} flex items-center justify-center shadow-2xl`}>
+                <span className="text-5xl">{current.emoji}</span>
+              </div>
+            </div>
 
-            {/* Decorative pattern */}
-            <div className="absolute inset-0 border-[20px] border-double border-[#D4AF37]/10 rounded-full"></div>
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-white mb-3">{current.title}</h2>
+
+            {/* Description */}
+            <p className="text-white/60 text-base leading-relaxed max-w-xs">{current.text}</p>
           </motion.div>
         </AnimatePresence>
-
-        {/* Step Indicators */}
-        <div className="flex gap-2 mb-8">
-          {steps.map((_, i) => <div key={i} className={`h-2 rounded-full transition-all duration-300 ${i === step ? 'w-8 bg-[#8B0000]' : 'w-2 bg-stone-300'}`} />)}
-        </div>
       </div>
 
-      {/* Character Guide Overlay */}
-      <CharacterGuide text={steps[step].text} onNext={handleNext} showNext={true} />
-    </div>;
+      {/* Bottom section */}
+      <div className="px-8 pb-12 relative z-10">
+        {/* Step indicators */}
+        <div className="flex justify-center gap-2 mb-8">
+          {steps.map((_, i) => (
+            <motion.div
+              key={i}
+              animate={{ width: i === step ? 24 : 8 }}
+              className={`h-2 rounded-full transition-colors ${
+                i === step
+                  ? `bg-gradient-to-r ${current.accent}`
+                  : i < step
+                  ? 'bg-white/30'
+                  : 'bg-white/10'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Next button */}
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={handleNext}
+          className={`w-full py-4 rounded-2xl bg-gradient-to-r ${current.accent} text-white font-bold text-lg shadow-lg flex items-center justify-center gap-2`}
+        >
+          {step === steps.length - 1 ? 'Start Playing' : 'Next'}
+          <ArrowRight className="w-5 h-5" />
+        </motion.button>
+      </div>
+    </div>
+  );
 }

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Provably Fair System — Social Teen Patti Technical Whitepaper</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Georgia', serif; background: #0a0e1a; color: #c8c4b8; line-height: 1.8; }
+    .container { max-width: 720px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 2rem; color: #D4AF37; margin-bottom: 8px; line-height: 1.3; }
+    h2 { font-size: 1.4rem; color: #D4AF37; margin-top: 40px; margin-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 8px; }
+    h3 { font-size: 1.1rem; color: #e8e4d8; margin-top: 24px; margin-bottom: 8px; }
+    p { margin-bottom: 16px; }
+    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 32px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 0.8rem; font-family: sans-serif; margin-bottom: 24px; }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+    code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; color: #D4AF37; }
+    pre { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px; overflow-x: auto; margin: 16px 0; font-size: 0.85rem; color: #22c55e; }
+    .step { display: flex; gap: 16px; margin: 16px 0; align-items: flex-start; }
+    .step-num { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #D4AF37, #8B6914); color: #0a0e1a; display: flex; align-items: center; justify-content: center; font-weight: bold; font-family: sans-serif; font-size: 0.85rem; flex-shrink: 0; }
+    .step-content { flex: 1; }
+    .highlight { background: rgba(212,175,55,0.08); border-left: 3px solid #D4AF37; padding: 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+    a { color: #D4AF37; }
+    .footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); color: #555; font-size: 0.8rem; font-family: sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge"><div class="badge-dot"></div> Technical Whitepaper</div>
+
+    <h1>Provably Fair System</h1>
+    <p class="subtitle">Social Teen Patti — How we prove every hand is fair, and why no competitor can match it.</p>
+
+    <h2>The Problem</h2>
+    <p>Every major Teen Patti app faces the same accusation from its users: <strong>"The game is rigged."</strong></p>
+    <p>Teen Patti Gold, the market leader with 200M+ downloads, has a 1.7/5 rating on Trustpilot with 75% one-star reviews. The dominant complaint: the app manipulates card dealing to force chip purchases.</p>
+    <p>Whether these accusations are true is irrelevant. What matters is that <strong>no existing app can prove they're false.</strong> They ask users to trust them. Users don't.</p>
+
+    <h2>Our Solution: Provably Fair</h2>
+    <p>Social Teen Patti uses a cryptographic commitment scheme that makes it mathematically impossible for us to manipulate card dealing. Every hand can be independently verified by any player, using standard cryptographic tools.</p>
+
+    <div class="highlight">
+      <strong>The core guarantee:</strong> The deck order is determined before any cards are dealt, locked with a cryptographic hash, and cannot be changed after the game begins — even by us.
+    </div>
+
+    <h2>How It Works</h2>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Server Seed Generation</h3>
+        <p>Before each hand, the server generates a cryptographically secure 256-bit random seed using Node.js <code>crypto.randomBytes(32)</code>. This seed is unpredictable and cannot be reverse-engineered.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Deterministic Shuffle</h3>
+        <p>The server seed is used to deterministically shuffle the 52-card deck via HMAC-SHA256 chain. The shuffle uses the Fisher-Yates algorithm, where each random index is derived from <code>HMAC-SHA256(seed, index)</code>. The same seed always produces the same deck order.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Hash Commitment</h3>
+        <p>The server creates a SHA-256 hash of: <code>serverSeed + ":" + deckOrder + ":" + nonce</code>. This hash is sent to all players <strong>before any cards are dealt</strong>. It appears as the "Provably Fair" badge in the game header.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Game Plays Normally</h3>
+        <p>Cards are dealt from the pre-committed deck. The server cannot change the deck order because any change would produce a different hash — and players already have the original hash.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>Verification</h3>
+        <p>After the hand ends, the server reveals the <code>serverSeed</code> and the full <code>deckOrder</code>. Any player can compute <code>SHA-256(serverSeed + ":" + deckOrder + ":" + nonce)</code> and verify it matches the hash they received before the hand started.</p>
+      </div>
+    </div>
+
+    <h2>Client-Side Verification Code</h2>
+    <p>Players can verify fairness using this JavaScript function, which runs entirely in the browser:</p>
+
+    <pre>async function verifyFairness(serverSeed, deckOrder, nonce, expectedHash) {
+  const data = serverSeed + ':' + deckOrder + ':' + nonce;
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hash === expectedHash;
+}
+
+// Returns true if the hand was fair, false if it was tampered with.</pre>
+
+    <p>This function uses the Web Crypto API (available in all modern browsers). No server calls are needed — the verification is completely independent.</p>
+
+    <h2>Optional: Client Seeds</h2>
+    <p>For additional security, players can contribute their own seeds before each hand. The final shuffle uses <code>HMAC-SHA256(serverSeed, clientSeeds.join(':') + ':' + nonce)</code>. This ensures that even the server alone cannot predetermine the outcome — at least one player's seed adds entropy that the server cannot predict.</p>
+
+    <h2>Why Competitors Can't Copy This</h2>
+    <p>Retrofitting a provably fair system into an existing app requires:</p>
+    <ul style="margin: 16px 0 16px 24px;">
+      <li>Rewriting the game engine to use deterministic shuffling (not <code>Math.random()</code>)</li>
+      <li>Adding hash commitment infrastructure to every game session</li>
+      <li>Building client-side verification UI</li>
+      <li>Implicitly admitting the current system isn't verifiably fair</li>
+    </ul>
+    <p>The last point is the real barrier. No incumbent will voluntarily announce "we're adding provably fair because our current system can't be verified" — it validates every user who ever said "the game is rigged."</p>
+
+    <h2>RNG Quality</h2>
+    <p>Our random number generation uses <code>crypto.randomInt()</code> from Node.js, which sources entropy from the operating system's CSPRNG (Cryptographically Secure Pseudo-Random Number Generator). This is the same quality of randomness used by:</p>
+    <ul style="margin: 16px 0 16px 24px;">
+      <li>Banking and financial systems</li>
+      <li>SSL/TLS encryption</li>
+      <li>Online poker platforms (PokerStars, GGPoker)</li>
+      <li>Government lotteries</li>
+    </ul>
+    <p>We are pursuing third-party RNG certification from iTech Labs or GLI (Gaming Laboratories International) to provide independent validation.</p>
+
+    <h2>Transparency Commitment</h2>
+    <p>We commit to:</p>
+    <ul style="margin: 16px 0 16px 24px;">
+      <li>Making the provably fair verification available for every hand, forever</li>
+      <li>Never implementing a system that cannot be independently audited</li>
+      <li>Publishing this whitepaper publicly and keeping it updated</li>
+      <li>Pursuing and maintaining third-party RNG certification</li>
+      <li>Open-sourcing our shuffling algorithm for community review</li>
+    </ul>
+
+    <div class="highlight">
+      <strong>Our promise is simple:</strong> Don't trust us. Verify.
+    </div>
+
+    <div class="footer">
+      <p>Social Teen Patti — Provably Fair Whitepaper v1.0</p>
+      <p>Published March 2026 by ace.boston</p>
+      <p>Questions? Contact: hello@teenpatti.social</p>
+    </div>
+  </div>
+</body>
+</html>

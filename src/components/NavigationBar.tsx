@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, User, Trophy, Users, Gamepad2 } from 'lucide-react';
+import { Home, User, Trophy, Users, Swords, Gamepad2, ShoppingBag } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface NavigationBarProps {
@@ -9,9 +9,10 @@ interface NavigationBarProps {
 
 const tabs = [
   { id: 'home', icon: Home, label: 'Home' },
+  { id: 'tournaments', icon: Swords, label: 'Tourneys' },
   { id: 'social', icon: Users, label: 'Friends' },
   { id: 'leaderboard', icon: Trophy, label: 'Rank' },
-  { id: 'profile', icon: User, label: 'Profile' }
+  { id: 'profile', icon: User, label: 'Profile' },
 ];
 
 export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps) {
@@ -25,7 +26,7 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
       <div className="absolute inset-0 bg-gradient-to-t from-black via-gray-900/95 to-gray-900/90 backdrop-blur-xl border-t border-white/10" />
 
       {/* Content */}
-      <div className="relative px-6 py-3 pb-6">
+      <div className="relative px-4 py-3 pb-6">
         <div className="flex justify-around items-center max-w-md mx-auto">
           {tabs.map((tab) => {
             const isActive = currentScreen === tab.id;
@@ -36,7 +37,7 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                 key={tab.id}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onNavigate(tab.id)}
-                className="relative flex flex-col items-center gap-1 py-1 px-4"
+                className="relative flex flex-col items-center gap-1 py-1 px-3"
               >
                 {/* Active background */}
                 {isActive && (
@@ -51,18 +52,16 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                 <div className="relative">
                   <Icon
                     className={cn(
-                      'w-6 h-6 transition-colors duration-200',
+                      'w-5 h-5 transition-colors duration-200',
                       isActive ? 'text-yellow-400' : 'text-white/40'
                     )}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
-
-                  {/* Active dot */}
                   {isActive && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"
+                      className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full"
                     />
                   )}
                 </div>
@@ -77,11 +76,11 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                   {tab.label}
                 </span>
 
-                {/* Active indicator line */}
+                {/* Active indicator */}
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute -bottom-3 w-8 h-1 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full"
+                    className="absolute -bottom-3 w-6 h-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}

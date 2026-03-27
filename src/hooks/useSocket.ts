@@ -15,6 +15,7 @@ import {
   makeAIDecision,
   AIPersonality
 } from '../game/handRanking';
+import { getAvailableActions, calculateBetAmount } from '../game/gameEngine';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -231,7 +232,12 @@ export function useSocket(): UseSocketReturn {
 const AI_PLAYER_CONFIG: Record<string, { name: string; personality: AIPersonality }> = {
   'ai-sharma': { name: 'Sharma Ji', personality: 'conservative' },
   'ai-priya': { name: 'Priya', personality: 'balanced' },
-  'ai-bunty': { name: 'Bunty', personality: 'aggressive' }
+  'ai-bunty': { name: 'Bunty', personality: 'aggressive' },
+  'ai-meera': { name: 'Meera', personality: 'balanced' },
+  'ai-raja': { name: 'Raja', personality: 'aggressive' },
+  'ai-anita': { name: 'Anita', personality: 'conservative' },
+  'ai-vikram': { name: 'Vikram', personality: 'balanced' },
+  'ai-deepa': { name: 'Deepa', personality: 'aggressive' },
 };
 
 // Action messages for AI players
@@ -273,6 +279,15 @@ const getAIActionMessage = (playerName: string, action: ActionType, isBluff?: bo
     boot: [
       `${playerName} posted the boot`,
       `${playerName} is in`
+    ],
+    sideshow_accept: [
+      `${playerName} accepted the sideshow`
+    ],
+    sideshow_reject: [
+      `${playerName} rejected the sideshow`
+    ],
+    timeout: [
+      `${playerName} timed out`
     ]
   };
 
@@ -324,6 +339,16 @@ export function useSimulatedMultiplayer() {
       setAiThinking(false);
       setCurrentAIPlayer(null);
 
+      if (!gameState || gameState.isGameOver) return;
+
+      // Get available actions for this player
+      const available = getAvailableActions(gameState);
+      if (available.length === 0) {
+        // No valid actions — force pack
+        performAction('pack');
+        return;
+      }
+
       // Make AI decision
       const decision = makeAIDecision({
         handStrength,
@@ -334,16 +359,43 @@ export function useSimulatedMultiplayer() {
         roundNumber: gameState.session.round
       });
 
+      // Validate the decision against available actions
+      let finalAction: ActionType = decision.action;
+
+      if (!available.includes(finalAction)) {
+        // AI wanted an action that's not available — fall back
+        if (available.includes('show')) {
+          finalAction = 'show';
+        } else if (available.includes('chaal')) {
+          finalAction = 'chaal';
+        } else if (available.includes('blind')) {
+          finalAction = 'blind';
+        } else {
+          finalAction = 'pack';
+        }
+      }
+
+      // Check if player can afford the action
+      const betAmount = calculateBetAmount(gameState, currentPlayer, finalAction === 'raise');
+      if (['chaal', 'blind', 'raise'].includes(finalAction) && betAmount > currentPlayer.chipsInPlay) {
+        // Can't afford — try show (free if 2 players) or pack
+        if (available.includes('show')) {
+          finalAction = 'show';
+        } else {
+          finalAction = 'pack';
+        }
+      }
+
       // Show action message
       const actionMessage = getAIActionMessage(
         aiConfig.name,
-        decision.action,
-        decision.shouldRaise && handStrength < 0.3 // Potential bluff
+        finalAction,
+        decision.shouldRaise && handStrength < 0.3
       );
       setGameMessage(actionMessage);
 
       // Perform the action
-      performAction(decision.action);
+      performAction(finalAction);
     }, thinkingTime);
 
     return () => clearTimeout(timer);

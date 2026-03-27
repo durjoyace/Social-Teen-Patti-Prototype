@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
+import { AnimatedChipCount } from './PolishTouches';
 
 interface ChipStackProps {
   amount: number;
@@ -99,16 +100,14 @@ export function ChipStack({ amount, size = 'md', showAmount = true, animate = tr
       </div>
 
       {showAmount && (
-        <motion.span
-          initial={animate ? { opacity: 0, y: 5 } : false}
-          animate={{ opacity: 1, y: 0 }}
+        <AnimatedChipCount
+          value={amount}
+          prefix="₹"
           className={cn(
             'font-bold text-yellow-400 drop-shadow-lg',
             size === 'sm' ? 'text-xs' : size === 'md' ? 'text-sm' : 'text-base'
           )}
-        >
-          ₹{formatChips(amount)}
-        </motion.span>
+        />
       )}
     </div>
   );
@@ -143,14 +142,11 @@ export function PotDisplay({ amount, label = 'POT', className }: PotDisplayProps
       {/* Amount display */}
       <div className="text-center">
         <span className="text-xs text-yellow-500/80 uppercase tracking-wider">{label}</span>
-        <motion.div
-          key={amount}
-          initial={{ scale: 1.2, color: '#22c55e' }}
-          animate={{ scale: 1, color: '#facc15' }}
+        <AnimatedChipCount
+          value={amount}
+          prefix="₹"
           className="text-2xl font-bold text-yellow-400"
-        >
-          ₹{formatChips(amount)}
-        </motion.div>
+        />
       </div>
 
       {/* Glow effect */}

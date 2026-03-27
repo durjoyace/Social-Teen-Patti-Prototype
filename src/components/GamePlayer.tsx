@@ -5,6 +5,7 @@ import { CardFan, PlayingCard } from './PlayingCard';
 import { ChipStack } from './ChipStack';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
+import { AnimatedChipCount } from './PolishTouches';
 
 interface GamePlayerProps {
   player: GamePlayerType;
@@ -194,9 +195,7 @@ export function GamePlayerComponent({
           </span>
 
           <div className="flex items-center gap-1 mt-0.5">
-            <span className={cn('text-xs font-bold', status.text)}>
-              ₹{formatChips(player.chipsInPlay)}
-            </span>
+            <AnimatedChipCount value={player.chipsInPlay} prefix="₹" className={cn('text-xs font-bold', status.text)} />
           </div>
         </div>
 

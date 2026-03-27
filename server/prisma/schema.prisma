@@ -1,0 +1,637 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS & AUTH ───────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  email         String?   @unique
+  phone         String?   @unique
+  passwordHash  String?
+  googleId      String?   @unique
+  avatarUrl     String?
+  isGuest       Boolean   @default(false)
+
+  // Economy
+  chips         BigInt    @default(10000)
+  diamonds      Int       @default(0) // Premium currency
+  vipTier       VipTier   @default(BRONZE)
+  vipPoints     Int       @default(0)
+
+  // Stats
+  level         Int       @default(1)
+  experience    Int       @default(0)
+  totalGames    Int       @default(0)
+  gamesWon      Int       @default(0)
+  biggestWin    BigInt    @default(0)
+  totalWinnings BigInt    @default(0)
+  totalLosses   BigInt    @default(0)
+  currentStreak Int       @default(0)
+  bestStreak    Int       @default(0)
+  handsPlayed   Int       @default(0)
+
+  // Status
+  isOnline      Boolean   @default(false)
+  isBanned      Boolean   @default(false)
+  banReason     String?
+  lastSeen      DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  sessions      GamePlayerSession[]
+  transactions  Transaction[]
+  achievements  UserAchievement[]
+  dailyRewards  DailyReward[]
+  questProgress QuestProgress[]
+  sentFriendRequests     Friendship[] @relation("friendRequester")
+  receivedFriendRequests Friendship[] @relation("friendReceiver")
+  sentGifts     Gift[]     @relation("giftSender")
+  receivedGifts Gift[]     @relation("giftReceiver")
+  clubMemberships ClubMember[]
+  chatMessages  ChatMessage[]
+  notifications Notification[]
+  seasonPasses  SeasonPass[]
+  createdRooms  GameRoom[] @relation("roomCreator")
+
+  @@index([username])
+  @@index([isOnline])
+  @@index([chips])
+  @@index([level])
+}
+
+enum VipTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  DIAMOND
+}
+
+// ─── GAME ROOMS & SESSIONS ──────────────────────────────────────────────────
+
+model GameRoom {
+  id            String      @id @default(uuid())
+  name          String
+  variant       GameVariant @default(CLASSIC)
+  tableType     TableType   @default(CASH)
+
+  // Stakes
+  bootAmount    BigInt
+  minBuyIn      BigInt
+  maxBuyIn      BigInt
+  potLimit      BigInt?
+  chalLimit     Int?        // Max chaal rounds before forced show
+
+  // Room config
+  maxPlayers    Int         @default(6)
+  currentPlayers Int        @default(0)
+  isPrivate     Boolean     @default(false)
+  roomCode      String?     @unique
+  password      String?
+
+  // Status
+  status        RoomStatus  @default(WAITING)
+  createdById   String
+  createdBy     User        @relation("roomCreator", fields: [createdById], references: [id])
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  sessions      GameSession[]
+
+  @@index([status])
+  @@index([variant])
+  @@index([roomCode])
+  @@index([tableType, status])
+}
+
+enum GameVariant {
+  CLASSIC
+  JOKER
+  MUFLIS
+  AK47
+  HUKAM
+  LOWBALL
+  BEST_OF_FOUR
+  DEALERS_CHOICE
+}
+
+enum TableType {
+  CASH        // Regular tables
+  TOURNAMENT  // Tournament tables
+  PRACTICE    // Free play, no stakes
+  PRIVATE     // Friend games
+}
+
+enum RoomStatus {
+  WAITING
+  PLAYING
+  FINISHED
+  CANCELLED
+}
+
+model GameSession {
+  id              String      @id @default(uuid())
+  roomId          String
+  room            GameRoom    @relation(fields: [roomId], references: [id])
+  variant         GameVariant
+
+  // Game state
+  dealerPosition  Int
+  currentTurn     Int
+  pot             BigInt      @default(0)
+  currentBet      BigInt      @default(0)
+  bootAmount      BigInt
+  roundNumber     Int         @default(1)
+  status          SessionStatus @default(DEALING)
+
+  // Cards (encrypted JSON - server only)
+  deckState       String?     // Encrypted remaining deck
+
+  // Timing
+  turnStartedAt   DateTime?
+  startedAt       DateTime    @default(now())
+  endedAt         DateTime?
+
+  // Relations
+  players         GamePlayerSession[]
+  actions         GameAction[]
+
+  @@index([roomId])
+  @@index([status])
+}
+
+enum SessionStatus {
+  DEALING
+  PLAYING
+  SHOWDOWN
+  FINISHED
+}
+
+model GamePlayerSession {
+  id            String        @id @default(uuid())
+  sessionId     String
+  session       GameSession   @relation(fields: [sessionId], references: [id])
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+
+  seatPosition  Int
+  chipsInPlay   BigInt
+  currentBet    BigInt        @default(0)
+  cards         String?       // Encrypted card data
+  handRank      String?       // Evaluated hand rank
+  status        PlayerStatus  @default(WAITING)
+  isBlind       Boolean       @default(true)
+  isDealer      Boolean       @default(false)
+  isTurn        Boolean       @default(false)
+  isBot         Boolean       @default(false)
+  botPersonality String?      // conservative, balanced, aggressive
+
+  joinedAt      DateTime      @default(now())
+
+  @@unique([sessionId, seatPosition])
+  @@unique([sessionId, userId])
+  @@index([userId])
+}
+
+enum PlayerStatus {
+  WAITING
+  PLAYING
+  FOLDED
+  ALL_IN
+  SHOW
+  DISCONNECTED
+}
+
+model GameAction {
+  id          String     @id @default(uuid())
+  sessionId   String
+  session     GameSession @relation(fields: [sessionId], references: [id])
+  playerId    String
+  actionType  ActionType
+  amount      BigInt?
+  roundNumber Int
+  metadata    Json?      // Extra data (sideshow result, etc.)
+  createdAt   DateTime   @default(now())
+
+  @@index([sessionId])
+  @@index([playerId])
+}
+
+enum ActionType {
+  BOOT
+  BLIND
+  CHAAL
+  RAISE
+  PACK
+  SHOW
+  SIDESHOW
+  SIDESHOW_ACCEPT
+  SIDESHOW_REJECT
+  TIMEOUT
+}
+
+// ─── ECONOMY & TRANSACTIONS ────────────────────────────────────────────────
+
+model Transaction {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  type        TransactionType
+  amount      BigInt
+  balanceBefore BigInt
+  balanceAfter  BigInt
+  currency    Currency        @default(CHIPS)
+  description String?
+  referenceId String?         // Related game session, purchase, etc.
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum TransactionType {
+  GAME_WIN
+  GAME_LOSS
+  BUY_IN
+  CASH_OUT
+  PURCHASE
+  DAILY_REWARD
+  QUEST_REWARD
+  ACHIEVEMENT_REWARD
+  SEASON_REWARD
+  TOURNAMENT_ENTRY
+  TOURNAMENT_PRIZE
+  GIFT_SENT
+  GIFT_RECEIVED
+  REFERRAL_BONUS
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+
+enum Currency {
+  CHIPS
+  DIAMONDS
+}
+
+// ─── DAILY REWARDS ──────────────────────────────────────────────────────────
+
+model DailyReward {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  day         Int      // 1-7 cycle
+  streak      Int      // Total consecutive days
+  amount      BigInt
+  bonusAmount BigInt   @default(0) // VIP bonus
+  claimedAt   DateTime @default(now())
+
+  @@index([userId])
+  @@unique([userId, claimedAt]) // Prevent double claim
+}
+
+// ─── SOCIAL ─────────────────────────────────────────────────────────────────
+
+model Friendship {
+  id          String           @id @default(uuid())
+  requesterId String
+  requester   User             @relation("friendRequester", fields: [requesterId], references: [id])
+  receiverId  String
+  receiver    User             @relation("friendReceiver", fields: [receiverId], references: [id])
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([requesterId, receiverId])
+  @@index([receiverId])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model Gift {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("giftSender", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User     @relation("giftReceiver", fields: [receiverId], references: [id])
+  giftType   String   // emoji/sticker/chip-gift type
+  amount     BigInt?  // Chip value if chip gift
+  message    String?
+  sessionId  String?  // If sent during a game
+  createdAt  DateTime @default(now())
+
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+// ─── CLUBS ──────────────────────────────────────────────────────────────────
+
+model Club {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  avatarUrl   String?
+  bannerUrl   String?
+  maxMembers  Int          @default(50)
+  isPublic    Boolean      @default(true)
+  minLevel    Int          @default(1)
+
+  // Stats
+  totalWinnings BigInt     @default(0)
+  totalGames    Int        @default(0)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  members     ClubMember[]
+
+  @@index([name])
+}
+
+model ClubMember {
+  id       String     @id @default(uuid())
+  clubId   String
+  club     Club       @relation(fields: [clubId], references: [id])
+  userId   String
+  user     User       @relation(fields: [userId], references: [id])
+  role     ClubRole   @default(MEMBER)
+  joinedAt DateTime   @default(now())
+
+  @@unique([clubId, userId])
+  @@index([userId])
+}
+
+enum ClubRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+// ─── CHAT ───────────────────────────────────────────────────────────────────
+
+model ChatMessage {
+  id        String      @id @default(uuid())
+  roomId    String?     // Game room context
+  clubId    String?     // Club chat context
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  type      MessageType @default(TEXT)
+  content   String
+  metadata  Json?       // Sticker/emoji data
+  createdAt DateTime    @default(now())
+
+  @@index([roomId])
+  @@index([clubId])
+}
+
+enum MessageType {
+  TEXT
+  EMOJI
+  STICKER
+  SYSTEM
+  GIFT_NOTIFICATION
+}
+
+// ─── ACHIEVEMENTS & PROGRESSION ─────────────────────────────────────────────
+
+model Achievement {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g., "first_win", "trail_master"
+  name        String
+  description String
+  category    String   // gameplay, social, progression
+  iconUrl     String?
+  rarity      Rarity   @default(COMMON)
+  rewardChips BigInt   @default(0)
+  rewardXp    Int      @default(0)
+  condition   Json     // { type: "wins", count: 10 } or { type: "hand", rank: "trail", count: 5 }
+
+  users       UserAchievement[]
+}
+
+enum Rarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+  progress      Int         @default(0) // Current progress toward goal
+  isCompleted   Boolean     @default(false)
+  completedAt   DateTime?
+  claimedAt     DateTime?   // When reward was claimed
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+// ─── SEASONS & QUESTS ───────────────────────────────────────────────────────
+
+model Season {
+  id          String   @id @default(uuid())
+  name        String   // "Diwali Dhamaka", "Holi Splash"
+  theme       String
+  startsAt    DateTime
+  endsAt      DateTime
+  isActive    Boolean  @default(false)
+  rewards     Json     // Tier rewards structure
+  createdAt   DateTime @default(now())
+
+  passes      SeasonPass[]
+  quests      Quest[]
+}
+
+model SeasonPass {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  seasonId    String
+  season      Season   @relation(fields: [seasonId], references: [id])
+  isPremium   Boolean  @default(false) // Paid pass
+  tier        Int      @default(0)
+  xp          Int      @default(0)
+  claimedTiers Json    @default("[]") // Array of claimed tier numbers
+
+  @@unique([userId, seasonId])
+}
+
+model Quest {
+  id          String    @id @default(uuid())
+  seasonId    String?
+  season      Season?   @relation(fields: [seasonId], references: [id])
+  name        String
+  description String
+  type        QuestType
+  condition   Json      // { type: "play_games", count: 5, variant: "classic" }
+  rewardChips BigInt    @default(0)
+  rewardXp    Int       @default(0)
+  rewardItem  String?   // Unlock avatar/theme
+  expiresAt   DateTime?
+  isDaily     Boolean   @default(false)
+  isWeekly    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  progress    QuestProgress[]
+}
+
+enum QuestType {
+  DAILY
+  WEEKLY
+  SEASONAL
+  SPECIAL
+}
+
+model QuestProgress {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  questId     String
+  quest       Quest     @relation(fields: [questId], references: [id])
+  progress    Int       @default(0)
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  @@unique([userId, questId])
+  @@index([userId])
+}
+
+// ─── TOURNAMENTS ────────────────────────────────────────────────────────────
+
+model Tournament {
+  id            String            @id @default(uuid())
+  name          String
+  description   String?
+  variant       GameVariant       @default(CLASSIC)
+  format        TournamentFormat  @default(FREEZEOUT)
+  status        TournamentStatus  @default(UPCOMING)
+
+  // Entry
+  entryFee      BigInt            @default(0)
+  maxEntrants   Int               @default(100)
+
+  // Prize
+  prizePool     BigInt            @default(0)
+  prizeStructure Json             // [{ place: 1, percentage: 50 }, ...]
+
+  // Config
+  startingChips BigInt            @default(5000)
+  blindStructure Json             // [{ level: 1, boot: 10, duration: 600 }, ...]
+
+  // Timing
+  registrationOpensAt DateTime
+  startsAt      DateTime
+  endsAt        DateTime?
+
+  createdAt     DateTime          @default(now())
+
+  entries       TournamentEntry[]
+}
+
+enum TournamentFormat {
+  FREEZEOUT     // Single entry, no re-buys
+  REBUY         // Re-buy allowed
+  SIT_N_GO      // Starts when full
+  FREEROLL      // Free entry
+}
+
+enum TournamentStatus {
+  UPCOMING
+  REGISTRATION
+  RUNNING
+  FINAL_TABLE
+  FINISHED
+  CANCELLED
+}
+
+model TournamentEntry {
+  id            String     @id @default(uuid())
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id])
+  userId        String
+  chips         BigInt     @default(0)
+  position      Int?       // Final position
+  prize         BigInt?    // Prize won
+  status        String     @default("registered") // registered, playing, eliminated, winner
+  eliminatedAt  DateTime?
+  registeredAt  DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
+  @@index([userId])
+}
+
+// ─── NOTIFICATIONS ──────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id])
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?            // Deep link data
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
+  GAME_INVITE
+  TOURNAMENT_STARTING
+  DAILY_REWARD
+  ACHIEVEMENT_UNLOCKED
+  QUEST_COMPLETED
+  SEASON_REWARD
+  GIFT_RECEIVED
+  CLUB_INVITE
+  SYSTEM
+}
+
+// ─── LEADERBOARD (materialized view, updated periodically) ──────────────────
+
+model LeaderboardEntry {
+  id          String          @id @default(uuid())
+  userId      String
+  period      LeaderboardPeriod
+  periodKey   String          // "2024-W01", "2024-01", "2024", "all"
+  chips       BigInt          @default(0)
+  gamesPlayed Int             @default(0)
+  gamesWon    Int             @default(0)
+  rank        Int             @default(0)
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([userId, period, periodKey])
+  @@index([period, periodKey, rank])
+}
+
+enum LeaderboardPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ALL_TIME
+}

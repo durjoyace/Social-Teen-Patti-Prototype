@@ -2,9 +2,46 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Social Teen Patti Prototype</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+
+    <!-- App Identity -->
+    <title>Social Teen Patti — India's First Provably Fair Card Game</title>
+    <meta name="description" content="The only Teen Patti where you can verify every hand. Provably fair gameplay, voice chat, AI coaching, 8 game variants, tournaments. Don't trust us — verify." />
+    <meta name="keywords" content="teen patti, social teen patti, fair teen patti, provably fair, card game, indian card game, teen patti online, teen patti app" />
+    <meta name="author" content="ace.boston" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0a0e1a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Teen Patti" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Open Graph / Social Sharing -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Social Teen Patti — Provably Fair" />
+    <meta property="og:description" content="India's first provably fair card game. Verify every hand. Voice chat. AI coaching. 8 variants." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:url" content="https://teenpatti.social" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Social Teen Patti — Provably Fair" />
+    <meta name="twitter:description" content="The only Teen Patti where you can verify every hand." />
+
+    <!-- Fonts (loaded via index.css to avoid duplication) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Prevent flash of unstyled content -->
+    <style>
+      html, body, #root { height: 100%; margin: 0; background: #0a0e1a; overflow: hidden; }
+      body { font-family: 'Poppins', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

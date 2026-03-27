@@ -19,22 +19,31 @@ export interface HandResult {
 }
 
 // Game Variants
-export type GameVariant = 'classic' | 'joker' | 'muflis' | 'ak47';
+export type GameVariant = 'classic' | 'joker' | 'muflis' | 'ak47' | 'hukam' | 'lowball' | 'best_of_four' | 'dealers_choice';
 
 // Game Status
 export type GameStatus = 'waiting' | 'playing' | 'finished';
 export type PlayerStatus = 'waiting' | 'playing' | 'folded' | 'all_in' | 'show';
+
+// VIP Tiers
+export type VipTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
 
 // Player Types
 export interface User {
   id: string;
   username: string;
   email?: string;
+  phone?: string;
   avatarUrl?: string;
+  isGuest?: boolean;
   chips: number;
+  diamonds?: number;
+  vipTier?: VipTier;
+  vipPoints?: number;
   totalGames: number;
   gamesWon: number;
   biggestWin: number;
+  totalWinnings?: number;
   currentStreak: number;
   bestStreak: number;
   level: number;
@@ -97,7 +106,10 @@ export interface GameSession {
 }
 
 // Game Actions
-export type ActionType = 'boot' | 'blind' | 'chaal' | 'pack' | 'show' | 'sideshow' | 'raise';
+export type ActionType = 'boot' | 'blind' | 'chaal' | 'pack' | 'show' | 'sideshow' | 'sideshow_accept' | 'sideshow_reject' | 'raise' | 'timeout';
+
+// Player Status extended
+export type PlayerStatusExtended = PlayerStatus | 'disconnected';
 
 export interface GameAction {
   id: string;

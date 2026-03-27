@@ -325,6 +325,15 @@ export function makeAIDecision(context: AIDecisionContext): { action: AIAction; 
   const params = getAIPersonalityParams(context.personality);
   const rand = Math.random();
 
+  // With 2 players remaining and seen cards, consider calling show
+  // Likelihood increases with round number and hand strength
+  if (context.playersRemaining === 2 && !context.isBlind && context.roundNumber >= 3) {
+    const showChance = Math.min(0.8, (context.roundNumber - 2) * 0.15 + context.handStrength * 0.3);
+    if (rand < showChance) {
+      return { action: 'show', shouldRaise: false };
+    }
+  }
+
   // Determine if we should fold
   if (context.handStrength < params.foldThreshold) {
     // Weak hand - might fold or bluff

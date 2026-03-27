@@ -3,6 +3,7 @@ import { Eye, EyeOff, XCircle, Coins, TrendingUp, Users, Sparkles } from 'lucide
 import { ActionType } from '../types';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
+import { AnimatedChipCount } from './PolishTouches';
 
 interface ActionButtonsProps {
   availableActions: ActionType[];
@@ -68,6 +69,27 @@ const actionConfig: Record<ActionType, {
     gradient: 'from-gray-600 to-gray-800',
     hoverGradient: 'from-gray-500 to-gray-700',
     description: 'Initial bet'
+  },
+  sideshow_accept: {
+    label: 'Accept',
+    icon: Eye,
+    gradient: 'from-green-600 to-green-800',
+    hoverGradient: 'from-green-500 to-green-700',
+    description: 'Accept sideshow'
+  },
+  sideshow_reject: {
+    label: 'Reject',
+    icon: XCircle,
+    gradient: 'from-red-600 to-red-800',
+    hoverGradient: 'from-red-500 to-red-700',
+    description: 'Reject sideshow'
+  },
+  timeout: {
+    label: 'Timeout',
+    icon: Coins,
+    gradient: 'from-gray-600 to-gray-800',
+    hoverGradient: 'from-gray-500 to-gray-700',
+    description: 'Turn timed out'
   }
 };
 
@@ -176,7 +198,7 @@ export function ActionButtons({
         >
           <Coins className="w-4 h-4 text-yellow-400" />
           <span className="text-sm text-yellow-400 font-medium">
-            Your chips: ₹{formatChips(chips)}
+            Your chips: <AnimatedChipCount value={chips} prefix="₹" className="text-sm text-yellow-400 font-medium" />
           </span>
         </motion.div>
 

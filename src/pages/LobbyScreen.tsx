@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Filter, Sparkles,
@@ -12,6 +12,7 @@ import { Layout } from '../components/Layout';
 import { NavigationBar } from '../components/NavigationBar';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
+import { AnimatedChipCount, PressableButton, GlassCard, SkeletonLoader, EmptyState, PullToRefresh, ContextualTooltip } from '../components/PolishTouches';
 import { GameVariant, GameRoom } from '../types';
 
 // Mock rooms for demo
@@ -26,7 +27,11 @@ const variantConfig: Record<GameVariant, { color: string; icon: typeof Sparkles;
   classic: { color: 'from-red-600 to-red-800', icon: Crown, label: 'Classic' },
   joker: { color: 'from-purple-600 to-purple-800', icon: Sparkles, label: 'Joker' },
   muflis: { color: 'from-green-600 to-green-800', icon: Zap, label: 'Muflis' },
-  ak47: { color: 'from-orange-600 to-orange-800', icon: Flame, label: 'AK47' }
+  ak47: { color: 'from-orange-600 to-orange-800', icon: Flame, label: 'AK47' },
+  hukam: { color: 'from-blue-600 to-blue-800', icon: Crown, label: 'Hukam' },
+  lowball: { color: 'from-teal-600 to-teal-800', icon: Zap, label: 'Lowball' },
+  best_of_four: { color: 'from-yellow-600 to-yellow-800', icon: Sparkles, label: 'Best of 4' },
+  dealers_choice: { color: 'from-pink-600 to-pink-800', icon: Flame, label: "Dealer's" },
 };
 
 interface LobbyScreenProps {
@@ -43,6 +48,14 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVariant, setSelectedVariant] = useState<GameVariant | 'all'>('all');
   const [activeTab, setActiveTab] = useState<'tables' | 'tournaments' | 'friends'>('tables');
+  const [isLoading, setIsLoading] = useState(true);
+  const quickPlayRef = useRef<HTMLDivElement>(null);
+
+  // Simulate room loading (will be replaced with real API call)
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filteredRooms = mockRooms.filter((room) => {
     const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -78,8 +91,11 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
               <div>
                 <p className="text-white font-semibold">{user?.username || 'Guest'}</p>
                 <div className="flex items-center gap-1">
-                  <span className="text-yellow-400 text-sm font-bold">₹{formatChips(user?.chips || 0)}</span>
-                  <button className="ml-1 px-2 py-0.5 bg-green-500 rounded-full">
+                  <AnimatedChipCount value={user?.chips || 0} prefix="₹" className="text-yellow-400 text-sm font-bold" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onNavigate('shop'); }}
+                    className="ml-1 px-2 py-0.5 bg-green-500 rounded-full"
+                  >
                     <Plus className="w-3 h-3 text-white" />
                   </button>
                 </div>
@@ -99,6 +115,7 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => onNavigate('settings')}
                 className="p-2.5 rounded-xl bg-white/10 backdrop-blur-sm"
               >
                 <Settings className="w-5 h-5 text-white/80" />
@@ -122,13 +139,13 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
                 </div>
                 <p className="text-white font-bold text-lg">Claim ₹500 FREE!</p>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 bg-white rounded-xl font-bold text-orange-600 shadow-lg"
+              <PressableButton
+                onClick={() => {}}
+                variant="primary"
+                className="px-4 py-2 bg-white rounded-xl font-bold text-orange-600 shadow-none from-white to-white"
               >
                 Claim
-              </motion.button>
+              </PressableButton>
             </div>
             {/* Sparkle effects */}
             <motion.div
@@ -143,54 +160,78 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
             />
           </motion.div>
 
+          {/* Feature Quick Access Strip */}
+          <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
+            {[
+              { id: 'shop', label: 'Shop', emoji: '🛒', gradient: 'from-blue-500 to-blue-700' },
+              { id: 'spin', label: 'Spin', emoji: '🎡', gradient: 'from-purple-500 to-purple-700' },
+              { id: 'season', label: 'Season', emoji: '🏆', gradient: 'from-orange-500 to-red-600' },
+              { id: 'achievements', label: 'Achieve', emoji: '⭐', gradient: 'from-yellow-500 to-amber-600' },
+              { id: 'coaching', label: 'Coach', emoji: '🧠', gradient: 'from-green-500 to-teal-600' },
+              { id: 'spectator', label: 'Watch', emoji: '👁', gradient: 'from-pink-500 to-rose-600' },
+            ].map((item) => (
+              <motion.button
+                key={item.id}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onNavigate(item.id)}
+                className={`flex-shrink-0 flex flex-col items-center gap-1 w-16 py-2 rounded-xl bg-gradient-to-b ${item.gradient} shadow-lg`}
+              >
+                <span className="text-lg">{item.emoji}</span>
+                <span className="text-[10px] text-white font-medium">{item.label}</span>
+              </motion.button>
+            ))}
+          </div>
+
           {/* Quick Play Button */}
-          <motion.button
+          <motion.div
+            ref={quickPlayRef}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onQuickPlay}
-            className="w-full p-4 rounded-2xl bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 shadow-lg shadow-green-500/40 mb-4 relative overflow-hidden"
+            className="mb-4"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent shimmer" />
-            <div className="relative flex items-center justify-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <Play className="w-6 h-6 text-white fill-white" />
+            <PressableButton
+              onClick={onQuickPlay}
+              className="w-full p-4 rounded-2xl bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 shadow-lg shadow-green-500/40 relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent shimmer" />
+              <div className="relative flex items-center justify-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                  <Play className="w-6 h-6 text-white fill-white" />
+                </div>
+                <div className="text-left">
+                  <p className="text-white font-bold text-lg">Quick Play</p>
+                  <p className="text-white/80 text-sm">Play instantly with AI opponents</p>
+                </div>
+                <ChevronRight className="w-6 h-6 text-white/60 ml-auto" />
               </div>
-              <div className="text-left">
-                <p className="text-white font-bold text-lg">Quick Play</p>
-                <p className="text-white/80 text-sm">Play instantly with AI opponents</p>
-              </div>
-              <ChevronRight className="w-6 h-6 text-white/60 ml-auto" />
-            </div>
-          </motion.button>
+            </PressableButton>
+          </motion.div>
 
           {/* Action Buttons Row */}
-          <div className="flex gap-2 mb-4">
-            <motion.button
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.35 }}
-              whileTap={{ scale: 0.95 }}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="flex gap-2 mb-4"
+          >
+            <PressableButton
               onClick={onCreateGame}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold shadow-lg shadow-orange-500/30"
+              variant="primary"
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl"
             >
               <Plus className="w-5 h-5" />
               Create Table
-            </motion.button>
-            <motion.button
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.35 }}
-              whileTap={{ scale: 0.95 }}
+            </PressableButton>
+            <PressableButton
               onClick={onJoinByCode}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white font-semibold border border-white/20"
+              variant="secondary"
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl"
             >
               <Hash className="w-5 h-5" />
               Join by Code
-            </motion.button>
-          </div>
+            </PressableButton>
+          </motion.div>
 
           {/* Tab navigation */}
           <div className="flex gap-2 mb-4">
@@ -269,8 +310,41 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
         </div>
 
         {/* Tables list */}
-        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
-          <AnimatePresence mode="popLayout">
+        <PullToRefresh
+          onRefresh={async () => {
+            setIsLoading(true);
+            await new Promise(r => setTimeout(r, 600));
+            setIsLoading(false);
+          }}
+          className="flex-1 overflow-y-auto px-4 py-2"
+        >
+        <div className="space-y-3">
+          {/* Skeleton loading state */}
+          {isLoading && (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-2xl p-4 bg-gray-800/50 border border-white/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-2">
+                      <SkeletonLoader variant="text" width="140px" height="16px" />
+                      <SkeletonLoader variant="text" width="200px" height="12px" />
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <SkeletonLoader variant="text" width="50px" height="14px" />
+                      <SkeletonLoader variant="button" width="70px" height="20px" />
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 3 }).map((_, j) => (
+                      <SkeletonLoader key={j} variant="avatar" width="24px" height="24px" />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!isLoading && <AnimatePresence mode="popLayout">
             {filteredRooms.map((room, index) => {
               const config = variantConfig[room.variant];
               const Icon = config.icon;
@@ -366,16 +440,29 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
                 </motion.div>
               );
             })}
-          </AnimatePresence>
+
 
           {filteredRooms.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-white/40">
-              <Search className="w-12 h-12 mb-3 opacity-50" />
-              <p>No tables found</p>
-              <p className="text-sm">Try adjusting your filters</p>
-            </div>
+            <EmptyState
+              emoji="🃏"
+              title="No tables found"
+              subtitle="Try adjusting your filters or create your own table"
+              actionLabel="Create Table"
+              onAction={onCreateGame}
+            />
           )}
+          </AnimatePresence>}
         </div>
+        </PullToRefresh>
+
+        {/* First-time tooltip */}
+        <ContextualTooltip
+          id="quick-play-hint"
+          text="Tap here to jump straight into a game!"
+          emoji="🎮"
+          targetRef={quickPlayRef}
+          position="bottom"
+        />
 
         {/* Navigation */}
         <NavigationBar currentScreen="home" onNavigate={onNavigate} />

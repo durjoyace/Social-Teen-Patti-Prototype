@@ -5,6 +5,7 @@ import { ActionType } from '../types';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
 import { useHaptics } from '../hooks/useHaptics';
+import { AnimatedChipCount, PressableButton, SlideUpSheet } from './PolishTouches';
 
 interface BettingControlsProps {
   availableActions: ActionType[];
@@ -73,6 +74,27 @@ const actionConfig: Record<ActionType, {
     icon: Coins,
     gradient: 'from-gray-500 to-gray-700',
     description: 'Initial bet'
+  },
+  sideshow_accept: {
+    label: 'Accept Sideshow',
+    shortLabel: 'Accept',
+    icon: Eye,
+    gradient: 'from-green-500 to-green-700',
+    description: 'Accept the sideshow challenge'
+  },
+  sideshow_reject: {
+    label: 'Reject Sideshow',
+    shortLabel: 'Reject',
+    icon: XCircle,
+    gradient: 'from-red-500 to-red-700',
+    description: 'Reject the sideshow challenge'
+  },
+  timeout: {
+    label: 'Timeout',
+    shortLabel: 'Timeout',
+    icon: Coins,
+    gradient: 'from-gray-500 to-gray-700',
+    description: 'Turn timed out'
   }
 };
 
@@ -165,112 +187,98 @@ export function BettingControls({
         <div className="flex items-center justify-between mb-3 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-white/50">Pot:</span>
-            <span className="text-yellow-400 font-bold">₹{formatChips(pot)}</span>
+            <AnimatedChipCount value={pot} prefix="₹" className="text-yellow-400 font-bold" />
           </div>
           <div className="flex items-center gap-2">
             <Coins className="w-4 h-4 text-yellow-400" />
-            <span className="text-white font-medium">₹{formatChips(playerChips)}</span>
+            <AnimatedChipCount value={playerChips} prefix="₹" className="text-white font-medium" />
           </div>
         </div>
 
-        {/* Bet slider (when raising) */}
-        <AnimatePresence>
-          {showBetSlider && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden mb-4"
-            >
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                {/* Bet amount display */}
-                <div className="flex items-center justify-center gap-4 mb-4">
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => incrementBet(-minBet)}
-                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"
-                  >
-                    <Minus className="w-5 h-5 text-white" />
-                  </motion.button>
+        {/* Bet slider (slide-up sheet when raising) */}
+        <SlideUpSheet
+          isOpen={showBetSlider}
+          onClose={() => { setShowBetSlider(false); setSelectedAction(null); }}
+          title="Raise Bet"
+          snapPoints={[0.45, 0.6]}
+        >
+          <div className="space-y-5">
+            {/* Bet amount display */}
+            <div className="flex items-center justify-center gap-4">
+              <PressableButton
+                onClick={() => incrementBet(-minBet)}
+                variant="secondary"
+                className="w-12 h-12 rounded-full flex items-center justify-center p-0"
+              >
+                <Minus className="w-5 h-5 text-white" />
+              </PressableButton>
 
-                  <div className="text-center">
-                    <p className="text-3xl font-bold text-yellow-400">₹{formatChips(customBet)}</p>
-                    <p className="text-xs text-white/50">Raise Amount</p>
-                  </div>
-
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => incrementBet(minBet)}
-                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"
-                  >
-                    <Plus className="w-5 h-5 text-white" />
-                  </motion.button>
-                </div>
-
-                {/* Slider */}
-                <input
-                  type="range"
-                  min={baseBetAmount}
-                  max={Math.min(maxBet, playerChips)}
-                  step={minBet}
-                  value={customBet}
-                  onChange={(e) => setCustomBet(Number(e.target.value))}
-                  className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-yellow-500"
-                />
-
-                {/* Quick bet buttons */}
-                <div className="flex gap-2 mt-4">
-                  {QUICK_BET_MULTIPLIERS.map((mult) => (
-                    <button
-                      key={mult}
-                      onClick={() => adjustBet(mult)}
-                      className={cn(
-                        'flex-1 py-2 rounded-xl text-sm font-medium transition-all',
-                        customBet === baseBetAmount * mult
-                          ? 'bg-yellow-500 text-yellow-900'
-                          : 'bg-white/10 text-white/70 hover:bg-white/15'
-                      )}
-                    >
-                      {mult}x
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setCustomBet(Math.min(maxBet, playerChips))}
-                    className={cn(
-                      'flex-1 py-2 rounded-xl text-sm font-medium transition-all',
-                      customBet === Math.min(maxBet, playerChips)
-                        ? 'bg-red-500 text-white'
-                        : 'bg-white/10 text-white/70 hover:bg-white/15'
-                    )}
-                  >
-                    All In
-                  </button>
-                </div>
-
-                {/* Confirm/Cancel */}
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => {
-                      setShowBetSlider(false);
-                      setSelectedAction(null);
-                    }}
-                    className="flex-1 py-3 rounded-xl bg-white/10 text-white font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleBetConfirm}
-                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold"
-                  >
-                    Raise ₹{formatChips(customBet)}
-                  </motion.button>
-                </div>
+              <div className="text-center">
+                <AnimatedChipCount value={customBet} prefix="₹" className="text-3xl font-bold text-yellow-400" duration={200} />
+                <p className="text-xs text-white/50 mt-1">Raise Amount</p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+              <PressableButton
+                onClick={() => incrementBet(minBet)}
+                variant="secondary"
+                className="w-12 h-12 rounded-full flex items-center justify-center p-0"
+              >
+                <Plus className="w-5 h-5 text-white" />
+              </PressableButton>
+            </div>
+
+            {/* Slider */}
+            <input
+              type="range"
+              min={baseBetAmount}
+              max={Math.min(maxBet, playerChips)}
+              step={minBet}
+              value={customBet}
+              onChange={(e) => setCustomBet(Number(e.target.value))}
+              className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-yellow-500"
+            />
+
+            {/* Quick bet buttons */}
+            <div className="flex gap-2">
+              {QUICK_BET_MULTIPLIERS.map((mult) => (
+                <PressableButton
+                  key={mult}
+                  onClick={() => adjustBet(mult)}
+                  variant={customBet === baseBetAmount * mult ? 'primary' : 'ghost'}
+                  className={cn(
+                    'flex-1 py-2.5 rounded-xl text-sm',
+                    customBet === baseBetAmount * mult
+                      ? 'bg-yellow-500 text-yellow-900 from-yellow-500 to-yellow-500'
+                      : 'bg-white/10 text-white/70'
+                  )}
+                >
+                  {mult}x
+                </PressableButton>
+              ))}
+              <PressableButton
+                onClick={() => setCustomBet(Math.min(maxBet, playerChips))}
+                variant={customBet === Math.min(maxBet, playerChips) ? 'danger' : 'ghost'}
+                className={cn(
+                  'flex-1 py-2.5 rounded-xl text-sm',
+                  customBet === Math.min(maxBet, playerChips)
+                    ? ''
+                    : 'bg-white/10 text-white/70'
+                )}
+              >
+                All In
+              </PressableButton>
+            </div>
+
+            {/* Confirm */}
+            <PressableButton
+              onClick={handleBetConfirm}
+              variant="primary"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-lg"
+            >
+              Raise <AnimatedChipCount value={customBet} prefix="₹" className="font-bold" duration={200} />
+            </PressableButton>
+          </div>
+        </SlideUpSheet>
 
         {/* Secondary actions */}
         {!showBetSlider && secondaryActions.length > 0 && (
@@ -346,7 +354,7 @@ export function BettingControls({
 
         {/* Status info */}
         <div className="flex items-center justify-center gap-2 mt-3 text-xs text-white/50">
-          <span>Current bet: ₹{formatChips(currentBet)}</span>
+          <span>Current bet: <AnimatedChipCount value={currentBet} prefix="₹" className="text-xs text-white/50" /></span>
           <span>•</span>
           <span className={isBlind ? 'text-blue-400' : 'text-green-400'}>
             {isBlind ? 'Playing Blind' : 'Seen'}
@@ -373,29 +381,32 @@ export function CompactActionBar({
 }) {
   return (
     <div className="flex items-center gap-2 p-2 rounded-xl bg-black/60 backdrop-blur-sm">
-      <button
+      <PressableButton
         onClick={onPack}
         disabled={disabled}
-        className="p-2 rounded-lg bg-red-500/20 text-red-400"
+        variant="danger"
+        className="p-2 rounded-lg"
       >
         <XCircle className="w-5 h-5" />
-      </button>
+      </PressableButton>
 
-      <button
+      <PressableButton
         onClick={onChaal}
         disabled={disabled}
-        className="flex-1 py-2 px-4 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white font-medium text-sm"
+        variant="primary"
+        className="flex-1 py-2 px-4 rounded-lg bg-gradient-to-r from-green-500 to-green-600"
       >
-        Chaal ₹{formatChips(betAmount)}
-      </button>
+        Chaal <AnimatedChipCount value={betAmount} prefix="₹" className="font-medium text-sm" duration={200} />
+      </PressableButton>
 
-      <button
+      <PressableButton
         onClick={onRaise}
         disabled={disabled}
+        variant="ghost"
         className="p-2 rounded-lg bg-yellow-500/20 text-yellow-400"
       >
         <TrendingUp className="w-5 h-5" />
-      </button>
+      </PressableButton>
     </div>
   );
 }

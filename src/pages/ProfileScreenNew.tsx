@@ -11,6 +11,7 @@ import { Layout } from '../components/Layout';
 import { NavigationBar } from '../components/NavigationBar';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
+import { AnimatedChipCount, PressableButton, GlassCard } from '../components/PolishTouches';
 
 interface ProfileScreenProps {
   onNavigate: (screen: string) => void;
@@ -60,10 +61,10 @@ export function ProfileScreenNew({ onNavigate }: ProfileScreenProps) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 pb-24">
           {/* Profile card */}
+          <GlassCard hover={false} className="relative rounded-3xl bg-gradient-to-br from-red-900/80 to-red-950/80 p-6 mb-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-900/80 to-red-950/80 p-6 mb-6"
           >
             {/* Background pattern */}
             <div className="absolute inset-0 opacity-10">
@@ -106,18 +107,19 @@ export function ProfileScreenNew({ onNavigate }: ProfileScreenProps) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/60 text-xs mb-1">Total Chips</p>
-                  <p className="text-2xl font-bold text-yellow-400">₹{formatChips(user?.chips || 0)}</p>
+                  <AnimatedChipCount value={user?.chips || 0} prefix="₹" className="text-2xl font-bold text-yellow-400" />
                 </div>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold"
+                <PressableButton
+                  onClick={() => onNavigate('shop')}
+                  variant="primary"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600"
                 >
                   + Add Chips
-                </motion.button>
+                </PressableButton>
               </div>
             </div>
           </motion.div>
+          </GlassCard>
 
           {/* Stats */}
           <motion.div
@@ -267,9 +269,10 @@ export function ProfileScreenNew({ onNavigate }: ProfileScreenProps) {
               <ChevronRight className="w-5 h-5 text-white/30" />
             </button>
 
-            <button
+            <PressableButton
               onClick={logout}
-              className="w-full flex items-center justify-between p-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 transition-colors mt-4"
+              variant="danger"
+              className="w-full flex items-center justify-between p-4 rounded-2xl mt-4"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
@@ -277,7 +280,7 @@ export function ProfileScreenNew({ onNavigate }: ProfileScreenProps) {
                 </div>
                 <p className="text-red-400 font-medium">Sign Out</p>
               </div>
-            </button>
+            </PressableButton>
           </motion.div>
         </div>
 
