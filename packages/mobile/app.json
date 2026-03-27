@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Social Teen Patti",
+    "slug": "social-teen-patti",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "teenpatti",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.socialteenpatti.app",
+      "backgroundColor": "#0a0a0a"
+    },
+    "android": {
+      "package": "com.socialteenpatti.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      }
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiUrl": "https://teen-patti-server-production.up.railway.app/api",
+      "socketUrl": "https://teen-patti-server-production.up.railway.app"
+    }
+  }
+}

@@ -1,46 +1,15 @@
 {
-  "name": "magic-patterns-vite-template",
-  "version": "0.0.1",
+  "name": "social-teen-patti",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "dev": "npx vite",
-    "build": "npx vite build",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "preview": "npx vite preview"
-  },
-  "dependencies": {
-    "@capacitor/cli": "^8.0.1",
-    "@capacitor/core": "^8.0.1",
-    "@capacitor/ios": "^8.0.1",
-    "@neondatabase/serverless": "^1.0.2",
-    "@tanstack/react-query": "^5.90.19",
-    "@types/howler": "^2.2.12",
-    "clsx": "^2.1.1",
-    "framer-motion": "^11.5.4",
-    "howler": "^2.2.4",
-    "lucide-react": "0.522.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^7.12.0",
-    "socket.io-client": "^4.8.3",
-    "tailwind-merge": "^3.4.0",
-    "zustand": "^5.0.10"
+    "dev:web": "pnpm --filter @teen-patti/web dev",
+    "dev:mobile": "pnpm --filter @teen-patti/mobile start",
+    "dev:server": "pnpm --filter teen-patti-server dev",
+    "build:web": "pnpm --filter @teen-patti/web build",
+    "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
-    "@types/node": "^20.11.18",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.1",
-    "@typescript-eslint/eslint-plugin": "^5.54.0",
-    "@typescript-eslint/parser": "^5.54.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "latest",
-    "eslint": "^8.50.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.1",
-    "postcss": "latest",
-    "tailwindcss": "3.4.17",
-    "typescript": "^5.5.4",
-    "vite": "^5.2.0"
+    "typescript": "^5.5.4"
   }
 }
