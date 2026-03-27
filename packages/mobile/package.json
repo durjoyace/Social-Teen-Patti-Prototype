@@ -2,7 +2,7 @@
   "name": "@teen-patti/mobile",
   "version": "1.0.0",
   "private": true,
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -12,6 +12,7 @@
   "dependencies": {
     "@teen-patti/shared": "workspace:*",
     "expo": "~55.0.9",
+    "expo-router": "*",
     "expo-blur": "*",
     "expo-constants": "*",
     "expo-haptics": "*",

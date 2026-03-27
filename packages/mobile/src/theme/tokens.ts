@@ -1,0 +1,33 @@
+export const colors = {
+  bg: '#0a0a0a',
+  surface: 'rgba(255,255,255,0.06)',
+  surfaceBorder: 'rgba(255,255,255,0.08)',
+  gold: '#D4AF37',
+  goldMuted: 'rgba(212,175,55,0.3)',
+  white: '#ffffff',
+  white80: 'rgba(255,255,255,0.8)',
+  white60: 'rgba(255,255,255,0.6)',
+  white50: 'rgba(255,255,255,0.5)',
+  white40: 'rgba(255,255,255,0.4)',
+  white20: 'rgba(255,255,255,0.2)',
+  white10: 'rgba(255,255,255,0.1)',
+  white05: 'rgba(255,255,255,0.05)',
+  green: '#22c55e',
+  red: '#ef4444',
+  yellow: '#eab308',
+  blue: '#3b82f6',
+  purple: '#a855f7',
+  emerald: '#10b981',
+  felt: '#1a5c32',
+  feltDark: '#0e3d1e',
+  tableRim: '#4a2e1c',
+} as const;
+
+export const gradients = {
+  greenButton: ['#22c55e', '#16a34a'] as const,
+  goldButton: ['#f59e0b', '#d97706'] as const,
+  redButton: ['#ef4444', '#dc2626'] as const,
+  blueButton: ['#3b82f6', '#2563eb'] as const,
+  purpleButton: ['#a855f7', '#9333ea'] as const,
+  felt: ['#1a5c32', '#145228', '#0e3d1e'] as const,
+} as const;
