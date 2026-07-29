@@ -48,7 +48,7 @@
 
 ## Account and ownership inventory
 
-- [ ] Confirm which production accounts already exist and which identity owns them.
+- [x] Confirm which production accounts already exist and which identity owns them.
 - [ ] Record the Battle Green Consulting legal details required by registrars and app stores.
 - [ ] Select a primary product domain and obtain approval immediately before purchase.
 - [ ] Use company-controlled aliases for owner, support, privacy, security, and billing access.
