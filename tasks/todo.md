@@ -79,5 +79,5 @@
 - [x] Add repeatable production health, auth, WebSocket, referral, and cleanup smoke checks.
 - [x] Add EAS build profiles and fail-closed mobile release environment validation.
 - [x] Extend CI to validate the production container and mobile release configuration.
-- [ ] Run the complete verification suite, review the production diff, and open a merge-ready PR.
+- [x] Run the complete verification suite, review the production diff, and open a merge-ready PR.
 - [ ] Configure Railway/PostgreSQL/Sentry/Mixpanel/Expo only after the required account or billing confirmations.
