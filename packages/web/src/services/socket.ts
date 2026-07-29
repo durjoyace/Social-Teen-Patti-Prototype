@@ -83,6 +83,10 @@ class SocketService {
         this.emit('game:ready_for_next');
       });
 
+      this.socket.on('referral:rewarded', (data) => {
+        this.emit('referral:rewarded', data);
+      });
+
       // ─── Room Events ─────────────────────────────────────────────────
 
       this.socket.on('room:state', (room) => {
@@ -140,8 +144,8 @@ class SocketService {
     return this.emitWithAck('room:join', { roomId, buyIn });
   }
 
-  joinByCode(code: string, buyIn = 5000): Promise<{ success: boolean; error?: string }> {
-    return this.emitWithAck('room:join_by_code', { code, buyIn });
+  joinByCode(code: string, buyIn?: number): Promise<{ success: boolean; error?: string }> {
+    return this.emitWithAck('room:join_by_code', { code, ...(buyIn ? { buyIn } : {}) });
   }
 
   leaveRoom() {

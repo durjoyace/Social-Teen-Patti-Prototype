@@ -1,293 +1,116 @@
 # Social Teen Patti
 
-India's #1 social card game -- premium UI, provably fair, 7 game variants.
+An adults-only social Teen Patti prototype centered on fast private tables: share a link or room code, bring a real friend into a server-authoritative game, and unlock non-cash Beli identity extras together.
+
+## What is productionized
+
+- Web and Expo mobile invite attribution, one-link private-table joining, native/WhatsApp sharing, referral status, milestones, and Beli redemption
+- Double-sided Beli only after the invitee completes a persisted game with at least two human players
+- Transactional/idempotent reward ledger with self-referral, duplicate-device, IP, and velocity controls
+- Server-backed public/private rooms, room-code joining, auto-start at the second human, reconnect support, and server game actions
+- Fail-closed production environment validation, readiness/health endpoints, exact CORS allowlist, request IDs, and API rate limits
+- Purchases disabled by default; no demo order or automatic verification path
+- Web/mobile 18+ confirmation recorded at account creation and cash-like language removed from every shipped acquisition/game surface
+- Automated game/referral tests, PostgreSQL integration coverage, typechecks, production audit, builds, mobile export, and GitHub Actions
 
 ## Architecture
 
-pnpm monorepo with shared game engine across web and mobile:
-
-```
-packages/
-  shared/     @teen-patti/shared   -- Game engine, types, AI, economy (pure TS)
-  web/        @teen-patti/web      -- React + Vite + Framer Motion
-  mobile/     @teen-patti/mobile   -- Expo + React Native + Reanimated
-server/       teen-patti-server     -- Express + Prisma + Socket.io + PostgreSQL
+```text
+packages/shared   Pure TypeScript rules, types, economy, and i18n
+packages/web      React 19, Vite, Tailwind, Framer Motion
+packages/mobile   Expo SDK 55, React Native, Expo Router
+server            Express 5, Socket.io, Prisma, PostgreSQL
 ```
 
-## Live URLs
+The current real-time room manager is intentionally single-replica. Read [the production runbook](docs/production-runbook.md) before deployment or scaling.
 
-| Service | URL |
-|---------|-----|
-| Frontend | https://social-teen-patti.vercel.app |
-| Backend | https://teen-patti-server-production.up.railway.app |
-| Health | https://teen-patti-server-production.up.railway.app/health |
+## Local setup
 
-## Prerequisites
-
-- **Node.js** 22+
-- **pnpm** 9+ (`npm install -g pnpm`)
-- **Expo Go** app on your phone (for mobile dev)
-- **Xcode** 16+ (for iOS simulator, macOS only)
-- **Android Studio** (for Android emulator, optional)
-
-## Quick Start
-
-### 1. Install dependencies
+Requirements: Node.js 22, pnpm 9, and PostgreSQL 16+.
 
 ```bash
-pnpm install
-```
-
-### 2. Run the web app
-
-```bash
+pnpm install --frozen-lockfile
+cp server/.env.example server/.env
+cp packages/web/.env.example packages/web/.env
+pnpm generate
+pnpm --filter teen-patti-server exec prisma migrate deploy
+pnpm dev:server
 pnpm dev:web
 ```
 
-Opens at http://localhost:5173
-
-### 3. Run the mobile app
+For Expo, configure URLs for a device-reachable backend:
 
 ```bash
-cd packages/mobile
-npx expo start
+EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:3001/api \
+EXPO_PUBLIC_SOCKET_URL=http://YOUR_LAN_IP:3001 \
+pnpm dev:mobile
 ```
 
-- Scan QR code with **Expo Go** (iOS/Android)
-- Press `i` for iOS simulator
-- Press `a` for Android emulator
-
-### 4. Run the backend
+## Verification
 
 ```bash
-pnpm dev:server
+pnpm test
+pnpm typecheck
+pnpm build
+pnpm audit:prod
+pnpm verify
+pnpm --filter @teen-patti/mobile exec expo export --platform android --output-dir dist-ci
 ```
 
-Runs at http://localhost:3001
+The database integration test runs when `TEST_DATABASE_URL` is present. CI provisions PostgreSQL, applies migrations, and runs it automatically.
 
-## Environment Variables
+## Production configuration
 
-### Web (`packages/web/.env`)
+Server:
 
 ```env
-VITE_API_URL=http://localhost:3001/api
-VITE_SOCKET_URL=http://localhost:3001
-VITE_GA_ID=              # Google Analytics (optional)
-VITE_MIXPANEL_TOKEN=     # Mixpanel (optional)
-VITE_SENTRY_DSN=         # Sentry (optional)
-VITE_RAZORPAY_KEY=       # Razorpay (optional)
+NODE_ENV=production
+DATABASE_URL=postgresql://...
+JWT_SECRET=<at-least-32-random-characters>
+JWT_REFRESH_SECRET=<different-secret>
+REFERRAL_HASH_SECRET=<different-secret>
+PUBLIC_APP_URL=https://social-teen-patti.vercel.app
+CORS_ORIGIN=https://social-teen-patti.vercel.app
+TRUST_PROXY=1
+APP_VERSION=<release-sha>
+PURCHASES_ENABLED=false
 ```
 
-### Server (`server/.env`)
+Web:
 
 ```env
-DATABASE_URL=postgresql://user:pass@localhost:5432/teenpatti
-PORT=3001
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
-JWT_SECRET=your-secret-here
-JWT_REFRESH_SECRET=your-refresh-secret-here
-JWT_EXPIRY=7d
-JWT_REFRESH_EXPIRY=30d
-DEFAULT_CHIPS=10000
-MIN_BUY_IN=100
-MAX_BUY_IN=1000000
-TURN_TIMEOUT=30
-MAX_PLAYERS=9
+VITE_API_URL=https://YOUR_API/api
+VITE_SOCKET_URL=https://YOUR_API
+VITE_ANALYTICS_ENABLED=true
+VITE_MIXPANEL_TOKEN=
+VITE_PURCHASES_ENABLED=false
 ```
 
-### Mobile (`packages/mobile/app.json`)
+Mobile release builds require `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL` in EAS. Localhost values in `app.json` are development fallbacks and must never ship as release configuration.
 
-Already configured. Falls back to `localhost:3001` for development. Uses Railway URL for production.
+## Referral contract
 
-## Project Structure
+An invite link may include both the personal referral code and a private room code. Web and mobile preserve both through authentication and automatically join the friend table. The referral is `PENDING` after attribution. The first completed server game with at least two humans qualifies it. In one serializable transaction, each side receives 100 Beli, the inviter receives any exact-count milestone award, notifications are written, and the referral becomes `REWARDED`. AI games and repeat games do not qualify.
 
-### Shared Package (`packages/shared/`)
+Beli cannot be purchased, transferred, wagered, converted to chips, cashed out, or exchanged for money. See:
 
-Pure TypeScript with zero platform dependencies. Used by both web and mobile.
+- [Referral system](docs/referral-system.md)
+- [Analytics contract](docs/analytics-tracking.md)
+- [Referral terms](docs/referral-terms.md)
+- [Privacy notes](docs/privacy.md)
+- [Responsible play](docs/responsible-play.md)
+- [Production runbook](docs/production-runbook.md)
 
-```
-src/
-  game/
-    deck.ts           -- Card creation, shuffling (Fisher-Yates), dealing
-    gameEngine.ts     -- Game state machine, action processing, formatChips
-    handRanking.ts    -- Hand evaluation, AI decisions, hand comparison
-  types/
-    index.ts          -- All TypeScript types (Card, Player, Room, Session, etc.)
-  services/
-    economy.ts        -- Chip economy calculations, daily rewards
-    gameCoach.ts      -- Hand analysis, play style profiling, suggestions
-  i18n/
-    types.ts          -- Translation key types
-    locales/          -- en, hi, gu, mr, ta, te
-  index.ts            -- Barrel export
-```
+## API and health
 
-### Web App (`packages/web/`)
+- `GET /health` — process liveness and release version
+- `GET /ready` — database readiness
+- `/api/auth/*` — guest/register/login/refresh/profile
+- `/api/referrals/summary` — code, Beli, milestones, referrals, extras
+- `/api/referrals/share` — first-party share record
+- `/api/referrals/redeem` — transactional cosmetic redemption
+- `/api/payments/*` — returns 503 unless purchases are explicitly enabled and configured
 
-React 18 + Vite + Tailwind + Framer Motion.
+## Deployment note
 
-```
-src/
-  components/         -- 48 components (game table, betting, celebrations, etc.)
-  pages/              -- 15 screens (lobby, game, profile, store, tournaments)
-  hooks/              -- useHaptics, useSound, useSocket, useGameSocket
-  services/           -- API, socket, analytics, payments, sound
-  stores/             -- Zustand (auth, game, UI)
-```
-
-### Mobile App (`packages/mobile/`)
-
-Expo SDK 55 + React Native + Reanimated 3 + Gesture Handler.
-
-```
-app/                   -- Expo Router file-based navigation
-  _layout.tsx          -- Root layout with auth guard
-  index.tsx            -- Splash redirect
-  (auth)/login.tsx     -- Guest login + Google sign-in
-  (main)/
-    _layout.tsx        -- Tab navigator
-    lobby.tsx          -- Room list with Quick Play
-    game.tsx           -- Game table with shared engine
-    profile.tsx        -- Stats and chips
-    settings.tsx       -- Sound/haptics toggles
-src/
-  components/ui/       -- RN equivalents of PolishTouches
-  services/            -- API (expo-constants), Socket.io
-  stores/              -- Zustand + expo-secure-store
-  hooks/               -- useHaptics (expo-haptics)
-  theme/               -- Color tokens, spring configs
-```
-
-### Server (`server/`)
-
-Express + Prisma + PostgreSQL + Socket.io.
-
-```
-src/
-  index.ts             -- Express + Socket.io setup
-  config/              -- env.ts, database.ts
-  routes/              -- auth, users, payments
-  services/            -- socketHandler, voiceChat
-  game/                -- gameEngine, roomManager, provablyFair, variants
-  middleware/           -- JWT auth
-  prisma/schema.prisma -- 25+ database models
-```
-
-## Game Variants
-
-| Variant | Description |
-|---------|-------------|
-| Classic | Standard 3-card Teen Patti |
-| Joker | Random card designated as wild |
-| Muflis (Lowball) | Lowest hand wins |
-| AK47 | A, K, 4, 7 are wild cards |
-| Hukam | Dealer picks trump suit |
-| Best of Four | 4 cards dealt, best 3 used |
-| Dealer's Choice | Dealer picks the variant each round |
-
-## Deployment
-
-### Frontend (Vercel)
-
-```bash
-cd packages/web
-npx vercel --prod
-```
-
-Or push to main -- Vercel auto-deploys if connected.
-
-### Backend (Railway)
-
-```bash
-cd server
-railway login
-railway link
-railway up
-```
-
-Required Railway env vars:
-- `DATABASE_URL` -- Auto-set if you add a PostgreSQL plugin
-- `JWT_SECRET` -- `openssl rand -hex 32`
-- `JWT_REFRESH_SECRET` -- `openssl rand -hex 32`
-- `NODE_ENV=production`
-- `CORS_ORIGIN=https://social-teen-patti.vercel.app`
-
-### Mobile (EAS Build)
-
-```bash
-cd packages/mobile
-npx eas login
-npx eas build:configure
-npx eas build --platform ios
-npx eas build --platform android
-```
-
-## Development Commands
-
-```bash
-# From monorepo root
-pnpm dev:web          # Start web dev server (localhost:5173)
-pnpm dev:server       # Start backend (localhost:3001)
-pnpm dev:mobile       # Start Expo dev server
-pnpm build:web        # Production web build
-pnpm typecheck        # TypeScript check all packages
-
-# From packages/mobile/
-npx expo start        # Expo with QR code
-npx expo start --ios  # iOS simulator
-npx expo start --android  # Android emulator
-
-# From server/
-npx prisma studio     # Database GUI
-npx prisma db push    # Sync schema to database
-npx prisma generate   # Regenerate Prisma client
-```
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Web Framework | React 18 + Vite 5 |
-| Mobile Framework | Expo SDK 55 + React Native |
-| Styling (Web) | Tailwind CSS 3.4 |
-| Animation (Web) | Framer Motion 11 |
-| Animation (Mobile) | React Native Reanimated 3 |
-| Gestures (Mobile) | React Native Gesture Handler |
-| State | Zustand 5 |
-| Real-time | Socket.io 4 |
-| Backend | Express + TypeScript |
-| Database | PostgreSQL + Prisma ORM |
-| Auth | JWT (access + refresh tokens) |
-| Payments | Razorpay (web) |
-| Deploy | Vercel (web) + Railway (server) + EAS (mobile) |
-| Fairness | Cryptographic provably fair shuffling |
-| i18n | 6 Indian languages |
-
-## Shared Code (~3,500 lines)
-
-The `@teen-patti/shared` package contains pure TypeScript with zero platform deps:
-
-- **Game Engine** -- State machine, action processing, pot distribution
-- **Hand Ranking** -- Evaluates all 7 variants, compares hands, finds winners
-- **AI** -- Personality-based decisions (Sharma Ji, Priya, Bunty, Meera)
-- **Deck** -- Fisher-Yates shuffle, card utilities
-- **Economy** -- Chip flow, daily rewards, affordable tables
-- **Coach** -- Hand analysis, play style profiling, bluff suggestions
-- **Types** -- All TypeScript interfaces and enums
-
-Both Vite (web) and Metro (mobile) resolve it as TypeScript source -- no build step needed.
-
-## Animation Mapping (Web to Mobile)
-
-| Web (Framer Motion) | Mobile (Reanimated) |
-|---------------------|---------------------|
-| `motion.div animate={{}}` | `useAnimatedStyle` + `withSpring` |
-| `AnimatePresence` | `entering={FadeIn}` / `exiting={FadeOut}` |
-| `whileTap={{ scale: 0.95 }}` | `Gesture.Tap` + `withSpring(0.95)` |
-| `useMotionValue` | `useSharedValue` |
-| `useTransform` | `interpolate()` |
-| `drag="y"` | `Gesture.Pan` |
-| `navigator.vibrate()` | `expo-haptics` |
-| `Howler.js` | `expo-av` |
-| `localStorage` | `expo-secure-store` / `AsyncStorage` |
+The repository documents historical Vercel and Railway URLs, but release readiness must be determined from the current `/ready` response and release SHA—not from an old URL in documentation. Deployment requires the owner’s Vercel/Railway/EAS credentials and legal/privacy approval for the target launch scope.

@@ -159,7 +159,7 @@ export function WinAnnouncement({
             transition={{ delay: 0.5, type: 'spring' }}
             className="text-4xl font-bold text-green-400"
           >
-            +₹{amount.toLocaleString()}
+            +◉ {amount.toLocaleString()}
           </motion.div>
         </motion.div>
 

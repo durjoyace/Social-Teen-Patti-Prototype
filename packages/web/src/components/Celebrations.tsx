@@ -251,7 +251,7 @@ export function WinnerCelebration({
                   >
                     <Coins className="w-6 h-6 text-green-400" />
                     <span className="text-3xl font-bold text-green-400">
-                      +₹{formatChips(amount)}
+                      +◉ {formatChips(amount)}
                     </span>
                   </motion.div>
                 </motion.div>

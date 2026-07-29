@@ -3,15 +3,30 @@ import * as SecureStore from 'expo-secure-store';
 import { api, setAuthToken } from '../services/api';
 import { connectSocket, disconnectSocket } from '../services/socket';
 import type { User } from '@teen-patti/shared';
+import { clearReferralAttribution, getPendingReferralAttribution } from '../services/referralAttribution';
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  error: string | null;
   guestLogin: () => Promise<void>;
   logout: () => void;
   restoreSession: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
+}
+
+function mapApiUser(user: any): User {
+  return {
+    ...user,
+    chips: Number(user.chips || 0),
+    biggestWin: Number(user.biggestWin || 0),
+    totalWinnings: Number(user.totalWinnings || 0),
+    beliBalance: Number(user.beliBalance || 0),
+    lastSeen: new Date(user.lastSeen || Date.now()),
+    createdAt: new Date(user.createdAt || Date.now()),
+  } as User;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -19,39 +34,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   isLoading: true,
   isAuthenticated: false,
+  error: null,
 
   guestLogin: async () => {
     try {
-      set({ isLoading: true });
+      set({ isLoading: true, error: null });
       const username = `Guest_${Math.random().toString(36).slice(2, 8)}`;
-      const res = await api.post<{ user: User; token: string }>('/auth/guest', { username });
+      const referral = await getPendingReferralAttribution();
+      const res = await api.post<{ user: User; token: string; referralAttribution?: { attributed: boolean } }>('/auth/guest', {
+        username,
+        adultConfirmed: true,
+        referralCode: referral?.code,
+        referralSource: referral?.source,
+        referralCampaign: referral?.campaign,
+      });
+      if (referral) await clearReferralAttribution();
       await SecureStore.setItemAsync('auth_token', res.token);
       setAuthToken(res.token);
       connectSocket(res.token);
-      set({ user: res.user, token: res.token, isAuthenticated: true, isLoading: false });
+      set({ user: mapApiUser(res.user), token: res.token, isAuthenticated: true, isLoading: false });
     } catch (err) {
       console.error('[Auth] Guest login failed:', err);
-      // Offline fallback — create local guest
-      const offlineUser: User = {
-        id: crypto.randomUUID(),
-        username: `Guest_${Math.random().toString(36).slice(2, 8)}`,
-        chips: 10000,
-        diamonds: 0,
-        level: 1,
-        experience: 0,
-        totalGames: 0,
-        gamesWon: 0,
-        biggestWin: 0,
-        totalWinnings: 0,
-        totalLosses: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        handsPlayed: 0,
-        vipTier: 'bronze',
-        vipPoints: 0,
-        isGuest: true,
-      };
-      set({ user: offlineUser, token: null, isAuthenticated: true, isLoading: false });
+      set({
+        error: err instanceof Error ? err.message : 'Could not connect',
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
     }
   },
 
@@ -59,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     SecureStore.deleteItemAsync('auth_token').catch(() => {});
     setAuthToken(null);
     disconnectSocket();
-    set({ user: null, token: null, isAuthenticated: false });
+    set({ user: null, token: null, isAuthenticated: false, error: null });
   },
 
   restoreSession: async () => {
@@ -72,10 +81,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       setAuthToken(token);
       const res = await api.get<{ user: User }>('/auth/me');
       connectSocket(token);
-      set({ user: res.user, token, isAuthenticated: true, isLoading: false });
+      set({ user: mapApiUser(res.user), token, isAuthenticated: true, isLoading: false });
     } catch {
       await SecureStore.deleteItemAsync('auth_token').catch(() => {});
       set({ isLoading: false });
     }
+  },
+
+  updateUser: (updates) => {
+    const user = get().user;
+    if (user) set({ user: { ...user, ...updates } });
   },
 }));

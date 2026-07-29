@@ -124,7 +124,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           transition={{ delay: 0.5, duration: 0.6 }}
           className="text-white/40 text-xs tracking-[0.25em] uppercase font-medium mb-2"
         >
-          Provably Fair
+          Private Friend Tables
         </motion.p>
 
         {/* Shield icon + verified text */}
@@ -139,7 +139,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <span className="text-green-400 text-[10px] font-semibold tracking-wider">EVERY HAND VERIFIED</span>
+          <span className="text-green-400 text-[10px] font-semibold tracking-wider">18+ SOCIAL PLAY</span>
         </motion.div>
       </motion.div>
 

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Filter, Sparkles,
-  Crown, Zap, Gift, Bell, Settings, ChevronRight, Flame,
+  Crown, Zap, Gift, Settings, ChevronRight, Flame,
   Play, Hash
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -14,14 +14,7 @@ import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
 import { AnimatedChipCount, PressableButton, GlassCard, SkeletonLoader, EmptyState, PullToRefresh, ContextualTooltip } from '../components/PolishTouches';
 import { GameVariant, GameRoom } from '../types';
-
-// Mock rooms for demo
-const mockRooms: GameRoom[] = [
-  { id: '1', name: 'Diwali Special', variant: 'classic', minBuyIn: 100, maxBuyIn: 10000, minBet: 10, maxPlayers: 6, currentPlayers: 4, status: 'waiting', isPrivate: false, createdBy: '1' },
-  { id: '2', name: 'High Rollers', variant: 'classic', minBuyIn: 1000, maxBuyIn: 100000, minBet: 100, maxPlayers: 6, currentPlayers: 2, status: 'waiting', isPrivate: false, createdBy: '2' },
-  { id: '3', name: 'Joker\'s Den', variant: 'joker', minBuyIn: 500, maxBuyIn: 50000, minBet: 50, maxPlayers: 6, currentPlayers: 5, status: 'playing', isPrivate: false, createdBy: '3' },
-  { id: '4', name: 'Muflis Madness', variant: 'muflis', minBuyIn: 200, maxBuyIn: 20000, minBet: 20, maxPlayers: 6, currentPlayers: 3, status: 'waiting', isPrivate: false, createdBy: '4' },
-];
+import { socketService } from '../services/socket';
 
 const variantConfig: Record<GameVariant, { color: string; icon: typeof Sparkles; label: string }> = {
   classic: { color: 'from-red-600 to-red-800', icon: Crown, label: 'Classic' },
@@ -44,20 +37,44 @@ interface LobbyScreenProps {
 
 export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCode, onNavigate }: LobbyScreenProps) {
   const { user } = useAuthStore();
-  const { setRooms } = useGameStore();
+  const { availableRooms, setRooms } = useGameStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVariant, setSelectedVariant] = useState<GameVariant | 'all'>('all');
-  const [activeTab, setActiveTab] = useState<'tables' | 'tournaments' | 'friends'>('tables');
   const [isLoading, setIsLoading] = useState(true);
   const quickPlayRef = useRef<HTMLDivElement>(null);
 
-  // Simulate room loading (will be replaced with real API call)
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+  const loadRooms = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (!socketService.isConnected) await socketService.connect();
+      const result = await socketService.listRooms();
+      setRooms(result.rooms.map(room => ({
+        id: room.id,
+        name: room.name,
+        variant: String(room.variant).toLowerCase() as GameVariant,
+        minBuyIn: Number(room.minBuyIn || room.bootAmount || 500),
+        maxBuyIn: Number(room.maxBuyIn || 5000),
+        minBet: Number(room.bootAmount || 50),
+        maxPlayers: Number(room.maxPlayers || 6),
+        currentPlayers: Number(room.currentPlayers || 0),
+        status: room.status,
+        isPrivate: false,
+        createdBy: '',
+      })));
+    } catch {
+      setRooms([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setRooms]);
 
-  const filteredRooms = mockRooms.filter((room) => {
+  useEffect(() => {
+    void loadRooms();
+    const timer = window.setInterval(() => void loadRooms(), 10_000);
+    return () => window.clearInterval(timer);
+  }, [loadRooms]);
+
+  const filteredRooms = availableRooms.filter((room) => {
     const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesVariant = selectedVariant === 'all' || room.variant === selectedVariant;
     return matchesSearch && matchesVariant;
@@ -91,27 +108,13 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
               <div>
                 <p className="text-white font-semibold">{user?.username || 'Guest'}</p>
                 <div className="flex items-center gap-1">
-                  <AnimatedChipCount value={user?.chips || 0} prefix="₹" className="text-yellow-400 text-sm font-bold" />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onNavigate('shop'); }}
-                    className="ml-1 px-2 py-0.5 bg-green-500 rounded-full"
-                  >
-                    <Plus className="w-3 h-3 text-white" />
-                  </button>
+                  <AnimatedChipCount value={user?.chips || 0} prefix="◉ " className="text-yellow-400 text-sm font-bold" />
                 </div>
               </div>
             </motion.div>
 
             {/* Actions */}
             <div className="flex items-center gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative p-2.5 rounded-xl bg-white/10 backdrop-blur-sm"
-              >
-                <Bell className="w-5 h-5 text-white/80" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold">3</span>
-              </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -123,28 +126,29 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
             </div>
           </div>
 
-          {/* Daily bonus banner */}
+          {/* Referral wedge */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-yellow-600 via-orange-500 to-red-600 p-4 mb-4"
+            className="relative overflow-hidden rounded-2xl border border-[#FFD66B]/30 bg-gradient-to-r from-[#176B45] to-[#0f4d35] p-4 mb-4"
           >
             <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
             <div className="relative flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-5 h-5 text-yellow-200" />
-                  <span className="text-yellow-200 text-sm font-medium">Daily Bonus</span>
+                  <Gift className="w-5 h-5 text-[#FFD66B]" />
+                  <span className="text-[#FFD66B] text-sm font-medium">Your table circle</span>
                 </div>
-                <p className="text-white font-bold text-lg">Claim ₹500 FREE!</p>
+                <p className="text-white font-bold text-lg">Both unlock 100 Beli</p>
+                <p className="mt-0.5 text-xs text-white/60">After your friend's first real multiplayer game</p>
               </div>
               <PressableButton
-                onClick={() => {}}
+                onClick={() => onNavigate('referrals')}
                 variant="primary"
-                className="px-4 py-2 bg-white rounded-xl font-bold text-orange-600 shadow-none from-white to-white"
+                className="px-4 py-2 bg-[#F5A524] rounded-xl font-bold text-[#0B1221] shadow-none from-[#F5A524] to-[#F5A524]"
               >
-                Claim
+                Invite
               </PressableButton>
             </div>
             {/* Sparkle effects */}
@@ -159,28 +163,6 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
               transition={{ repeat: Infinity, duration: 1.5, delay: 0.5 }}
             />
           </motion.div>
-
-          {/* Feature Quick Access Strip */}
-          <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
-            {[
-              { id: 'shop', label: 'Shop', emoji: '🛒', gradient: 'from-blue-500 to-blue-700' },
-              { id: 'spin', label: 'Spin', emoji: '🎡', gradient: 'from-purple-500 to-purple-700' },
-              { id: 'season', label: 'Season', emoji: '🏆', gradient: 'from-orange-500 to-red-600' },
-              { id: 'achievements', label: 'Achieve', emoji: '⭐', gradient: 'from-yellow-500 to-amber-600' },
-              { id: 'coaching', label: 'Coach', emoji: '🧠', gradient: 'from-green-500 to-teal-600' },
-              { id: 'spectator', label: 'Watch', emoji: '👁', gradient: 'from-pink-500 to-rose-600' },
-            ].map((item) => (
-              <motion.button
-                key={item.id}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onNavigate(item.id)}
-                className={`flex-shrink-0 flex flex-col items-center gap-1 w-16 py-2 rounded-xl bg-gradient-to-b ${item.gradient} shadow-lg`}
-              >
-                <span className="text-lg">{item.emoji}</span>
-                <span className="text-[10px] text-white font-medium">{item.label}</span>
-              </motion.button>
-            ))}
-          </div>
 
           {/* Quick Play Button */}
           <motion.div
@@ -232,25 +214,6 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
               Join by Code
             </PressableButton>
           </motion.div>
-
-          {/* Tab navigation */}
-          <div className="flex gap-2 mb-4">
-            {(['tables', 'tournaments', 'friends'] as const).map((tab) => (
-              <motion.button
-                key={tab}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'flex-1 py-2.5 rounded-xl font-medium text-sm transition-all',
-                  activeTab === tab
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30'
-                    : 'bg-white/10 text-white/60'
-                )}
-              >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </motion.button>
-            ))}
-          </div>
 
           {/* Search and filter */}
           <div className="flex gap-2">
@@ -312,9 +275,7 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
         {/* Tables list */}
         <PullToRefresh
           onRefresh={async () => {
-            setIsLoading(true);
-            await new Promise(r => setTimeout(r, 600));
-            setIsLoading(false);
+            await loadRooms();
           }}
           className="flex-1 overflow-y-auto px-4 py-2"
         >
@@ -386,11 +347,11 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
                       <h3 className="text-white font-semibold mb-1">{room.name}</h3>
                       <div className="flex items-center gap-3 text-sm">
                         <span className="text-yellow-400">
-                          ₹{formatChips(room.minBuyIn)} - ₹{formatChips(room.maxBuyIn)}
+                          {formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} chips
                         </span>
                         <span className="text-white/40">•</span>
                         <span className="text-white/60">
-                          Boot: ₹{formatChips(room.minBet)}
+                          Boot: {formatChips(room.minBet)} chips
                         </span>
                       </div>
                     </div>

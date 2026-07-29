@@ -43,9 +43,11 @@ declare global {
 class PaymentService {
   private razorpayKey: string = '';
   private scriptLoaded = false;
+  private enabled = false;
 
   init() {
     this.razorpayKey = import.meta.env.VITE_RAZORPAY_KEY || '';
+    this.enabled = import.meta.env.VITE_PURCHASES_ENABLED === 'true';
   }
 
   private async loadRazorpayScript(): Promise<void> {
@@ -77,19 +79,13 @@ class PaymentService {
     email?: string;
     phone?: string;
   }): Promise<PaymentResult> {
-    if (!this.razorpayKey) {
-      // Demo mode — simulate purchase
-      analytics.chipsPurchased(pkg.id, pkg.chips + pkg.bonusChips, pkg.price);
-      return {
-        success: true,
-        orderId: `demo_${Date.now()}`,
-        chips: pkg.chips + pkg.bonusChips,
-      };
+    if (!this.enabled) {
+      return { success: false, error: 'Purchases are not available' };
     }
 
     try {
       // Step 1: Create order on backend
-      const orderResponse = await api.createPaymentOrder(pkg.id, pkg.price);
+      const orderResponse = await api.createPaymentOrder(pkg.id);
       if (!orderResponse.orderId) {
         return { success: false, error: 'Failed to create order' };
       }
@@ -100,8 +96,8 @@ class PaymentService {
       // Step 3: Open checkout
       return new Promise((resolve) => {
         const options = {
-          key: this.razorpayKey,
-          amount: pkg.price * 100, // Razorpay expects paise
+          key: orderResponse.keyId || this.razorpayKey,
+          amount: orderResponse.amount,
           currency: 'INR',
           name: 'Social Teen Patti',
           description: `${pkg.label} — ${pkg.chips.toLocaleString()} chips`,
@@ -134,12 +130,13 @@ class PaymentService {
               );
 
               if (verification.success) {
-                analytics.chipsPurchased(pkg.id, pkg.chips + pkg.bonusChips, pkg.price);
+                const creditedChips = Number(verification.chips);
+                analytics.chipsPurchased(pkg.id, creditedChips, pkg.price);
                 resolve({
                   success: true,
                   orderId: response.razorpay_order_id,
                   paymentId: response.razorpay_payment_id,
-                  chips: pkg.chips + pkg.bonusChips,
+                  chips: creditedChips,
                 });
               } else {
                 resolve({ success: false, error: 'Payment verification failed' });
@@ -169,36 +166,15 @@ class PaymentService {
 
   // ─── Chip Packages ───────────────────────────────────────────────────
 
-  getPackages(isFirstPurchase: boolean): ChipPackage[] {
-    const multiplier = isFirstPurchase ? 3 : 1;
+  getPackages(_isFirstPurchase: boolean): ChipPackage[] {
     return [
-      { id: 'starter', chips: 1000 * multiplier, price: 10, bonusChips: 0, label: 'Starter' },
-      { id: 'popular', chips: 6000 * multiplier, price: 50, bonusChips: 0, label: 'Popular' },
-      { id: 'value', chips: 15000 * multiplier, price: 100, bonusChips: 0, label: 'Value' },
-      { id: 'mega', chips: 100000 * multiplier, price: 500, bonusChips: 0, label: 'Mega' },
-      { id: 'ultimate', chips: 500000 * multiplier, price: 2000, bonusChips: 0, label: 'Ultimate' },
+      { id: 'starter', chips: 1000, price: 10, bonusChips: 0, label: 'Starter' },
+      { id: 'popular', chips: 6000, price: 50, bonusChips: 0, label: 'Popular' },
+      { id: 'value', chips: 15000, price: 100, bonusChips: 0, label: 'Value' },
+      { id: 'mega', chips: 100000, price: 500, bonusChips: 0, label: 'Mega' },
+      { id: 'ultimate', chips: 500000, price: 2000, bonusChips: 0, label: 'Ultimate' },
     ];
   }
 }
-
-// Extend API client with payment methods
-declare module './api' {
-  interface ApiClient {
-    createPaymentOrder(packageId: string, amount: number): Promise<{ orderId: string }>;
-    verifyPayment(paymentId: string, orderId: string, signature: string): Promise<{ success: boolean }>;
-  }
-}
-
-// Add payment methods to API (these call the backend)
-Object.assign(api, {
-  async createPaymentOrder(packageId: string, amount: number) {
-    // In production: return api.request('/payments/create-order', { method: 'POST', body: ... })
-    return { orderId: `order_${Date.now()}` };
-  },
-  async verifyPayment(paymentId: string, orderId: string, signature: string) {
-    // In production: return api.request('/payments/verify', { method: 'POST', body: ... })
-    return { success: true };
-  },
-});
 
 export const payments = new PaymentService();

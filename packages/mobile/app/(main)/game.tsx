@@ -8,7 +8,7 @@ import { formatChips } from '@teen-patti/shared';
 import { useRouter } from 'expo-router';
 
 export default function GameScreen() {
-  const { gameState, myCards, isMyTurn, availableActions, showCards, performAction, toggleShowCards, leaveGame } = useGameStore();
+  const { gameState, myCards, isMyTurn, availableActions, showCards, performAction, toggleShowCards, leaveGame, isOnlineMode } = useGameStore();
   const router = useRouter();
 
   if (!gameState) {
@@ -33,13 +33,13 @@ export default function GameScreen() {
         <PressableButton onPress={() => { leaveGame(); router.back(); }} variant="ghost" style={styles.backBtn}>
           <Text style={{ color: colors.white60, fontSize: 16 }}>← Leave</Text>
         </PressableButton>
-        <Text style={styles.roomName}>Quick Play</Text>
+        <Text style={styles.roomName}>{isOnlineMode ? 'Online table' : 'Practice table'}</Text>
       </View>
 
       {/* Pot */}
       <Animated.View entering={FadeIn.delay(200)} style={styles.potContainer}>
         <Text style={styles.potLabel}>POT</Text>
-        <AnimatedChipCount value={session.pot} prefix="₹" style={styles.potAmount} />
+        <AnimatedChipCount value={session.pot} prefix="◉ " style={styles.potAmount} />
       </Animated.View>
 
       {/* Players */}
@@ -58,7 +58,7 @@ export default function GameScreen() {
             </Text>
             <AnimatedChipCount
               value={player.chipsInPlay}
-              prefix="₹"
+              prefix="◉ "
               style={[styles.playerChips, player.status === 'folded' && { color: colors.red }]}
             />
             {player.status === 'folded' && <Text style={styles.foldedBadge}>PACKED</Text>}

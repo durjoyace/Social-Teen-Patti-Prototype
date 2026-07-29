@@ -14,24 +14,34 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.socialteenpatti.app",
-      "backgroundColor": "#0a0a0a"
+      "bundleIdentifier": "com.battlegreen.socialteenpatti",
+      "backgroundColor": "#0a0a0a",
+      "associatedDomains": ["applinks:social-teen-patti.vercel.app"]
     },
     "android": {
-      "package": "com.socialteenpatti.app",
+      "package": "com.battlegreen.socialteenpatti",
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0a",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "social-teen-patti.vercel.app", "pathPrefix": "/invite" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "plugins": [
       "expo-router",
       "expo-secure-store"
     ],
     "extra": {
-      "apiUrl": "https://teen-patti-server-production.up.railway.app/api",
-      "socketUrl": "https://teen-patti-server-production.up.railway.app"
+      "apiUrl": "http://localhost:3001/api",
+      "socketUrl": "http://localhost:3001",
+      "appUrl": "https://social-teen-patti.vercel.app"
     }
   }
 }

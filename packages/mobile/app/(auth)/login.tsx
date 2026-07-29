@@ -1,4 +1,6 @@
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { useState } from 'react';
+import { Linking, View, Text, StyleSheet, Pressable } from 'react-native';
+import Constants from 'expo-constants';
 import { StatusBar } from 'expo-status-bar';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/authStore';
@@ -6,7 +8,9 @@ import { PressableButton } from '../../src/components/ui';
 import { colors } from '../../src/theme/tokens';
 
 export default function LoginScreen() {
-  const { guestLogin, isLoading } = useAuthStore();
+  const { guestLogin, isLoading, error } = useAuthStore();
+  const [isAdult, setIsAdult] = useState(false);
+  const legalUrl = `${process.env.EXPO_PUBLIC_APP_URL || Constants.expoConfig?.extra?.appUrl || 'https://social-teen-patti.vercel.app'}/legal.html`;
 
   return (
     <View style={styles.container}>
@@ -22,15 +26,19 @@ export default function LoginScreen() {
         Social Teen Patti
       </Animated.Text>
       <Animated.Text entering={FadeInDown.delay(500)} style={styles.subtitle}>
-        India's #1 Social Card Game
+        Your private table, one tap away
       </Animated.Text>
 
       {/* Buttons */}
       <Animated.View entering={FadeInDown.delay(700)} style={styles.buttons}>
+        <Pressable onPress={() => setIsAdult(value => !value)} style={styles.ageRow} accessibilityRole="checkbox" accessibilityState={{ checked: isAdult }}>
+          <View style={[styles.checkbox, isAdult && styles.checkboxChecked]}><Text style={styles.checkmark}>{isAdult ? '✓' : ''}</Text></View>
+          <Text style={styles.ageText}>I confirm I am 18 or older</Text>
+        </Pressable>
         <PressableButton
           onPress={guestLogin}
           variant="primary"
-          disabled={isLoading}
+          disabled={isLoading || !isAdult}
           style={styles.mainButton}
         >
           <Text style={styles.buttonText}>
@@ -38,15 +46,20 @@ export default function LoginScreen() {
           </Text>
         </PressableButton>
 
-        <PressableButton variant="secondary" style={styles.secondaryButton}>
-          <Text style={styles.secondaryText}>Sign in with Google</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <PressableButton variant="secondary" style={styles.secondaryButton} disabled>
+          <Text style={styles.secondaryText}>Google sign-in coming soon</Text>
         </PressableButton>
       </Animated.View>
 
       {/* Footer */}
       <Animated.Text entering={FadeIn.delay(1000)} style={styles.footer}>
-        By playing, you agree to our Terms of Service
+        18+ only • Play for entertainment • Beli has no cash value
       </Animated.Text>
+      <Pressable onPress={() => void Linking.openURL(legalUrl)} style={styles.legalLink} accessibilityRole="link">
+        <Text style={styles.legalText}>Terms • Privacy • Responsible play</Text>
+      </Pressable>
     </View>
   );
 }
@@ -86,6 +99,12 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
+  ageRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1, borderColor: colors.white40, alignItems: 'center', justifyContent: 'center' },
+  checkboxChecked: { backgroundColor: '#176B45', borderColor: '#FFD66B' },
+  checkmark: { color: '#fff', fontWeight: '800' },
+  ageText: { color: colors.white80, fontSize: 14 },
+  error: { color: '#f87171', fontSize: 13, textAlign: 'center' },
   mainButton: {
     width: '100%',
     paddingVertical: 16,
@@ -109,8 +128,10 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: 48,
+    bottom: 64,
     color: colors.white40,
     fontSize: 12,
   },
+  legalLink: { position: 'absolute', bottom: 36 },
+  legalText: { color: colors.gold, fontSize: 11, textDecorationLine: 'underline' },
 });

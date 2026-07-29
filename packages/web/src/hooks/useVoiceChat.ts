@@ -36,7 +36,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
   const connectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const roomIdRef = useRef<string | null>(null);
   const iceServersRef = useRef<RTCIceServer[]>([]);
-  const vadIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  const vadIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
 

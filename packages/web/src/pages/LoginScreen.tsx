@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Smartphone, Mail, Lock, User, Eye, EyeOff,
+  Mail, Lock, User, Eye, EyeOff,
   ChevronRight, ArrowLeft, Sparkles
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -12,17 +12,15 @@ interface LoginScreenProps {
   onGuestPlay: () => void;
 }
 
-type AuthMode = 'welcome' | 'login' | 'register' | 'phone';
+type AuthMode = 'welcome' | 'login' | 'register';
 
 export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
   const [mode, setMode] = useState<AuthMode>('welcome');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
+  const [isAdult, setIsAdult] = useState(false);
   const { loginWithCredentials, register, loginAsGuest, isLoading, error, clearError } = useAuthStore();
 
   const handleLogin = async () => {
@@ -37,24 +35,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
 
   const handleGuestPlay = async () => {
     await loginAsGuest();
-    onGuestPlay();
-  };
-
-  const handleSendOTP = () => {
-    if (phone.length >= 10) {
-      setOtpSent(true);
-      // In production: api.sendOTP(phone)
-    }
-  };
-
-  const handleVerifyOTP = () => {
-    // In production: api.verifyOTP(phone, otp)
-    onComplete();
-  };
-
-  const handleGoogleLogin = () => {
-    // In production: redirect to Google OAuth
-    // window.location.href = `${API_URL}/auth/google`;
+    if (!useAuthStore.getState().error) onGuestPlay();
   };
 
   return (
@@ -65,7 +46,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-yellow-600/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col px-6">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6">
         {/* Back button */}
         {mode !== 'welcome' && (
           <motion.button
@@ -101,7 +82,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               transition={{ delay: 0.3 }}
               className="text-white/40 text-sm mt-1"
             >
-              The only provably fair card game
+              Your private table, one invite away
             </motion.p>
           )}
         </motion.div>
@@ -116,11 +97,20 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               exit={{ opacity: 0, y: -20 }}
               className="flex-1 flex flex-col gap-3"
             >
+              <label className="mb-1 flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75">
+                <input
+                  type="checkbox"
+                  checked={isAdult}
+                  onChange={event => setIsAdult(event.target.checked)}
+                  className="h-5 w-5 accent-[#176B45]"
+                />
+                I confirm I am 18 or older
+              </label>
               {/* Google Login */}
               <motion.button
                 whileTap={{ scale: 0.98 }}
-                onClick={handleGoogleLogin}
-                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-white text-gray-900 font-semibold shadow-lg"
+                disabled
+                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-white text-gray-900 font-semibold shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -128,26 +118,16 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                <span>Continue with Google</span>
+                <span>Google sign-in coming soon</span>
                 <ChevronRight className="w-4 h-4 ml-auto text-gray-400" />
-              </motion.button>
-
-              {/* Phone Login */}
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setMode('phone')}
-                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30"
-              >
-                <Smartphone className="w-5 h-5" />
-                <span>Continue with Phone</span>
-                <ChevronRight className="w-4 h-4 ml-auto text-white/40" />
               </motion.button>
 
               {/* Email Login */}
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setMode('login')}
-                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 text-white font-semibold border border-white/10"
+                disabled={!isAdult}
+                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 text-white font-semibold border border-white/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Mail className="w-5 h-5 text-white/60" />
                 <span>Continue with Email</span>
@@ -165,14 +145,14 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleGuestPlay}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30"
+                disabled={isLoading || !isAdult}
+                className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Sparkles className="w-5 h-5" />
                 <span>Play as Guest</span>
               </motion.button>
               <p className="text-center text-white/30 text-xs">
-                No signup required • Get ₹10,000 free chips
+                18+ only • Play for entertainment • Beli has no cash value
               </p>
             </motion.div>
           )}
@@ -254,7 +234,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               />
               <InputField
                 icon={<Lock className="w-5 h-5" />}
-                placeholder="Password (6+ characters)"
+                placeholder="Password (12+ characters)"
                 value={password}
                 onChange={setPassword}
                 type={showPassword ? 'text' : 'password'}
@@ -272,7 +252,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={handleRegister}
-                disabled={isLoading || !username || !email || !password}
+                disabled={isLoading || username.length < 3 || !email || password.length < 12}
                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg shadow-green-500/30 disabled:opacity-50"
               >
                 {isLoading ? 'Creating...' : 'Create Account'}
@@ -287,79 +267,15 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
             </motion.div>
           )}
 
-          {mode === 'phone' && (
-            <motion.div
-              key="phone"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex-1 flex flex-col gap-4"
-            >
-              <h2 className="text-xl font-bold text-white mb-2">Phone Login</h2>
-
-              {!otpSent ? (
-                <>
-                  <div className="flex gap-2">
-                    <div className="flex items-center gap-1 px-3 py-3.5 rounded-xl bg-white/10 border border-white/10 text-white">
-                      <span className="text-sm">🇮🇳</span>
-                      <span className="text-sm font-medium">+91</span>
-                    </div>
-                    <InputField
-                      icon={<Smartphone className="w-5 h-5" />}
-                      placeholder="Phone number"
-                      value={phone}
-                      onChange={setPhone}
-                      type="tel"
-                      className="flex-1"
-                    />
-                  </div>
-
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleSendOTP}
-                    disabled={phone.length < 10}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold shadow-lg shadow-blue-500/30 disabled:opacity-50"
-                  >
-                    Send OTP
-                  </motion.button>
-                </>
-              ) : (
-                <>
-                  <p className="text-white/50 text-sm">Enter the 6-digit OTP sent to +91 {phone}</p>
-                  <input
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    className="w-full bg-white/10 rounded-xl px-4 py-4 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500/50 border border-white/10"
-                    maxLength={6}
-                    autoFocus
-                  />
-
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleVerifyOTP}
-                    disabled={otp.length !== 6}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg shadow-green-500/30 disabled:opacity-50"
-                  >
-                    Verify OTP
-                  </motion.button>
-
-                  <button
-                    onClick={() => setOtpSent(false)}
-                    className="text-center text-white/40 text-sm"
-                  >
-                    Change number
-                  </button>
-                </>
-              )}
-            </motion.div>
-          )}
         </AnimatePresence>
 
         {/* Footer */}
         <div className="py-6 text-center">
           <p className="text-white/20 text-[10px]">
-            By continuing, you agree to our Terms of Service and Privacy Policy
+            By continuing, you agree to our{' '}
+            <a href="/legal.html#terms" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Terms</a>
+            {' '}and{' '}
+            <a href="/legal.html#privacy" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Privacy Notice</a>
           </p>
         </div>
       </div>

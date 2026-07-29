@@ -1,3 +1,5 @@
+import type { ReferralAttribution, ReferralSharePlatform, ReferralSummary } from '../types';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 interface ApiResponse<T = unknown> {
@@ -9,6 +11,15 @@ interface ApiResponse<T = unknown> {
 class ApiClient {
   private token: string | null = null;
   private refreshToken: string | null = null;
+
+  private getDeviceId() {
+    let deviceId = localStorage.getItem('tp_device_id');
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      localStorage.setItem('tp_device_id', deviceId);
+    }
+    return deviceId;
+  }
 
   setTokens(token: string, refreshToken: string) {
     this.token = token;
@@ -36,6 +47,7 @@ class ApiClient {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'X-Device-Id': this.getDeviceId(),
       ...options.headers as Record<string, string>,
     };
 
@@ -91,19 +103,39 @@ class ApiClient {
 
   // ─── Auth ──────────────────────────────────────────────────────────────
 
-  async guestLogin(username?: string) {
-    const data = await this.request<{ user: any; token: string; refreshToken: string }>(
+  async guestLogin(username?: string, referral?: ReferralAttribution | null) {
+    const data = await this.request<{ user: any; token: string; refreshToken: string; referralAttribution?: { attributed: boolean; reason?: string } }>(
       '/auth/guest',
-      { method: 'POST', body: JSON.stringify({ username }) }
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          username,
+          adultConfirmed: true,
+          referralCode: referral?.code,
+          referralSource: referral?.source,
+          referralCampaign: referral?.campaign,
+        }),
+      }
     );
     this.setTokens(data.token, data.refreshToken);
     return data;
   }
 
-  async register(username: string, email: string, password: string) {
-    const data = await this.request<{ user: any; token: string; refreshToken: string }>(
+  async register(username: string, email: string, password: string, referral?: ReferralAttribution | null) {
+    const data = await this.request<{ user: any; token: string; refreshToken: string; referralAttribution?: { attributed: boolean; reason?: string } }>(
       '/auth/register',
-      { method: 'POST', body: JSON.stringify({ username, email, password }) }
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          adultConfirmed: true,
+          referralCode: referral?.code,
+          referralSource: referral?.source,
+          referralCampaign: referral?.campaign,
+        }),
+      }
     );
     this.setTokens(data.token, data.refreshToken);
     return data;
@@ -201,6 +233,42 @@ class ApiClient {
 
   async markNotificationsRead() {
     return this.request('/users/notifications/read-all', { method: 'POST' });
+  }
+
+  // ─── Referrals & Beli ────────────────────────────────────────────────
+
+  async getReferralSummary() {
+    return this.request<ReferralSummary>('/referrals/summary');
+  }
+
+  async recordReferralShare(platform: ReferralSharePlatform, campaign = 'table_circle') {
+    return this.request<{ share: { id: string; createdAt: string } }>('/referrals/share', {
+      method: 'POST',
+      body: JSON.stringify({ platform, campaign }),
+    });
+  }
+
+  async redeemBeli(itemId: string) {
+    return this.request<{ beliBalance: number; entitlement: unknown }>('/referrals/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ itemId }),
+    });
+  }
+
+  // ─── Payments ────────────────────────────────────────────────────────
+
+  async createPaymentOrder(packageId: string) {
+    return this.request<{ orderId: string; amount: number; keyId: string }>('/payments/create-order', {
+      method: 'POST',
+      body: JSON.stringify({ packageId }),
+    });
+  }
+
+  async verifyPayment(paymentId: string, orderId: string, signature: string) {
+    return this.request<{ success: boolean; chips: string; balance: string }>('/payments/verify', {
+      method: 'POST',
+      body: JSON.stringify({ paymentId, orderId, signature }),
+    });
   }
 }
 

@@ -1,47 +1,48 @@
-/**
- * ANALYTICS SERVICE
- *
- * Unified event tracking. In dev: console logs. In prod: sends to window.mixpanel
- * if Mixpanel script is loaded via HTML tag.
- *
- * To activate: add Mixpanel script tag to index.html, or set VITE_MIXPANEL_TOKEN
- */
-
 type Props = Record<string, string | number | boolean | null>;
+
+const SAFE_PROPERTY = /^[a-z][a-z0-9_]*$/;
 
 class AnalyticsManager {
   private mp: any = null;
+  private enabled = import.meta.env.VITE_ANALYTICS_ENABLED !== 'false';
+  private sessionId = '';
 
   init() {
-    // Check if Mixpanel was loaded via script tag
+    this.sessionId = sessionStorage.getItem('tp_analytics_session') || crypto.randomUUID();
+    sessionStorage.setItem('tp_analytics_session', this.sessionId);
     this.mp = (window as any).mixpanel || null;
-
     const token = import.meta.env.VITE_MIXPANEL_TOKEN;
-    if (token && this.mp?.init) {
-      this.mp.init(token, { track_pageview: false, persistence: 'localStorage' });
+    if (this.enabled && token && this.mp?.init) {
+      this.mp.init(token, {
+        track_pageview: false,
+        persistence: 'localStorage',
+        ignore_dnt: false,
+      });
     }
   }
 
-  identify(userId: string, traits?: Props) {
-    this.mp?.identify?.(userId);
-    if (traits) this.mp?.people?.set?.(traits);
+  identify(userId: string) {
+    if (this.enabled) this.mp?.identify?.(userId);
   }
 
-  track(event: string, properties?: Props) {
-    if (this.mp?.track) {
-      this.mp.track(event, { ...properties, timestamp: new Date().toISOString(), platform: 'web' });
-    }
-  }
-
-  page(name: string) {
-    this.track('Page View', { page: name });
+  track(event: string, properties: Props = {}) {
+    if (!this.enabled || !/^[a-z][a-z0-9_]*$/.test(event)) return;
+    const safeProperties = Object.fromEntries(
+      Object.entries(properties).filter(([key, value]) => SAFE_PROPERTY.test(key) && value !== undefined),
+    );
+    this.mp?.track?.(event, {
+      ...safeProperties,
+      occurred_at: new Date().toISOString(),
+      platform: 'web',
+      session_id: this.sessionId,
+      schema_version: 1,
+    });
   }
 
   reset() {
     this.mp?.reset?.();
+    sessionStorage.removeItem('tp_analytics_session');
   }
-
-  // ─── Pre-built Game Events ───────────────────────────────────────────
 
   gameStarted(variant: string, playerCount: number, isQuickPlay: boolean) {
     this.track('game_started', { variant, player_count: playerCount, is_quick_play: isQuickPlay });
@@ -52,7 +53,7 @@ class AnalyticsManager {
   }
 
   actionTaken(action: string, amount: number, isBlind: boolean) {
-    this.track('action_taken', { action, amount, is_blind: isBlind });
+    this.track('game_action_taken', { action, amount, is_blind: isBlind });
   }
 
   chipsPurchased(packageId: string, amount: number, price: number) {
@@ -68,7 +69,31 @@ class AnalyticsManager {
   }
 
   screenViewed(screen: string) {
-    this.page(screen);
+    this.track('screen_viewed', { screen });
+  }
+
+  referralLinkOpened(source: string, campaign: string) {
+    this.track('referral_link_opened', { source, campaign });
+  }
+
+  referralHubViewed(activatedCount: number) {
+    this.track('referral_hub_viewed', { activated_count: activatedCount });
+  }
+
+  inviteShareStarted(platform: string) {
+    this.track('invite_share_started', { share_platform: platform });
+  }
+
+  inviteShared(platform: string) {
+    this.track('invite_shared', { share_platform: platform });
+  }
+
+  referralCodeCopied() {
+    this.track('referral_code_copied');
+  }
+
+  rewardRedeemed(itemId: string, costBeli: number) {
+    this.track('reward_redeemed', { item_id: itemId, cost_beli: costBeli });
   }
 }
 

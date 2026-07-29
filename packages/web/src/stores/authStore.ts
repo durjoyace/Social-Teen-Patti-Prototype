@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User } from '../types';
+import { ReferralAttribution, User } from '../types';
 import { api } from '../services/api';
 import { socketService } from '../services/socket';
+import { clearReferralAttribution, getPendingReferralAttribution } from '../services/referralAttribution';
 
 interface AuthState {
   user: User | null;
@@ -13,9 +14,9 @@ interface AuthState {
   isOnline: boolean;
 
   // Actions
-  loginAsGuest: () => Promise<void>;
+  loginAsGuest: (referral?: ReferralAttribution | null) => Promise<void>;
   loginWithCredentials: (usernameOrEmail: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string, referral?: ReferralAttribution | null) => Promise<void>;
   upgradeAccount: (data: { username?: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
@@ -48,6 +49,8 @@ function mapApiUser(apiUser: any): User {
     createdAt: new Date(apiUser.createdAt || Date.now()),
     // Extended fields
     diamonds: apiUser.diamonds || 0,
+    beliBalance: apiUser.beliBalance || 0,
+    referralCode: apiUser.referralCode || undefined,
     vipTier: apiUser.vipTier || 'BRONZE',
     vipPoints: apiUser.vipPoints || 0,
     totalWinnings: parseInt(apiUser.totalWinnings || '0'),
@@ -65,11 +68,13 @@ export const useAuthStore = create<AuthState>()(
       error: null,
       isOnline: true,
 
-      loginAsGuest: async () => {
+      loginAsGuest: async (referral) => {
         set({ isLoading: true, error: null });
         try {
-          const { user, token } = await api.guestLogin();
+          const pendingReferral = referral ?? getPendingReferralAttribution();
+          const { user, token } = await api.guestLogin(undefined, pendingReferral);
           const mappedUser = mapApiUser(user);
+          if (pendingReferral) clearReferralAttribution();
 
           // Connect socket
           try {
@@ -85,12 +90,8 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           });
         } catch (error) {
-          // Fallback to offline guest mode
-          const offlineUser = createGuestUser();
           set({
-            user: offlineUser,
-            token: 'offline',
-            isAuthenticated: true,
+            error: error instanceof Error ? error.message : 'Could not connect',
             isLoading: false,
             isOnline: false,
           });
@@ -117,10 +118,12 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (username, email, password) => {
+      register: async (username, email, password, referral) => {
         set({ isLoading: true, error: null });
         try {
-          const { user, token } = await api.register(username, email, password);
+          const pendingReferral = referral ?? getPendingReferralAttribution();
+          const { user, token } = await api.register(username, email, password, pendingReferral);
+          if (pendingReferral) clearReferralAttribution();
           await socketService.connect();
 
           set({
@@ -203,22 +206,3 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
-
-// Create a guest user for offline/demo mode
-export function createGuestUser(): User {
-  return {
-    id: crypto.randomUUID(),
-    username: `Guest_${Math.floor(Math.random() * 10000)}`,
-    chips: 10000,
-    totalGames: 0,
-    gamesWon: 0,
-    biggestWin: 0,
-    currentStreak: 0,
-    bestStreak: 0,
-    level: 1,
-    experience: 0,
-    isOnline: true,
-    lastSeen: new Date(),
-    createdAt: new Date(),
-  };
-}

@@ -2,14 +2,42 @@
   "name": "social-teen-patti",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev:web": "pnpm --filter @teen-patti/web dev",
     "dev:mobile": "pnpm --filter @teen-patti/mobile start",
     "dev:server": "pnpm --filter teen-patti-server dev",
     "build:web": "pnpm --filter @teen-patti/web build",
-    "typecheck": "pnpm -r typecheck"
+    "build": "pnpm --filter teen-patti-server build && pnpm --filter @teen-patti/web build",
+    "generate": "pnpm --filter teen-patti-server db:generate",
+    "audit:prod": "pnpm audit --prod",
+    "test": "pnpm --filter @teen-patti/brace-expansion-compat test && pnpm --filter @teen-patti/shared test && pnpm --filter teen-patti-server test",
+    "typecheck": "pnpm -r typecheck",
+    "verify": "pnpm generate && pnpm test && pnpm typecheck && pnpm build"
   },
   "devDependencies": {
     "typescript": "^5.5.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "@babel/core@>=7.0.0 <=7.29.0": "7.29.7",
+      "@xmldom/xmldom@>=0.8.0 <0.8.13": "0.8.13",
+      "body-parser@>=2.0.0 <2.3.0": "2.3.0",
+      "brace-expansion@<5.0.8": "link:./packages/brace-expansion-compat",
+      "defu@<=6.1.4": "6.1.7",
+      "effect@<3.20.0": "3.22.0",
+      "engine.io@>=6.0.0 <6.6.9": "6.6.9",
+      "js-yaml@>=3.0.0 <3.15.0": "3.15.0",
+      "js-yaml@>=4.0.0 <4.3.0": "4.3.0",
+      "postcss@>=8.0.0 <8.5.24": "8.5.24",
+      "qs@>=6.11.1 <=6.15.1": "6.15.3",
+      "shell-quote@>=1.1.0 <=1.8.3": "1.10.0",
+      "uuid@<11.1.1": "11.1.1",
+      "ws@>=7.0.0 <7.5.11": "7.5.11",
+      "ws@>=8.0.0 <8.21.1": "8.21.1"
+    }
   }
 }

@@ -19,9 +19,10 @@ export default function ProfileScreen() {
           <Text style={styles.name}>{user?.username || 'Guest'}</Text>
           <Text style={styles.level}>Level {user?.level || 1}</Text>
           <View style={styles.chipsRow}>
-            <Text style={styles.chipsLabel}>Chips: </Text>
-            <AnimatedChipCount value={user?.chips || 0} prefix="₹" style={styles.chipsValue} />
+            <Text style={styles.chipsLabel}>Play chips: </Text>
+            <AnimatedChipCount value={user?.chips || 0} prefix="◉ " style={styles.chipsValue} />
           </View>
+          <Text style={styles.beli}>{user?.beliBalance || 0} Beli • extras in Invite</Text>
         </GlassCard>
       </Animated.View>
 
@@ -62,6 +63,7 @@ const styles = StyleSheet.create({
   chipsRow: { flexDirection: 'row', alignItems: 'center' },
   chipsLabel: { color: colors.white50, fontSize: 14 },
   chipsValue: { color: colors.yellow, fontSize: 18, fontWeight: '700' },
+  beli: { color: '#FFD66B', fontSize: 13, fontWeight: '700', marginTop: 8 },
   statsRow: { flexDirection: 'row', gap: 8 },
   statCard: { flex: 1, alignItems: 'center', padding: 16 },
   statValue: { color: '#fff', fontSize: 22, fontWeight: '700', marginBottom: 4 },

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, User, Trophy, Users, Swords, Gamepad2, ShoppingBag } from 'lucide-react';
+import { Home, User, Share2, Gamepad2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface NavigationBarProps {
@@ -9,9 +9,7 @@ interface NavigationBarProps {
 
 const tabs = [
   { id: 'home', icon: Home, label: 'Home' },
-  { id: 'tournaments', icon: Swords, label: 'Tourneys' },
-  { id: 'social', icon: Users, label: 'Friends' },
-  { id: 'leaderboard', icon: Trophy, label: 'Rank' },
+  { id: 'referrals', icon: Share2, label: 'Invite' },
   { id: 'profile', icon: User, label: 'Profile' },
 ];
 

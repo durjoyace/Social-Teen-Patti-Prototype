@@ -18,10 +18,13 @@ model User {
   googleId      String?   @unique
   avatarUrl     String?
   isGuest       Boolean   @default(false)
+  adultConfirmedAt DateTime?
 
   // Economy
   chips         BigInt    @default(10000)
   diamonds      Int       @default(0) // Premium currency
+  beliBalance   Int       @default(0) // Earned social loyalty points; never purchasable or wagerable
+  referralCode  String?   @unique
   vipTier       VipTier   @default(BRONZE)
   vipPoints     Int       @default(0)
 
@@ -60,11 +63,18 @@ model User {
   notifications Notification[]
   seasonPasses  SeasonPass[]
   createdRooms  GameRoom[] @relation("roomCreator")
+  referralsSent Referral[] @relation("ReferralInviter")
+  referralReceived Referral? @relation("ReferralInvitee")
+  referralShares ReferralShare[]
+  beliTransactions BeliTransaction[]
+  rewardEntitlements RewardEntitlement[]
+  paymentReceipts PaymentReceipt[]
 
   @@index([username])
   @@index([isOnline])
   @@index([chips])
   @@index([level])
+  @@index([referralCode])
 }
 
 enum VipTier {
@@ -259,6 +269,7 @@ model Transaction {
   @@index([userId])
   @@index([type])
   @@index([createdAt])
+  @@unique([userId, type, referenceId])
 }
 
 enum TransactionType {
@@ -283,6 +294,130 @@ enum TransactionType {
 enum Currency {
   CHIPS
   DIAMONDS
+}
+
+model PaymentReceipt {
+  id           String        @id @default(uuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  orderId      String        @unique
+  paymentId    String?       @unique
+  packageId    String
+  amountPaise  Int
+  chips        BigInt
+  status       PaymentStatus @default(PENDING)
+  createdAt    DateTime      @default(now())
+  verifiedAt   DateTime?
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+// ─── REFERRALS & BELI ──────────────────────────────────────────────────────
+
+model Referral {
+  id                  String         @id @default(uuid())
+  inviterId           String
+  inviter             User           @relation("ReferralInviter", fields: [inviterId], references: [id])
+  inviteeId           String         @unique
+  invitee             User           @relation("ReferralInvitee", fields: [inviteeId], references: [id])
+  code                 String
+  status               ReferralStatus @default(PENDING)
+  source               String?
+  campaign             String?
+  deviceHash           String?
+  ipHash               String?
+  riskFlags            Json?
+  attributedAt         DateTime       @default(now())
+  qualifiedAt          DateTime?
+  rewardedAt           DateTime?
+  qualifyingSessionId  String?
+  beliTransactions     BeliTransaction[]
+
+  @@index([inviterId, status])
+  @@index([code])
+  @@index([attributedAt])
+  @@index([deviceHash])
+  @@index([ipHash])
+  @@index([qualifyingSessionId])
+}
+
+enum ReferralStatus {
+  PENDING
+  QUALIFIED
+  REWARDED
+  REJECTED
+}
+
+model ReferralShare {
+  id         String                @id @default(uuid())
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id])
+  platform   ReferralSharePlatform
+  campaign   String?
+  createdAt  DateTime              @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum ReferralSharePlatform {
+  WHATSAPP
+  NATIVE
+  COPY
+  TELEGRAM
+}
+
+model BeliTransaction {
+  id             String              @id @default(uuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id])
+  referralId     String?
+  referral       Referral?           @relation(fields: [referralId], references: [id])
+  type           BeliTransactionType
+  amount         Int
+  balanceAfter   Int
+  idempotencyKey String              @unique
+  description    String
+  metadata       Json?
+  createdAt      DateTime            @default(now())
+
+  @@index([userId, createdAt])
+  @@index([referralId])
+}
+
+enum BeliTransactionType {
+  REFERRAL_ACTIVATION
+  REFERRAL_MILESTONE
+  REWARD_REDEMPTION
+  ADJUSTMENT
+}
+
+model RewardEntitlement {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  itemId      String
+  name        String
+  type        RewardItemType
+  source      String
+  costBeli    Int
+  grantedAt   DateTime         @default(now())
+
+  @@unique([userId, itemId])
+  @@index([userId, grantedAt])
+}
+
+enum RewardItemType {
+  AVATAR_FRAME
+  TABLE_THEME
+  EMOTE
+  TITLE
 }
 
 // ─── DAILY REWARDS ──────────────────────────────────────────────────────────
@@ -609,6 +744,8 @@ enum NotificationType {
   SEASON_REWARD
   GIFT_RECEIVED
   CLUB_INVITE
+  REFERRAL_ACTIVATED
+  BELI_REWARD
   SYSTEM
 }
 

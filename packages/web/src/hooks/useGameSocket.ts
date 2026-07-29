@@ -10,7 +10,7 @@ import { useUIStore } from '../stores/uiStore';
  */
 export function useGameSocket() {
   const { updateFromServer, addChatMessage, setGameMessage } = useGameStore();
-  const { updateChips } = useAuthStore();
+  const { refreshProfile } = useAuthStore();
   const { addToast } = useUIStore();
 
   useEffect(() => {
@@ -22,16 +22,15 @@ export function useGameSocket() {
     // Game ended
     const unsubEnded = socketService.on('game:ended', (data: any) => {
       const winnerNames = data.winners?.map((w: any) => w.username).join(', ') || 'Unknown';
-      setGameMessage(`Winner: ${winnerNames} — Won ₹${data.pot}`);
+      setGameMessage(`Winner: ${winnerNames} — Won ${data.pot} chips`);
 
       // Update local chips if we won
-      const me = data.winners?.find((w: any) => {
-        const store = useAuthStore.getState();
-        return store.user?.id === w.odic;
-      });
+      const myPlayerId = useGameStore.getState().myPlayerId;
+      const me = data.winners?.find((winner: any) => winner.id === myPlayerId);
       if (me) {
-        addToast({ message: `You won ₹${data.pot}!`, type: 'success', duration: 5000 });
+        addToast({ message: `You won ${data.pot} chips!`, type: 'success', duration: 5000 });
       }
+      void refreshProfile();
     });
 
     // AI thinking
@@ -65,6 +64,15 @@ export function useGameSocket() {
       });
     });
 
+    const unsubReferral = socketService.on('referral:rewarded', (data: any) => {
+      addToast({
+        message: `First real game complete — ${data.beli} Beli unlocked!`,
+        type: 'success',
+        duration: 6000,
+      });
+      void refreshProfile();
+    });
+
     // Connection events
     const unsubConnected = socketService.on('connected', () => {
       useAuthStore.getState().setOnline(true);
@@ -86,9 +94,10 @@ export function useGameSocket() {
       unsubTimeout();
       unsubChat();
       unsubGift();
+      unsubReferral();
       unsubConnected();
       unsubDisconnected();
       unsubError();
     };
-  }, [updateFromServer, addChatMessage, setGameMessage, updateChips, addToast]);
+  }, [updateFromServer, addChatMessage, setGameMessage, refreshProfile, addToast]);
 }

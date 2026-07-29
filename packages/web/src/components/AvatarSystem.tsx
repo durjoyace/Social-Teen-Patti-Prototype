@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 import type { VipTier } from '../types';
+import type { ReactElement } from 'react';
 
 // ---------------------------------------------------------------------------
 // Size map
@@ -1163,7 +1164,7 @@ function DeepaAvatar() {
 // Avatar registry
 // ---------------------------------------------------------------------------
 
-const CHARACTER_AVATARS: Record<CharacterId, () => JSX.Element> = {
+const CHARACTER_AVATARS: Record<CharacterId, () => ReactElement> = {
   sharma_ji: SharmaJiAvatar,
   priya: PriyaAvatar,
   bunty: BuntyAvatar,

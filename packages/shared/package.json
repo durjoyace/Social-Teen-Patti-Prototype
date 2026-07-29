@@ -5,9 +5,12 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/game/*.test.ts"
   },
   "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
     "typescript": "^5.5.4"
   }
 }
