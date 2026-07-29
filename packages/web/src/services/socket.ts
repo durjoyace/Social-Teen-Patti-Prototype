@@ -1,7 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { api } from './api';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL?.replace(/\/$/, '');
+const SOCKET_URL = configuredSocketUrl && (!import.meta.env.PROD || configuredSocketUrl.startsWith('https://'))
+  ? configuredSocketUrl
+  : import.meta.env.DEV ? 'http://localhost:3001' : '';
 
 type GameStateCallback = (state: any) => void;
 type RoomStateCallback = (room: any) => void;
@@ -19,6 +22,10 @@ class SocketService {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (!SOCKET_URL) {
+        reject(new Error('The production game server is not configured'));
+        return;
+      }
       const token = api.getToken();
       if (!token) {
         reject(new Error('No auth token'));

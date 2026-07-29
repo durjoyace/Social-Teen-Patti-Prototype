@@ -1,36 +1,48 @@
 type Props = Record<string, string | number | boolean | null>;
+type MixpanelClient = typeof import('mixpanel-browser')['default'];
 
 const SAFE_PROPERTY = /^[a-z][a-z0-9_]*$/;
 
 class AnalyticsManager {
-  private mp: any = null;
-  private enabled = import.meta.env.VITE_ANALYTICS_ENABLED !== 'false';
+  private enabled = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
+  private initialized = false;
+  private client: MixpanelClient | null = null;
+  private pendingUserId: string | null = null;
   private sessionId = '';
 
   init() {
+    if (this.initialized) return;
     this.sessionId = sessionStorage.getItem('tp_analytics_session') || crypto.randomUUID();
     sessionStorage.setItem('tp_analytics_session', this.sessionId);
-    this.mp = (window as any).mixpanel || null;
     const token = import.meta.env.VITE_MIXPANEL_TOKEN;
-    if (this.enabled && token && this.mp?.init) {
-      this.mp.init(token, {
-        track_pageview: false,
-        persistence: 'localStorage',
-        ignore_dnt: false,
-      });
+    if (this.enabled && token) {
+      void import('mixpanel-browser').then(({ default: client }) => {
+        client.init(token, {
+          autocapture: false,
+          track_pageview: false,
+          persistence: 'localStorage',
+          ignore_dnt: false,
+          ip: false,
+          secure_cookie: true,
+        });
+        this.client = client;
+        this.initialized = true;
+        if (this.pendingUserId) client.identify(this.pendingUserId);
+      }).catch(error => console.warn('[Analytics] Initialization failed', error));
     }
   }
 
   identify(userId: string) {
-    if (this.enabled) this.mp?.identify?.(userId);
+    this.pendingUserId = userId;
+    if (this.initialized) this.client?.identify(userId);
   }
 
   track(event: string, properties: Props = {}) {
-    if (!this.enabled || !/^[a-z][a-z0-9_]*$/.test(event)) return;
+    if (!this.initialized || !/^[a-z][a-z0-9_]*$/.test(event)) return;
     const safeProperties = Object.fromEntries(
       Object.entries(properties).filter(([key, value]) => SAFE_PROPERTY.test(key) && value !== undefined),
     );
-    this.mp?.track?.(event, {
+    this.client?.track(event, {
       ...safeProperties,
       occurred_at: new Date().toISOString(),
       platform: 'web',
@@ -40,8 +52,10 @@ class AnalyticsManager {
   }
 
   reset() {
-    this.mp?.reset?.();
-    sessionStorage.removeItem('tp_analytics_session');
+    this.pendingUserId = null;
+    if (this.initialized) this.client?.reset();
+    this.sessionId = crypto.randomUUID();
+    sessionStorage.setItem('tp_analytics_session', this.sessionId);
   }
 
   gameStarted(variant: string, playerCount: number, isQuickPlay: boolean) {

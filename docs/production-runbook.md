@@ -16,19 +16,29 @@ Server production startup fails closed unless database/JWT/referral secrets are 
 - `CORS_ORIGIN` as a comma-separated exact allowlist
 - `TRUST_PROXY=1`, adjusted only to the known proxy topology
 - `APP_VERSION` as the release SHA
+- `SENTRY_DSN` and a reviewed `SENTRY_TRACES_SAMPLE_RATE` (default `0.05`)
 - `PURCHASES_ENABLED=false`
 
-Web needs `VITE_API_URL`, `VITE_SOCKET_URL`, analytics choice/token, and purchases disabled. EAS needs `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL`; release builds must not use the localhost defaults.
+Web needs HTTPS `VITE_API_URL` and `VITE_SOCKET_URL`, `VITE_SENTRY_DSN`, an explicit analytics choice plus `VITE_MIXPANEL_TOKEN`, and purchases disabled. Production clients refuse insecure or missing backend endpoints. EAS needs HTTPS `EXPO_PUBLIC_API_URL` (including `/api`) and `EXPO_PUBLIC_SOCKET_URL`; dynamic Expo configuration fails preview and production builds when either is absent or insecure.
 
 ## Deploy
 
 1. Take/verify a PostgreSQL backup and test restore evidence.
 2. Run `pnpm install --frozen-lockfile`, `pnpm audit:prod`, and `pnpm verify` on Node 22.
-3. Apply `pnpm --filter teen-patti-server exec prisma migrate deploy` against the target database.
-4. Deploy one backend replica. Require HTTP 200 from `/health` and `/ready`; verify the reported `APP_VERSION`.
-5. Smoke-test guest auth, socket connection, private room creation, second-human auto-start, one completed game, referral reward, repeat-game idempotency, and Beli redemption.
-6. Deploy web, then EAS builds. Test the HTTPS universal/app link and `teenpatti://invite/<code>` on physical Android and iOS devices.
-7. Watch errors, readiness, socket disconnects, game settlement failures, referral reward failures/rejections, and p95 API latency for at least 30 minutes.
+3. Deploy `server/` to Railway from its Dockerfile. Railway runs `npm run db:deploy` as a pre-deploy command; do not run multiple application replicas. Require HTTP 200 from `/health` and database-backed `/ready`, and verify the reported `APP_VERSION`.
+4. Run the non-mutating gate: `SMOKE_BASE_URL=https://<backend> SMOKE_WEB_URL=https://social-teen-patti.vercel.app pnpm smoke:production`.
+5. Run the self-cleaning auth/referral/WebSocket gate by adding `SMOKE_MUTATING=true`. It creates two guests, attributes an invite, joins both to a private table, then anonymizes both accounts in `finally` cleanup.
+6. Manually complete one multiplayer game, verify double-sided referral reward plus repeat-game idempotency, and redeem one Beli extra in the invite-only environment.
+7. Configure the same backend endpoints in Vercel and EAS. Run `pnpm --filter @teen-patti/mobile config:release`, then `build:preview`; test HTTPS universal/app links and `teenpatti://invite/<code>` on physical Android and iOS devices.
+8. Watch Sentry errors, readiness, socket disconnects, game settlement failures, referral reward failures/rejections, and p95 API latency for at least 30 minutes.
+
+## Account deletion and retention
+
+Authenticated users can delete their account from web or mobile settings. Registered accounts must re-enter their password and every user must type `DELETE`; the API rate-limits attempts, anonymizes the profile, scrubs authored chat/gift/table data, removes social relations and notifications, disconnects active sockets, and invalidates access/refresh tokens through the banned tombstone. Immutable gameplay, economy, payment, and referral ledgers retain only the pseudonymous internal user ID so financial integrity and abuse investigations remain possible. Document and approve the final retention period before public release.
+
+## Service ownership gates
+
+Railway PostgreSQL, Sentry, Mixpanel, Expo/EAS, Apple Developer, and Google Play must be owned by Battle Green Consulting or a company-controlled admin identity. Creating an account, selecting a paid plan, accepting platform terms, or granting roles requires the owner at the action point. Domain purchase remains explicitly unauthorized; the Vercel hostname is the release URL until that changes.
 
 ## Rollback
 

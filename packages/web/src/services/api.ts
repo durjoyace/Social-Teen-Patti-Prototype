@@ -1,6 +1,9 @@
 import type { ReferralAttribution, ReferralSharePlatform, ReferralSummary } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const configuredApiUrl = import.meta.env.VITE_API_URL?.replace(/\/$/, '');
+const API_URL = configuredApiUrl && (!import.meta.env.PROD || configuredApiUrl.startsWith('https://'))
+  ? configuredApiUrl
+  : import.meta.env.DEV ? 'http://localhost:3001/api' : '';
 
 interface ApiResponse<T = unknown> {
   data?: T;
@@ -45,6 +48,7 @@ class ApiClient {
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    if (!API_URL) throw new Error('The production game server is not configured');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Device-Id': this.getDeviceId(),
@@ -176,6 +180,13 @@ class ApiClient {
     return this.request<{ user: any }>('/users/profile', {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAccount(confirmation: string, password?: string) {
+    return this.request<{ deleted: true }>('/users/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmation, password: password || undefined }),
     });
   }
 

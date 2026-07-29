@@ -10,6 +10,8 @@ const rawEnvSchema = z.object({
   PUBLIC_APP_URL: z.string().url().default('http://localhost:5173'),
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(1),
   APP_VERSION: z.string().default('dev'),
+  SENTRY_DSN: z.union([z.string().url(), z.literal('')]).default(''),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.05),
 
   DATABASE_URL: z.string().default(''),
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
@@ -108,6 +110,8 @@ export const env = {
   publicAppUrl: raw.PUBLIC_APP_URL.replace(/\/$/, ''),
   trustProxy: raw.TRUST_PROXY,
   appVersion: raw.APP_VERSION,
+  sentryDsn: raw.SENTRY_DSN,
+  sentryTracesSampleRate: raw.SENTRY_TRACES_SAMPLE_RATE,
 
   databaseUrl: raw.DATABASE_URL,
   redisUrl: raw.REDIS_URL,

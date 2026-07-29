@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { errorTracker } from '../services/errorTracking';
 
 interface Props {
   children: ReactNode;
@@ -21,8 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // In production: send to Sentry/error reporting
-    console.error('[ErrorBoundary]', error, errorInfo);
+    errorTracker.captureError(error, { extra: { component_stack: errorInfo.componentStack } });
   }
 
   render() {

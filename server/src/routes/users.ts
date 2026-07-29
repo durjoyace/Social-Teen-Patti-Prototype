@@ -2,9 +2,43 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../config/database.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { rateLimit } from '../middleware/rateLimit.js';
+import { AccountDeletionError, deleteAccount } from '../services/accountDeletion.js';
 
 export const usersRouter: Router = Router();
 usersRouter.use(authMiddleware);
+
+const deleteAccountSchema = z.object({
+  confirmation: z.literal('DELETE'),
+  password: z.string().max(128).optional(),
+});
+
+usersRouter.delete(
+  '/account',
+  rateLimit({ windowMs: 15 * 60_000, max: 5, name: 'account-deletion' }),
+  async (req: Request, res: Response) => {
+    try {
+      const input = deleteAccountSchema.parse(req.body);
+      const userId = req.user!.userId;
+      await deleteAccount(userId, input.password);
+
+      const io = req.app.get('io') as { in(room: string): { disconnectSockets(close?: boolean): void } } | undefined;
+      io?.in(`user:${userId}`).disconnectSockets(true);
+      res.json({ deleted: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: 'Type DELETE to confirm account deletion' });
+        return;
+      }
+      if (error instanceof AccountDeletionError) {
+        res.status(error.statusCode).json({ error: error.message });
+        return;
+      }
+      console.error('Account deletion error:', error);
+      res.status(500).json({ error: 'Could not delete account' });
+    }
+  },
+);
 
 // ─── Update Profile ────────────────────────────────────────────────────────
 

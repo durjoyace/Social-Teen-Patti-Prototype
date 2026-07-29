@@ -5,8 +5,9 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "npx tsx src/index.ts",
-    "healthcheckPath": "/health",
+    "preDeployCommand": "npm run db:deploy",
+    "healthcheckPath": "/ready",
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

@@ -3,7 +3,6 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import crypto from 'node:crypto';
 import { env } from './config/env.js';
 import { prisma } from './config/database.js';
@@ -13,6 +12,7 @@ import { paymentsRouter } from './routes/payments.js';
 import { referralsRouter } from './routes/referrals.js';
 import { setupSocketHandlers } from './services/socketHandler.js';
 import { rateLimit } from './middleware/rateLimit.js';
+import { captureException, flushErrorTelemetry } from './instrument.js';
 
 export const app = express();
 export const httpServer = createServer(app);
@@ -31,6 +31,7 @@ const io = new Server(httpServer, {
   pingInterval: 10000,
   pingTimeout: 5000,
 });
+app.set('io', io);
 
 // ─── Middleware ─────────────────────────────────────────────────────────────
 
@@ -38,13 +39,23 @@ app.use(helmet());
 app.set('trust proxy', env.trustProxy);
 app.use(cors({ origin: (origin, callback) => callback(null, isAllowedOrigin(origin)), credentials: true }));
 app.use(express.json({ limit: '1mb' }));
-app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 app.use((req, res, next) => {
   const requestId = typeof req.headers['x-request-id'] === 'string'
     ? req.headers['x-request-id'].slice(0, 128)
     : crypto.randomUUID();
   res.locals.requestId = requestId;
   res.setHeader('X-Request-Id', requestId);
+  const startedAt = performance.now();
+  res.on('finish', () => {
+    console.log(JSON.stringify({
+      type: 'http_request',
+      requestId,
+      method: req.method,
+      path: req.originalUrl.split('?')[0],
+      status: res.statusCode,
+      durationMs: Math.round((performance.now() - startedAt) * 10) / 10,
+    }));
+  });
   next();
 });
 
@@ -84,6 +95,7 @@ app.use('/api', (_req, res) => {
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err);
+  captureException(err, { request_id: String(res.locals.requestId || 'unknown') });
   res.status(500).json({
     error: env.nodeEnv === 'production' ? 'Internal server error' : err.message,
     requestId: res.locals.requestId,
@@ -114,35 +126,41 @@ async function start() {
     });
   } catch (error) {
     console.error('[FATAL] Failed to start server:', error);
-    process.exit(1);
+    await terminateAfterFatal(error, 'startup');
   }
 }
 
-// Catch unhandled errors
-process.on('uncaughtException', (err) => {
-  console.error('[FATAL] Uncaught exception:', err);
+let isShuttingDown = false;
+
+async function terminateAfterFatal(error: unknown, source: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  captureException(error, { fatal_source: source });
+  await flushErrorTelemetry();
   process.exit(1);
+}
+
+process.on('uncaughtException', error => {
+  console.error('[FATAL] Uncaught exception:', error);
+  void terminateAfterFatal(error, 'uncaught_exception');
 });
-process.on('unhandledRejection', (err) => {
-  console.error('[FATAL] Unhandled rejection:', err);
-  process.exit(1);
+process.on('unhandledRejection', error => {
+  console.error('[FATAL] Unhandled rejection:', error);
+  void terminateAfterFatal(error, 'unhandled_rejection');
 });
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('\nShutting down gracefully...');
-  io.close();
+async function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`[SHUTDOWN] ${signal}`);
+  await new Promise<void>(resolve => io.close(() => resolve()));
   await prisma.$disconnect();
-  httpServer.close();
+  await flushErrorTelemetry();
   process.exit(0);
-});
+}
 
-process.on('SIGINT', async () => {
-  console.log('\nShutting down...');
-  io.close();
-  await prisma.$disconnect();
-  httpServer.close();
-  process.exit(0);
-});
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
 if (env.nodeEnv !== 'test') start();
