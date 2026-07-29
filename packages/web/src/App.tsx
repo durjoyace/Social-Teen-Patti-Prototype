@@ -109,8 +109,6 @@ export function App() {
 
   // Initialize all services
   useEffect(() => {
-    analytics.init();
-    errorTracker.init();
     pushNotifications.init();
     if (referralAttribution) {
       analytics.referralLinkOpened(
@@ -119,6 +117,16 @@ export function App() {
       );
     }
   }, [referralAttribution]);
+
+  useEffect(() => {
+    if (user) {
+      analytics.identify(user.id);
+      errorTracker.setUser(user.id);
+    } else {
+      analytics.reset();
+      errorTracker.clearUser();
+    }
+  }, [user?.id]);
 
   // Initialize sound systems on first user interaction
   useEffect(() => {

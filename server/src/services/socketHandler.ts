@@ -60,7 +60,8 @@ export function setupSocketHandlers(io: Server) {
 
   io.on('connection', (socket: Socket) => {
     const user = socket.data.user;
-    console.log(`[Socket] Connected: ${user.username} (${user.userId})`);
+    void socket.join(`user:${user.userId}`);
+    console.log('[Socket] Connected');
 
     // Update online status
     prisma.user.update({
@@ -71,7 +72,7 @@ export function setupSocketHandlers(io: Server) {
     // Try to reconnect to existing room
     const reconnected = roomManager.handleReconnect(user.userId, socket);
     if (reconnected) {
-      console.log(`[Socket] Reconnected ${user.username} to existing room`);
+      console.log('[Socket] Reconnected to an existing room');
     }
 
     // ─── Room Events ─────────────────────────────────────────────────────
@@ -240,7 +241,7 @@ export function setupSocketHandlers(io: Server) {
     // ─── Disconnect ──────────────────────────────────────────────────────
 
     socket.on('disconnect', (reason) => {
-      console.log(`[Socket] Disconnected: ${user.username} (${reason})`);
+      console.log(`[Socket] Disconnected: ${reason}`);
       roomManager.handleDisconnect(socket.id);
 
       prisma.user.update({

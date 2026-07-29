@@ -10,12 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@sentry/react": "10.69.0",
     "@teen-patti/shared": "workspace:*",
     "@tanstack/react-query": "^5.90.19",
     "clsx": "^2.1.1",
     "framer-motion": "^11.5.4",
     "howler": "^2.2.4",
     "lucide-react": "0.522.0",
+    "mixpanel-browser": "2.81.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "socket.io-client": "^4.8.3",

@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
-import { Eye, FileText, LogOut, Music, Shield, UserCircle, Vibrate, Volume2 } from 'lucide-react';
+import { useState } from 'react';
+import { Eye, FileText, LogOut, Music, Shield, Trash2, UserCircle, Vibrate, Volume2 } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { NavigationBar } from '../components/NavigationBar';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
+import { api } from '../services/api';
 
 interface SettingsScreenProps {
   onNavigate: (screen: string) => void;
@@ -21,10 +23,29 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     reducedMotion,
     toggleReducedMotion,
   } = useUIStore();
+  const [showDelete, setShowDelete] = useState(false);
+  const [confirmation, setConfirmation] = useState('');
+  const [password, setPassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleLogout = () => {
     logout();
     onNavigate('login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (confirmation !== 'DELETE' || isDeleting) return;
+    setDeleteError('');
+    setIsDeleting(true);
+    try {
+      await api.deleteAccount(confirmation, user?.isGuest ? undefined : password);
+      logout();
+      onNavigate('login');
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Could not delete account');
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -81,6 +102,56 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
           >
             <LogOut className="h-5 w-5" /> Sign out
           </motion.button>
+
+          <section className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+            <button
+              type="button"
+              onClick={() => setShowDelete(value => !value)}
+              className="flex min-h-10 w-full items-center gap-3 text-left text-red-300"
+            >
+              <Trash2 className="h-5 w-5" />
+              <span className="flex-1 font-semibold">Delete account</span>
+              <span className="text-xs text-red-200/60">Permanent</span>
+            </button>
+
+            {showDelete && (
+              <div className="mt-4 space-y-3 border-t border-red-500/15 pt-4">
+                <p className="text-sm leading-6 text-white/65">
+                  Your profile and social content will be removed. Auditable game, referral, and transaction records are retained without your profile identifiers.
+                </p>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-white/50">
+                  Type DELETE to confirm
+                  <input
+                    value={confirmation}
+                    onChange={event => setConfirmation(event.target.value)}
+                    autoComplete="off"
+                    className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base normal-case tracking-normal text-white outline-none focus:border-red-400"
+                  />
+                </label>
+                {!user?.isGuest && (
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/50">
+                    Current password
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={event => setPassword(event.target.value)}
+                      autoComplete="current-password"
+                      className="mt-2 min-h-12 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-base normal-case tracking-normal text-white outline-none focus:border-red-400"
+                    />
+                  </label>
+                )}
+                {deleteError && <p role="alert" className="text-sm text-red-300">{deleteError}</p>}
+                <button
+                  type="button"
+                  disabled={confirmation !== 'DELETE' || (!user?.isGuest && !password) || isDeleting}
+                  onClick={() => void handleDeleteAccount()}
+                  className="min-h-12 w-full rounded-xl bg-red-600 px-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  {isDeleting ? 'Deleting…' : 'Permanently delete account'}
+                </button>
+              </div>
+            )}
+          </section>
 
           <p className="text-center text-xs text-white/30">Teen Patti Social prelaunch</p>
         </main>

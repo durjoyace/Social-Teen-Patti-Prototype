@@ -92,10 +92,12 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
           {/* Top bar */}
           <div className="flex items-center justify-between mb-4">
             {/* Profile */}
-            <motion.div
+            <motion.button
+              type="button"
               whileTap={{ scale: 0.95 }}
               onClick={() => onNavigate('profile')}
-              className="flex items-center gap-3"
+              className="flex items-center gap-3 text-left"
+              aria-label="Open profile"
             >
               <div className="relative">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center text-white font-bold text-lg ring-2 ring-yellow-500/50">
@@ -111,11 +113,13 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
                   <AnimatedChipCount value={user?.chips || 0} prefix="◉ " className="text-yellow-400 text-sm font-bold" />
                 </div>
               </div>
-            </motion.div>
+            </motion.button>
 
             {/* Actions */}
             <div className="flex items-center gap-2">
               <motion.button
+                type="button"
+                aria-label="Settings"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onNavigate('settings')}

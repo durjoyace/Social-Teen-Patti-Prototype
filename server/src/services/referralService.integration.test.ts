@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../config/database.js';
+import { AccountDeletionError, deleteAccount, deletedUsername } from './accountDeletion.js';
 import {
   attributeReferral,
   ensureReferralCode,
@@ -12,6 +14,10 @@ import {
 const hasTestDatabase = Boolean(process.env.TEST_DATABASE_URL);
 
 async function cleanDatabase() {
+  await prisma.chatMessage.deleteMany();
+  await prisma.gift.deleteMany();
+  await prisma.friendship.deleteMany();
+  await prisma.clubMember.deleteMany();
   await prisma.beliTransaction.deleteMany();
   await prisma.rewardEntitlement.deleteMany();
   await prisma.referralShare.deleteMany();
@@ -21,6 +27,48 @@ async function cleanDatabase() {
   await prisma.transaction.deleteMany();
   await prisma.user.deleteMany();
 }
+
+test('account deletion requires the password and scrubs identity plus social content', { skip: !hasTestDatabase }, async () => {
+  await cleanDatabase();
+  const password = 'correct-horse-battery-staple';
+  const account = await prisma.user.create({
+    data: {
+      username: 'delete_integration',
+      email: 'delete@example.com',
+      phone: '+15555550100',
+      passwordHash: await bcrypt.hash(password, 4),
+      avatarUrl: 'https://example.com/avatar.png',
+      adultConfirmedAt: new Date(),
+    },
+  });
+  const other = await prisma.user.create({ data: { username: 'delete_other' } });
+  await prisma.friendship.create({ data: { requesterId: account.id, receiverId: other.id } });
+  await prisma.chatMessage.create({ data: { userId: account.id, content: 'personal message' } });
+  await prisma.gift.create({
+    data: { senderId: account.id, receiverId: other.id, giftType: 'emoji', message: 'personal note' },
+  });
+
+  await assert.rejects(
+    () => deleteAccount(account.id, 'wrong-password'),
+    (error: unknown) => error instanceof AccountDeletionError && error.statusCode === 403,
+  );
+
+  await deleteAccount(account.id, password);
+  const deleted = await prisma.user.findUniqueOrThrow({ where: { id: account.id } });
+  assert.equal(deleted.username, deletedUsername(account.id));
+  assert.equal(deleted.email, null);
+  assert.equal(deleted.phone, null);
+  assert.equal(deleted.passwordHash, null);
+  assert.equal(deleted.avatarUrl, null);
+  assert.equal(deleted.adultConfirmedAt, null);
+  assert.equal(deleted.isBanned, true);
+  assert.equal(deleted.banReason, 'account_deleted');
+  assert.equal(await prisma.friendship.count({ where: { requesterId: account.id } }), 0);
+  assert.equal((await prisma.chatMessage.findFirstOrThrow({ where: { userId: account.id } })).content, '[deleted]');
+  assert.equal((await prisma.gift.findFirstOrThrow({ where: { senderId: account.id } })).message, null);
+
+  await cleanDatabase();
+});
 
 test('referral activation is multiplayer-only, double-sided, and idempotent', { skip: !hasTestDatabase }, async () => {
   await cleanDatabase();
