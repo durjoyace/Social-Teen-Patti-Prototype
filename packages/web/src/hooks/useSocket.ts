@@ -297,13 +297,13 @@ const getAIActionMessage = (playerName: string, action: ActionType, isBluff?: bo
 
 // Simulated multiplayer for demo (no server required)
 export function useSimulatedMultiplayer() {
-  const { gameState, performAction, setGameMessage } = useGameStore();
+  const { gameState, performAction, setGameMessage, isOnlineMode } = useGameStore();
   const [aiThinking, setAiThinking] = useState(false);
   const [currentAIPlayer, setCurrentAIPlayer] = useState<string | null>(null);
 
   // Simulate AI players taking turns with smart decisions
   useEffect(() => {
-    if (!gameState || gameState.isGameOver) return;
+    if (isOnlineMode || !gameState || gameState.isGameOver) return;
 
     const currentPlayer = gameState.session.players.find(p => p.isTurn);
     if (!currentPlayer || currentPlayer.seatPosition === 0) return; // Player 0 is the user
@@ -399,7 +399,7 @@ export function useSimulatedMultiplayer() {
     }, thinkingTime);
 
     return () => clearTimeout(timer);
-  }, [gameState, performAction, setGameMessage]);
+  }, [gameState, performAction, setGameMessage, isOnlineMode]);
 
   return { aiThinking, currentAIPlayer };
 }

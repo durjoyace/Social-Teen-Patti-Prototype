@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Shield, Users, Sparkles } from 'lucide-react';
+import { ArrowRight, Server, Users, Sparkles } from 'lucide-react';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -10,21 +10,21 @@ const steps = [
   {
     emoji: '🙏',
     title: 'Welcome to Teen Patti Social',
-    text: 'India\'s first provably fair card game. Every hand verified. Every deal honest.',
+    text: 'Adults-only social Teen Patti built around fast private tables with real friends.',
     accent: 'from-yellow-500 to-orange-500',
     icon: Sparkles,
   },
   {
-    emoji: '🔐',
-    title: 'Provably Fair',
-    text: 'Before every hand, we show you a cryptographic hash. After the hand, verify it wasn\'t changed. Don\'t trust us — verify.',
+    emoji: '🛡️',
+    title: 'Server Authoritative',
+    text: 'The server shuffles, deals, validates every action, and commits every completed game result.',
     accent: 'from-green-500 to-emerald-500',
-    icon: Shield,
+    icon: Server,
   },
   {
     emoji: '🎉',
     title: 'Play With Friends',
-    text: 'Voice chat at the table. Send gifts. Join clubs. Compete in tournaments. It feels like playing at home with family.',
+    text: 'Create a private table, share one link, and start automatically when your friend joins.',
     accent: 'from-blue-500 to-purple-500',
     icon: Users,
   },

@@ -1,16 +1,56 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { Alert, View, Text, StyleSheet, Pressable } from 'react-native';
 import { Slot, useRouter, usePathname } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { colors } from '../../src/theme/tokens';
+import { useGameSocket } from '../../src/hooks/useGameSocket';
+import { gameSocket } from '../../src/services/socket';
+import {
+  captureReferralUrl,
+  clearPendingRoomCode,
+  getPendingRoomCode,
+} from '../../src/services/referralAttribution';
 
 const TABS = [
   { path: '/(main)/lobby', label: 'Home', emoji: '🏠' },
+  { path: '/(main)/referrals', label: 'Invite', emoji: '🤝' },
   { path: '/(main)/profile', label: 'Profile', emoji: '👤' },
   { path: '/(main)/settings', label: 'Settings', emoji: '⚙️' },
 ];
 
 export default function MainLayout() {
+  useGameSocket();
   const router = useRouter();
   const pathname = usePathname();
+  const joiningRoom = useRef(false);
+
+  const joinPendingRoom = useCallback(async (url?: string) => {
+    if (url) await captureReferralUrl(url);
+    if (joiningRoom.current) return;
+    const roomCode = await getPendingRoomCode();
+    if (!roomCode) return;
+
+    joiningRoom.current = true;
+    try {
+      const result = await gameSocket.joinByCode(roomCode);
+      if (!result.success) throw new Error(result.error || 'That friend table is no longer available');
+      await clearPendingRoomCode();
+      Alert.alert('Friend table joined', 'You are in. The deal starts when both players are ready.');
+    } catch (error) {
+      await clearPendingRoomCode();
+      Alert.alert('Could not join the table', error instanceof Error ? error.message : 'Ask your friend for a fresh invite.');
+    } finally {
+      joiningRoom.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    void joinPendingRoom();
+    const subscription = Linking.addEventListener('url', event => {
+      void joinPendingRoom(event.url);
+    });
+    return () => subscription.remove();
+  }, [joinPendingRoom]);
 
   return (
     <View style={styles.container}>

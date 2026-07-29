@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { initializeGame, processAction, getAvailableActions, type GameState } from '@teen-patti/shared';
 import type { GameRoom, ActionType, Card, GameVariant } from '@teen-patti/shared';
-import { getSocket } from '../services/socket';
+import { gameSocket } from '../services/socket';
 
 interface GameStoreState {
   gameState: GameState | null;
@@ -11,6 +11,7 @@ interface GameStoreState {
   availableActions: ActionType[];
   showCards: boolean;
   gameMessage: string | null;
+  isOnlineMode: boolean;
 
   // Actions
   startQuickPlay: (userId: string, variant?: GameVariant) => void;
@@ -18,6 +19,7 @@ interface GameStoreState {
   toggleShowCards: () => void;
   leaveGame: () => void;
   setGameMessage: (msg: string | null) => void;
+  updateFromServer: (state: any) => void;
 }
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
@@ -28,6 +30,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   availableActions: [],
   showCards: false,
   gameMessage: null,
+  isOnlineMode: false,
 
   startQuickPlay: (userId, variant = 'classic') => {
     const players = [
@@ -48,12 +51,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       availableActions: myPlayer?.isTurn ? actions : [],
       showCards: false,
       gameMessage: 'Game started! Cards dealt.',
+      isOnlineMode: false,
     });
   },
 
   performAction: (action, amount) => {
-    const { gameState } = get();
+    const { gameState, isOnlineMode } = get();
     if (!gameState) return;
+
+    if (isOnlineMode) {
+      void gameSocket.action(action, amount).then(result => {
+        if (!result.success) set({ gameMessage: result.error || 'Action failed' });
+      }).catch(error => set({ gameMessage: error instanceof Error ? error.message : 'Connection error' }));
+      return;
+    }
 
     const newState = processAction(gameState, 'p1', action, amount);
     const myPlayer = newState.session.players[0];
@@ -69,7 +80,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   toggleShowCards: () => set((s) => ({ showCards: !s.showCards })),
 
-  leaveGame: () =>
+  leaveGame: () => {
+    if (get().isOnlineMode) gameSocket.leave();
     set({
       gameState: null,
       currentRoom: null,
@@ -78,7 +90,57 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       availableActions: [],
       showCards: false,
       gameMessage: null,
-    }),
+      isOnlineMode: false,
+    });
+  },
 
   setGameMessage: (msg) => set({ gameMessage: msg }),
+
+  updateFromServer: (serverState) => {
+    const players = serverState.players.map((player: any) => ({
+      id: player.id,
+      sessionId: serverState.sessionId,
+      userId: player.odic,
+      user: { id: player.odic, username: player.username },
+      seatPosition: player.seatPosition,
+      chipsInPlay: Number(player.chipsInPlay),
+      currentBet: Number(player.currentBet),
+      cards: player.cards,
+      handRank: player.handResult?.rank,
+      status: player.status,
+      isBlind: player.isBlind,
+      isDealer: player.isDealer,
+      isTurn: player.isTurn,
+    }));
+    const me = players.find((player: any) => Array.isArray(player.cards) && player.cards.length > 0);
+    set({
+      gameState: {
+        session: {
+          id: serverState.sessionId,
+          roomId: serverState.roomId,
+          variant: String(serverState.variant).toLowerCase(),
+          dealerPosition: serverState.dealerIndex,
+          currentTurn: serverState.currentPlayerIndex,
+          pot: Number(serverState.pot),
+          currentBet: Number(serverState.currentBet),
+          bootAmount: Number(serverState.bootAmount),
+          status: serverState.status === 'finished' ? 'finished' : 'playing',
+          roundNumber: serverState.roundNumber,
+          round: serverState.roundNumber,
+          players,
+          startedAt: new Date(),
+        },
+        deck: [],
+        currentPlayerIndex: serverState.currentPlayerIndex,
+        showdownPlayers: [],
+        winners: serverState.winners || [],
+        isGameOver: serverState.status === 'finished',
+      } as GameState,
+      myCards: me?.cards || [],
+      isMyTurn: (serverState.availableActions?.length || 0) > 0,
+      availableActions: serverState.availableActions || [],
+      isOnlineMode: true,
+      gameMessage: serverState.status === 'finished' ? 'Game over' : null,
+    });
+  },
 }));

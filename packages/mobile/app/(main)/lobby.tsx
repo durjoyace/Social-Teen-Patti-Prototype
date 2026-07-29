@@ -1,20 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { Alert, View, Text, StyleSheet, ScrollView, RefreshControl, Pressable, Share, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Animated, { FadeInDown, FadeIn, FadeInRight } from 'react-native-reanimated';
 import { useAuthStore } from '../../src/stores/authStore';
-import { useGameStore } from '../../src/stores/gameStore';
 import { AnimatedChipCount, PressableButton, GlassCard, SkeletonLoader, EmptyState } from '../../src/components/ui';
 import { formatChips } from '@teen-patti/shared';
 import { colors } from '../../src/theme/tokens';
 import { useRouter } from 'expo-router';
+import { gameSocket } from '../../src/services/socket';
+import { api } from '../../src/services/api';
+import type { ReferralSummary } from '../../src/types/referrals';
 
-const MOCK_ROOMS = [
-  { id: '1', name: 'Diwali Special', variant: 'classic' as const, minBuyIn: 100, maxBuyIn: 10000, minBet: 10, maxPlayers: 6, currentPlayers: 4, status: 'waiting' as const },
-  { id: '2', name: 'High Rollers', variant: 'classic' as const, minBuyIn: 1000, maxBuyIn: 100000, minBet: 100, maxPlayers: 6, currentPlayers: 2, status: 'waiting' as const },
-  { id: '3', name: "Joker's Den", variant: 'joker' as const, minBuyIn: 500, maxBuyIn: 50000, minBet: 50, maxPlayers: 6, currentPlayers: 5, status: 'playing' as const },
-  { id: '4', name: 'Muflis Madness', variant: 'muflis' as const, minBuyIn: 200, maxBuyIn: 20000, minBet: 20, maxPlayers: 6, currentPlayers: 3, status: 'waiting' as const },
-];
+interface RoomSummary {
+  id: string;
+  name: string;
+  variant: string;
+  minBuyIn: number;
+  maxBuyIn: number;
+  minBet: number;
+  maxPlayers: number;
+  currentPlayers: number;
+  status: 'waiting' | 'playing';
+}
 
 const VARIANT_COLORS: Record<string, string> = {
   classic: '#dc2626',
@@ -26,28 +33,107 @@ const VARIANT_COLORS: Record<string, string> = {
 
 export default function LobbyScreen() {
   const { user } = useAuthStore();
-  const { startQuickPlay } = useGameStore();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [rooms, setRooms] = useState<RoomSummary[]>([]);
+  const [roomCode, setRoomCode] = useState('');
+  const [joining, setJoining] = useState(false);
+
+  const loadRooms = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await gameSocket.listRooms();
+      setRooms(result.rooms.map(room => ({
+        id: room.id,
+        name: room.name,
+        variant: String(room.variant).toLowerCase(),
+        minBuyIn: Number(room.minBuyIn || room.bootAmount || 500),
+        maxBuyIn: Number(room.maxBuyIn || 5000),
+        minBet: Number(room.bootAmount || 50),
+        maxPlayers: Number(room.maxPlayers || 6),
+        currentPlayers: Number(room.currentPlayers || 0),
+        status: room.status,
+      })));
+    } catch {
+      setRooms([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    void loadRooms();
+    const timer = setInterval(() => void loadRooms(), 10_000);
+    return () => clearInterval(timer);
+  }, [loadRooms]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setIsLoading(false);
+    await loadRooms();
     setRefreshing(false);
   }, []);
 
-  const handleQuickPlay = () => {
-    if (user) {
-      startQuickPlay(user.id);
-      router.push('/(main)/game');
+  const handleQuickPlay = async () => {
+    try {
+      const result = await gameSocket.quickPlay();
+      if (!result.success) throw new Error(result.error || 'Could not start quick play');
+    } catch (error) {
+      Alert.alert('Could not start', error instanceof Error ? error.message : 'Connection unavailable');
+    }
+  };
+
+  const createFriendTable = async () => {
+    try {
+      const result = await gameSocket.createPrivateRoom();
+      if (!result.success || !result.room?.roomCode) throw new Error(result.error || 'Could not create table');
+      const summary = await api.get<ReferralSummary>('/referrals/summary');
+      const separator = summary.shareUrl.includes('?') ? '&' : '?';
+      const inviteUrl = `${summary.shareUrl}${separator}room=${encodeURIComponent(result.room.roomCode)}`;
+      const message = `Join my private Teen Patti table. Finish one real multiplayer game and we both unlock ${summary.activationRewardBeli} Beli extras. ${inviteUrl}`;
+      Alert.alert('Your table is ready', `Room code: ${result.room.roomCode}\n\nThe game starts when your friend joins.`, [
+        { text: 'Keep waiting', style: 'cancel' },
+        {
+          text: 'Share invite',
+          onPress: () => {
+            void Share.share({ title: 'Join my table', message }).then(shareResult => {
+              if (shareResult.action === Share.sharedAction) {
+                void api.post('/referrals/share', { platform: 'NATIVE', campaign: 'friend_table' }).catch(() => {});
+              }
+            });
+          },
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('Could not create table', error instanceof Error ? error.message : 'Connection unavailable');
+    }
+  };
+
+  const joinFriendTable = async () => {
+    const code = roomCode.trim().toUpperCase();
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      Alert.alert('Check the code', 'Enter the 6-character room code your friend sent.');
+      return;
+    }
+    setJoining(true);
+    try {
+      const result = await gameSocket.joinByCode(code);
+      if (!result.success) throw new Error(result.error || 'Could not join table');
+      setRoomCode('');
+    } catch (error) {
+      Alert.alert('Could not join table', error instanceof Error ? error.message : 'Connection unavailable');
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const joinPublicRoom = async (room: RoomSummary) => {
+    try {
+      const buyIn = Math.max(room.minBuyIn, Math.min(room.maxBuyIn, 5000));
+      const result = await gameSocket.joinRoom(room.id, buyIn);
+      if (!result.success) throw new Error(result.error || 'Could not join table');
+    } catch (error) {
+      Alert.alert('Could not join table', error instanceof Error ? error.message : 'Connection unavailable');
     }
   };
 
@@ -63,9 +149,37 @@ export default function LobbyScreen() {
           </View>
           <View>
             <Text style={styles.username}>{user?.username || 'Guest'}</Text>
-            <AnimatedChipCount value={user?.chips || 0} prefix="₹" style={styles.chips} />
+            <AnimatedChipCount value={user?.chips || 0} prefix="◉ " style={styles.chips} />
+            <Text style={styles.beliMini}>{user?.beliBalance || 0} Beli</Text>
           </View>
         </View>
+      </Animated.View>
+
+      <View style={styles.friendActions}>
+        <Pressable onPress={() => void createFriendTable()} style={styles.createButton}><Text style={styles.createText}>Create friend table</Text></Pressable>
+        <View style={styles.joinRow}>
+          <TextInput
+            value={roomCode}
+            onChangeText={value => setRoomCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+            placeholder="ROOM CODE"
+            placeholderTextColor="rgba(255,255,255,0.28)"
+            autoCapitalize="characters"
+            maxLength={6}
+            style={styles.codeInput}
+          />
+          <Pressable onPress={() => void joinFriendTable()} disabled={joining} style={styles.joinButton}><Text style={styles.joinText}>{joining ? '…' : 'Join'}</Text></Pressable>
+        </View>
+      </View>
+
+      <Animated.View entering={FadeInDown.delay(200)} style={styles.inviteWrap}>
+        <Pressable onPress={() => router.push('/(main)/referrals')} style={styles.inviteCard} accessibilityRole="button">
+          <View style={styles.inviteCopy}>
+            <Text style={styles.inviteEyebrow}>YOUR TABLE CIRCLE</Text>
+            <Text style={styles.inviteTitle}>Both unlock 100 Beli</Text>
+            <Text style={styles.inviteSub}>After your friend's first real multiplayer game</Text>
+          </View>
+          <Text style={styles.inviteAction}>Invite</Text>
+        </Pressable>
       </Animated.View>
 
       {/* Quick Play */}
@@ -103,7 +217,7 @@ export default function LobbyScreen() {
               </View>
             ))}
           </>
-        ) : MOCK_ROOMS.length === 0 ? (
+        ) : rooms.length === 0 ? (
           <EmptyState
             emoji="🃏"
             title="No tables found"
@@ -112,8 +226,9 @@ export default function LobbyScreen() {
             onAction={handleQuickPlay}
           />
         ) : (
-          MOCK_ROOMS.map((room, index) => (
+          rooms.map((room, index) => (
             <Animated.View key={room.id} entering={FadeInRight.delay(index * 80).springify()}>
+              <Pressable onPress={() => void joinPublicRoom(room)}>
               <GlassCard style={styles.roomCard}>
                 <View style={styles.roomHeader}>
                   <Text style={styles.roomName}>{room.name}</Text>
@@ -122,7 +237,7 @@ export default function LobbyScreen() {
                   </View>
                 </View>
                 <Text style={styles.roomInfo}>
-                  ₹{formatChips(room.minBuyIn)} - ₹{formatChips(room.maxBuyIn)}  •  Boot: ₹{formatChips(room.minBet)}
+                  {formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} chips  •  Boot: {formatChips(room.minBet)}
                 </Text>
                 <View style={styles.roomFooter}>
                   <View style={styles.playerDots}>
@@ -135,6 +250,7 @@ export default function LobbyScreen() {
                   </Text>
                 </View>
               </GlassCard>
+              </Pressable>
             </Animated.View>
           ))
         )}
@@ -156,6 +272,21 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   username: { color: '#fff', fontSize: 16, fontWeight: '600' },
   chips: { color: colors.yellow, fontSize: 14, fontWeight: '700' },
+  beliMini: { color: '#FFD66B', fontSize: 11, marginTop: 2 },
+  inviteWrap: { paddingHorizontal: 16, marginBottom: 12 },
+  inviteCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176B45', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,214,107,0.3)' },
+  inviteCopy: { flex: 1 },
+  inviteEyebrow: { color: '#FFD66B', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  inviteTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 3 },
+  inviteSub: { color: 'rgba(255,255,255,0.62)', fontSize: 11, marginTop: 2 },
+  inviteAction: { color: '#0B1221', backgroundColor: '#F5A524', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 12, fontWeight: '900', overflow: 'hidden' },
+  friendActions: { paddingHorizontal: 16, marginBottom: 12, gap: 8 },
+  createButton: { backgroundColor: 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 14, alignItems: 'center', padding: 13 },
+  createText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  joinRow: { flexDirection: 'row', gap: 8 },
+  codeInput: { flex: 1, minHeight: 46, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, color: '#FFD66B', paddingHorizontal: 14, fontWeight: '800', letterSpacing: 1.5 },
+  joinButton: { minWidth: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5A524', borderRadius: 12 },
+  joinText: { color: '#0B1221', fontWeight: '900' },
   quickPlayWrap: { paddingHorizontal: 16, marginBottom: 16 },
   quickPlayBtn: {
     width: '100%',

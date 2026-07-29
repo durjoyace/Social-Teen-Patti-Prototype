@@ -26,11 +26,11 @@ export function generateRefreshToken(payload: AuthPayload): string {
 }
 
 export function verifyToken(token: string): AuthPayload {
-  return jwt.verify(token, env.jwtSecret) as AuthPayload;
+  return jwt.verify(token, env.jwtSecret, { algorithms: ['HS256'] }) as AuthPayload;
 }
 
 export function verifyRefreshToken(token: string): AuthPayload {
-  return jwt.verify(token, env.jwtRefreshSecret) as AuthPayload;
+  return jwt.verify(token, env.jwtRefreshSecret, { algorithms: ['HS256'] }) as AuthPayload;
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction) {

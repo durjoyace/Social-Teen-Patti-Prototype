@@ -38,6 +38,8 @@ export interface User {
   isGuest?: boolean;
   chips: number;
   diamonds?: number;
+  beliBalance?: number;
+  referralCode?: string;
   vipTier?: VipTier;
   vipPoints?: number;
   totalGames: number;
@@ -51,6 +53,40 @@ export interface User {
   isOnline: boolean;
   lastSeen: Date;
   createdAt: Date;
+}
+
+export type ReferralStatus = 'PENDING' | 'QUALIFIED' | 'REWARDED' | 'REJECTED';
+export type ReferralSharePlatform = 'WHATSAPP' | 'NATIVE' | 'COPY' | 'TELEGRAM';
+
+export interface ReferralSummary {
+  code: string;
+  shareUrl: string;
+  beliBalance: number;
+  activationRewardBeli: number;
+  stats: { invited: number; pending: number; activated: number };
+  nextMilestone: { count: number; beli: number; label: string } | null;
+  milestones: Array<{ count: number; beli: number; label: string; achieved: boolean }>;
+  referrals: Array<{
+    id: string;
+    username: string;
+    status: ReferralStatus;
+    attributedAt: string;
+    rewardedAt: string | null;
+  }>;
+  catalog: Array<{
+    id: string;
+    name: string;
+    type: 'AVATAR_FRAME' | 'TABLE_THEME' | 'EMOTE' | 'TITLE';
+    costBeli: number;
+    description: string;
+    owned: boolean;
+  }>;
+}
+
+export interface ReferralAttribution {
+  code: string;
+  source?: string;
+  campaign?: string;
 }
 
 export interface GamePlayer {

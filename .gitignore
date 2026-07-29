@@ -6,6 +6,7 @@ server/node_modules
 dist
 dist-ssr
 server/dist
+packages/mobile/dist-ci/
 
 # Environment
 .env
@@ -36,7 +37,7 @@ Thumbs.db
 .vercel
 
 # Prisma
-server/prisma/migrations/
+*.tsbuildinfo
 
 # Capacitor
 ios/

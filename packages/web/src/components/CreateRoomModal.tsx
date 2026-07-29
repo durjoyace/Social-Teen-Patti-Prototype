@@ -9,6 +9,8 @@ interface CreateRoomModalProps {
   onClose: () => void;
   onCreate: (config: RoomConfig) => void;
   createdRoomCode?: string | null;
+  createdInviteUrl?: string | null;
+  onInviteShared?: (platform: 'NATIVE' | 'COPY') => void;
 }
 
 interface RoomConfig {
@@ -35,7 +37,7 @@ const buyInPresets = [
   { min: 5000, max: 50000, boot: 500, label: 'VIP' }
 ];
 
-export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode }: CreateRoomModalProps) {
+export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode, createdInviteUrl, onInviteShared }: CreateRoomModalProps) {
   const [config, setConfig] = useState<RoomConfig>({
     name: '',
     variant: 'classic',
@@ -83,6 +85,68 @@ export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode }: 
       bootAmount: preset.boot
     });
   };
+
+  if (isOpen && createdRoomCode) {
+    const inviteText = createdInviteUrl
+      ? `Join my private Teen Patti table. Finish one real multiplayer game and we both unlock Beli extras. ${createdInviteUrl}`
+      : `Join my Teen Patti table with room code ${createdRoomCode}.`;
+    return (
+      <AnimatePresence>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
+          <motion.div initial={{ scale: 0.94, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-sm rounded-3xl border border-[#FFD66B]/25 bg-[#111B2E] p-6 text-center shadow-2xl">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#176B45] text-2xl">🃏</div>
+            <p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-[#FFD66B]">Your table is ready</p>
+            <h2 className="mt-1 text-2xl font-bold text-white">Bring a friend in</h2>
+            <p className="mt-2 text-sm text-white/55">The game starts automatically when the second player joins.</p>
+            <button
+              onClick={() => void navigator.clipboard.writeText(createdRoomCode)}
+              className="mt-5 w-full rounded-2xl border border-[#FFD66B]/25 bg-black/25 px-4 py-4 font-mono text-2xl font-black tracking-[0.35em] text-[#FFD66B]"
+              aria-label={`Copy room code ${createdRoomCode}`}
+            >
+              {createdRoomCode}
+            </button>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(inviteText);
+                    onInviteShared?.('COPY');
+                  } catch {
+                    // Clipboard permissions vary by browser; the room code remains visible.
+                  }
+                }}
+                className="min-h-12 rounded-xl bg-white/10 font-bold text-white"
+              >
+                Copy invite
+              </button>
+              <button
+                onClick={async () => {
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({ title: 'Join my table', text: inviteText });
+                      onInviteShared?.('NATIVE');
+                    } catch {
+                      // A dismissed native share sheet is not a completed share.
+                    }
+                  } else {
+                    window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, '_blank', 'noopener,noreferrer');
+                    onInviteShared?.('NATIVE');
+                  }
+                }}
+                className="min-h-12 rounded-xl bg-[#176B45] font-bold text-white"
+              >
+                Share
+              </button>
+            </div>
+            <div className="mt-5 flex items-center justify-center gap-2 text-sm text-white/45">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#FFD66B]" /> Waiting for a friend…
+            </div>
+            <button onClick={onClose} className="mt-5 text-sm font-semibold text-white/50">Keep waiting in lobby</button>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>
@@ -219,7 +283,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode }: 
                           )}
                         >
                           <p className="font-semibold text-sm">{preset.label}</p>
-                          <p className="text-xs opacity-80">₹{preset.min} - ₹{preset.max}</p>
+                          <p className="text-xs opacity-80">{preset.min}–{preset.max} chips</p>
                         </button>
                       ))}
                     </div>
@@ -229,7 +293,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode }: 
                       <div>
                         <label className="text-xs text-white/50 block mb-1">Min Buy-in</label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">₹</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">◉</span>
                           <input
                             type="number"
                             value={config.minBuyIn}
@@ -241,7 +305,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode }: 
                       <div>
                         <label className="text-xs text-white/50 block mb-1">Max Buy-in</label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">₹</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">◉</span>
                           <input
                             type="number"
                             value={config.maxBuyIn}

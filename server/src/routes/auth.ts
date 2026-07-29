@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
 import { prisma } from '../config/database.js';
 import { env } from '../config/env.js';
 import {
@@ -9,47 +11,60 @@ import {
   verifyRefreshToken,
   authMiddleware,
 } from '../middleware/auth.js';
+import { attributeReferral } from '../services/referralService.js';
 
-export const authRouter = Router();
+export const authRouter: Router = Router();
 
 // ─── Schemas ───────────────────────────────────────────────────────────────
 
+const usernameSchema = z.string().trim().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/);
+const emailSchema = z.string().trim().email().max(254).transform(value => value.toLowerCase());
+const passwordSchema = z.string().min(12).max(128);
+
 const registerSchema = z.object({
-  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_]+$/),
-  email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
-  phone: z.string().optional(),
+  username: usernameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+  adultConfirmed: z.literal(true),
+  referralCode: z.string().trim().max(16).optional(),
+  referralSource: z.string().trim().max(64).optional(),
+  referralCampaign: z.string().trim().max(64).optional(),
+});
+
+const upgradeSchema = z.object({
+  username: usernameSchema.optional(),
+  email: emailSchema,
+  password: passwordSchema,
 });
 
 const loginSchema = z.object({
-  username: z.string().optional(),
-  email: z.string().email().optional(),
-  password: z.string(),
-});
+  username: usernameSchema.optional(),
+  email: emailSchema.optional(),
+  password: z.string().min(1).max(128),
+}).refine(value => Boolean(value.username || value.email), 'Username or email is required');
 
 const guestSchema = z.object({
-  username: z.string().min(1).max(20).optional(),
+  username: usernameSchema.optional(),
+  adultConfirmed: z.literal(true),
+  referralCode: z.string().trim().max(16).optional(),
+  referralSource: z.string().trim().max(64).optional(),
+  referralCampaign: z.string().trim().max(64).optional(),
 });
 
 // ─── Guest Login ───────────────────────────────────────────────────────────
 
 authRouter.post('/guest', async (req: Request, res: Response) => {
   try {
-    const { username } = guestSchema.parse(req.body);
+    const { username, referralCode, referralSource, referralCampaign } = guestSchema.parse(req.body);
 
-    const guestUsername = username || `Guest_${Math.floor(Math.random() * 100000)}`;
-
-    // Check if username is taken, append random suffix if so
-    let finalUsername = guestUsername;
-    const existing = await prisma.user.findUnique({ where: { username: guestUsername } });
-    if (existing) {
-      finalUsername = `${guestUsername}_${Math.floor(Math.random() * 1000)}`;
-    }
+    const guestBase = username?.slice(0, 11) || 'Guest';
+    const finalUsername = `${guestBase}_${randomBytes(4).toString('hex')}`;
 
     const user = await prisma.user.create({
       data: {
         username: finalUsername,
         isGuest: true,
+        adultConfirmedAt: new Date(),
         chips: BigInt(env.defaultChips),
       },
     });
@@ -57,11 +72,21 @@ authRouter.post('/guest', async (req: Request, res: Response) => {
     const payload = { userId: user.id, username: user.username, isGuest: true };
     const token = generateToken(payload);
     const refreshToken = generateRefreshToken(payload);
+    const referralAttribution = await attributeReferral(user.id, referralCode, {
+      source: referralSource,
+      campaign: referralCampaign,
+      deviceId: typeof req.headers['x-device-id'] === 'string' ? req.headers['x-device-id'] : undefined,
+      ip: req.ip,
+    }).catch(error => {
+      console.error('Guest referral attribution error:', error);
+      return { attributed: false as const, reason: 'unavailable' as const };
+    });
 
     res.status(201).json({
       user: serializeUser(user),
       token,
       refreshToken,
+      referralAttribution,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -96,14 +121,14 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    const passwordHash = data.password ? await bcrypt.hash(data.password, 12) : undefined;
+    const passwordHash = await bcrypt.hash(data.password, 12);
 
     const user = await prisma.user.create({
       data: {
         username: data.username,
         email: data.email,
-        phone: data.phone,
         passwordHash,
+        adultConfirmedAt: new Date(),
         chips: BigInt(env.defaultChips),
       },
     });
@@ -111,15 +136,29 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const payload = { userId: user.id, username: user.username, isGuest: false };
     const token = generateToken(payload);
     const refreshToken = generateRefreshToken(payload);
+    const referralAttribution = await attributeReferral(user.id, data.referralCode, {
+      source: data.referralSource,
+      campaign: data.referralCampaign,
+      deviceId: typeof req.headers['x-device-id'] === 'string' ? req.headers['x-device-id'] : undefined,
+      ip: req.ip,
+    }).catch(error => {
+      console.error('Registration referral attribution error:', error);
+      return { attributed: false as const, reason: 'unavailable' as const };
+    });
 
     res.status(201).json({
       user: serializeUser(user),
       token,
       refreshToken,
+      referralAttribution,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return;
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      res.status(409).json({ error: 'Username or email already registered' });
       return;
     }
     console.error('Register error:', error);
@@ -244,8 +283,8 @@ authRouter.post('/upgrade', authMiddleware, async (req: Request, res: Response) 
       return;
     }
 
-    const { email, password, username } = registerSchema.parse(req.body);
-    const passwordHash = password ? await bcrypt.hash(password, 12) : undefined;
+    const { email, password, username } = upgradeSchema.parse(req.body);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.update({
       where: { id: req.user!.userId },
@@ -271,6 +310,10 @@ authRouter.post('/upgrade', authMiddleware, async (req: Request, res: Response) 
       res.status(400).json({ error: 'Invalid input', details: error.errors });
       return;
     }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      res.status(409).json({ error: 'Username or email already registered' });
+      return;
+    }
     console.error('Upgrade error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -288,6 +331,8 @@ function serializeUser(user: any) {
     isGuest: user.isGuest,
     chips: user.chips.toString(),
     diamonds: user.diamonds,
+    beliBalance: user.beliBalance,
+    referralCode: user.referralCode,
     vipTier: user.vipTier,
     vipPoints: user.vipPoints,
     level: user.level,

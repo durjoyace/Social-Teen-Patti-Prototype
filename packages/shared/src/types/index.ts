@@ -38,6 +38,8 @@ export interface User {
   isGuest?: boolean;
   chips: number;
   diamonds?: number;
+  beliBalance?: number;
+  referralCode?: string;
   vipTier?: VipTier;
   vipPoints?: number;
   totalGames: number;

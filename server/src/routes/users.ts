@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../config/database.js';
 import { authMiddleware } from '../middleware/auth.js';
 
-export const usersRouter = Router();
+export const usersRouter: Router = Router();
 usersRouter.use(authMiddleware);
 
 // ─── Update Profile ────────────────────────────────────────────────────────
@@ -427,6 +427,8 @@ function serializeUser(user: any) {
     email: user.email,
     avatarUrl: user.avatarUrl,
     chips: user.chips.toString(),
+    beliBalance: user.beliBalance,
+    referralCode: user.referralCode,
     level: user.level,
     vipTier: user.vipTier,
   };

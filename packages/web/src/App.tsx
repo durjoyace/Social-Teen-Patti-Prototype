@@ -1,37 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import { SmoothPageTransition } from './components/PolishTouches';
 
 // ─── Pages ─────────────────────────────────────────────────────────────────
 import { SplashScreen } from './pages/SplashScreen';
-import { OnboardingFlow } from './pages/OnboardingFlow';
-import { FirstGameExperience } from './pages/FirstGameExperience';
 import { LoginScreen } from './pages/LoginScreen';
 import { LobbyScreen } from './pages/LobbyScreen';
-import { EnhancedGameTable } from './components/EnhancedGameTable';
-import { ProfileScreenNew } from './pages/ProfileScreenNew';
-import { LeaderboardScreen } from './pages/LeaderboardScreen';
-import { FriendsScreen } from './pages/FriendsScreen';
-import { ChipStoreScreen } from './pages/ChipStoreScreen';
-import { TournamentScreen } from './pages/TournamentScreen';
-import { AchievementsScreen } from './pages/AchievementsScreen';
-import { SeasonPassScreen } from './pages/SeasonPassScreen';
-import { SettingsScreen } from './pages/SettingsScreen';
-import { CoachingScreen } from './pages/CoachingScreen';
-import { SpectatorLobby } from './pages/SpectatorLobby';
+
+const FirstGameExperience = lazy(() => import('./pages/FirstGameExperience').then(module => ({ default: module.FirstGameExperience })));
+const ReferralProgram = lazy(() => import('./components/ReferralProgram').then(module => ({ default: module.ReferralProgram })));
+const EnhancedGameTable = lazy(() => import('./components/EnhancedGameTable').then(module => ({ default: module.EnhancedGameTable })));
+const ProfileScreenNew = lazy(() => import('./pages/ProfileScreenNew').then(module => ({ default: module.ProfileScreenNew })));
+const SettingsScreen = lazy(() => import('./pages/SettingsScreen').then(module => ({ default: module.SettingsScreen })));
 
 // ─── Global Overlays & Modals ──────────────────────────────────────────────
 import { CreateRoomModal } from './components/CreateRoomModal';
-import { DailyRewardModal } from './components/DailyRewardModal';
-import { HourlyBonusToast } from './components/HourlyBonus';
-import { ComebackBonus } from './components/ComebackBonus';
-import { SpinWheel } from './components/SpinWheel';
-import { NotificationCenter } from './components/NotificationCenter';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { ToastContainer } from './components/Toast';
 
 // ─── Stores & Hooks ────────────────────────────────────────────────────────
-import { useAuthStore, createGuestUser } from './stores/authStore';
+import { useAuthStore } from './stores/authStore';
 import { useGameStore } from './stores/gameStore';
 import { useUIStore } from './stores/uiStore';
 import { useGameSocket } from './hooks/useGameSocket';
@@ -39,20 +27,17 @@ import { soundManager } from './services/soundManager';
 import { premiumSounds } from './services/premiumSounds';
 import { analytics } from './services/analytics';
 import { errorTracker } from './services/errorTracking';
-import { payments } from './services/payments';
 import { pushNotifications } from './services/pushNotifications';
+import { api } from './services/api';
+import {
+  captureReferralAttribution,
+  clearPendingRoomCode,
+  getPendingRoomCode,
+} from './services/referralAttribution';
+import { socketService } from './services/socket';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 import { GameRoom, GameVariant } from './types';
-
-// ─── AI Players ────────────────────────────────────────────────────────────
-const AI_PLAYERS = [
-  { id: 'ai-sharma', username: 'Sharma Ji', personality: 'conservative' },
-  { id: 'ai-priya', username: 'Priya', personality: 'balanced' },
-  { id: 'ai-bunty', username: 'Bunty', personality: 'aggressive' },
-  { id: 'ai-meera', username: 'Meera', personality: 'balanced' },
-  { id: 'ai-raja', username: 'Raja', personality: 'aggressive' },
-] as const;
 
 // ─── Screen Types ──────────────────────────────────────────────────────────
 type Screen =
@@ -62,44 +47,63 @@ type Screen =
   | 'home'
   | 'game'
   | 'profile'
-  | 'social'
-  | 'leaderboard'
-  | 'shop'
-  | 'tournaments'
-  | 'achievements'
-  | 'season'
   | 'settings'
-  | 'coaching'
-  | 'spectator'
-  | 'spin';
+  | 'referrals';
 
 // ─── App ───────────────────────────────────────────────────────────────────
 
 export function App() {
+  const [referralAttribution] = useState(() => captureReferralAttribution());
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
-  const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
-
   // Modal state
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showJoinByCode, setShowJoinByCode] = useState(false);
-  const [showDailyReward, setShowDailyReward] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showComebackBonus, setShowComebackBonus] = useState(false);
 
   // Room state
   const [roomCode, setRoomCode] = useState('');
   const [joinError, setJoinError] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
-  const [activeRooms, setActiveRooms] = useState<Map<string, GameRoom>>(new Map());
+  const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
+  const pendingInviteAttempted = useRef(false);
 
   // Stores
-  const { user, isAuthenticated, loginAsGuest, login } = useAuthStore();
-  const { hasSeenOnboarding, setHasSeenOnboarding } = useUIStore();
-  const { joinRoom, startGame } = useGameStore();
+  const { user, isAuthenticated } = useAuthStore();
+  const { hasSeenOnboarding, setHasSeenOnboarding, addToast, reducedMotion } = useUIStore();
+  const { joinRoom, leaveRoom, gameState, isOnlineMode } = useGameStore();
 
   // Initialize socket listeners
   useGameSocket();
+
+  useEffect(() => {
+    if (!isAuthenticated || pendingInviteAttempted.current) return;
+    const pendingRoomCode = getPendingRoomCode();
+    if (!pendingRoomCode) return;
+
+    pendingInviteAttempted.current = true;
+    void (async () => {
+      try {
+        if (!socketService.isConnected) await socketService.connect();
+        const result = await socketService.joinByCode(pendingRoomCode);
+        if (!result.success) throw new Error(result.error || 'That friend table is no longer available');
+        clearPendingRoomCode();
+        addToast({ message: 'Friend table joined — waiting for the deal', type: 'success', duration: 4000 });
+      } catch (error) {
+        clearPendingRoomCode();
+        const message = error instanceof Error ? error.message : 'Could not join the friend table';
+        addToast({ message, type: 'error', duration: 5000 });
+        setCurrentScreen('home');
+      }
+    })();
+  }, [addToast, isAuthenticated]);
+
+  useEffect(() => {
+    if (isOnlineMode && gameState) {
+      setShowCreateRoom(false);
+      setCreatedRoomCode(null);
+      setCurrentScreen('game');
+    }
+  }, [isOnlineMode, gameState]);
 
   // ─── Initialization ──────────────────────────────────────────────────
 
@@ -107,9 +111,14 @@ export function App() {
   useEffect(() => {
     analytics.init();
     errorTracker.init();
-    payments.init();
     pushNotifications.init();
-  }, []);
+    if (referralAttribution) {
+      analytics.referralLinkOpened(
+        referralAttribution.source || 'referral',
+        referralAttribution.campaign || 'table_circle',
+      );
+    }
+  }, [referralAttribution]);
 
   // Initialize sound systems on first user interaction
   useEffect(() => {
@@ -122,66 +131,14 @@ export function App() {
     return () => window.removeEventListener('pointerdown', initSounds);
   }, []);
 
-  // Auto-login
-  useEffect(() => {
-    if (!isAuthenticated) {
-      loginAsGuest().catch(() => {
-        const guestUser = createGuestUser();
-        login(guestUser, 'guest-token');
-      });
-    }
-  }, [isAuthenticated, loginAsGuest, login]);
-
-  // Show daily reward only on home screen (never during game)
-  useEffect(() => {
-    if (currentScreen === 'home' && isAuthenticated && !showDailyReward) {
-      const lastClaim = localStorage.getItem('tp_last_daily_claim');
-      const today = new Date().toDateString();
-      if (lastClaim !== today) {
-        const timer = setTimeout(() => setShowDailyReward(true), 1500);
-        return () => clearTimeout(timer);
-      }
-    }
-    // Auto-close daily reward if we navigate away from home
-    if (currentScreen !== 'home' && showDailyReward) {
-      setShowDailyReward(false);
-    }
-  }, [currentScreen, isAuthenticated]);
-
-  // Check for comeback bonus (only on home, never during game)
-  useEffect(() => {
-    if (currentScreen === 'home' && isAuthenticated && !showComebackBonus) {
-      const lastPlayed = localStorage.getItem('tp_last_played');
-      if (lastPlayed) {
-        const hoursSince = (Date.now() - parseInt(lastPlayed)) / (1000 * 60 * 60);
-        if (hoursSince >= 24) {
-          setTimeout(() => setShowComebackBonus(true), 3000);
-        }
-      }
-      localStorage.setItem('tp_last_played', Date.now().toString());
-    }
-    if (currentScreen !== 'home' && showComebackBonus) {
-      setShowComebackBonus(false);
-    }
-  }, [currentScreen, isAuthenticated]);
-
   // ─── Navigation ──────────────────────────────────────────────────────
 
   const navigateTo = useCallback((screen: string) => {
-    setScreenHistory(prev => [...prev.slice(-10), currentScreen]);
-    setCurrentScreen(screen as Screen);
-    analytics.screenViewed(screen);
-  }, [currentScreen]);
-
-  const goBack = useCallback(() => {
-    if (screenHistory.length > 0) {
-      const prev = screenHistory[screenHistory.length - 1];
-      setScreenHistory(h => h.slice(0, -1));
-      setCurrentScreen(prev);
-    } else {
-      setCurrentScreen('home');
-    }
-  }, [screenHistory]);
+    const allowedScreens: Screen[] = ['login', 'home', 'profile', 'settings', 'referrals'];
+    const destination = allowedScreens.includes(screen as Screen) ? screen as Screen : 'home';
+    setCurrentScreen(destination);
+    analytics.screenViewed(destination);
+  }, []);
 
   // ─── Screen Handlers ─────────────────────────────────────────────────
 
@@ -210,72 +167,55 @@ export function App() {
 
   // ─── Game Handlers ───────────────────────────────────────────────────
 
-  const handleQuickPlay = useCallback(() => {
-    const room: GameRoom = {
-      id: crypto.randomUUID(),
-      name: 'Quick Play',
-      variant: 'classic',
-      minBuyIn: 500,
-      maxBuyIn: 5000,
-      minBet: 50,
-      maxPlayers: 4,
-      currentPlayers: 4,
-      status: 'playing',
-      isPrivate: false,
-      createdBy: user?.id || '',
-    };
+  const handleQuickPlay = useCallback(async () => {
+    setJoinError('');
+    try {
+      if (!socketService.isConnected) await socketService.connect();
+      const result = await socketService.quickPlay();
+      if (!result.success) throw new Error(result.error || 'Could not start quick play');
+      soundManager.play('game_start');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not start quick play';
+      setJoinError(message);
+      addToast({ message, type: 'error', duration: 4000 });
+    }
+  }, [addToast]);
 
+  const handleJoinGame = useCallback(async (room: GameRoom) => {
+    setJoinError('');
     joinRoom(room);
-    const shuffled = [...AI_PLAYERS].sort(() => Math.random() - 0.5);
-    const players = [
-      { userId: user?.id || '1', username: user?.username || 'You', chips: 5000, isAI: false },
-      ...shuffled.slice(0, 3).map(ai => ({
-        userId: ai.id, username: ai.username, chips: 5000, isAI: true, personality: ai.personality,
-      })),
-    ];
+    try {
+      if (!socketService.isConnected) await socketService.connect();
+      const buyIn = Math.max(room.minBuyIn, Math.min(room.maxBuyIn, 5000));
+      const result = await socketService.joinRoom(room.id, buyIn);
+      if (!result.success) throw new Error(result.error || 'Could not join table');
+    } catch (error) {
+      leaveRoom();
+      const message = error instanceof Error ? error.message : 'Could not join table';
+      setJoinError(message);
+      addToast({ message, type: 'error', duration: 4000 });
+    }
+  }, [joinRoom, leaveRoom, addToast]);
 
-    startGame(players, room.minBet, room.variant);
-    soundManager.play('game_start');
-    setCurrentScreen('game');
-  }, [user, joinRoom, startGame]);
-
-  const handleJoinGame = useCallback((room: GameRoom) => {
-    joinRoom(room);
-    const shuffled = [...AI_PLAYERS].sort(() => Math.random() - 0.5);
-    const players = [
-      { userId: user?.id || '1', username: user?.username || 'You', chips: 5000, isAI: false },
-      ...shuffled.slice(0, 3).map(ai => ({
-        userId: ai.id, username: ai.username, chips: 5000, isAI: true, personality: ai.personality,
-      })),
-    ];
-
-    startGame(players, room.minBet, room.variant);
-    soundManager.play('game_start');
-    setCurrentScreen('game');
-  }, [user, joinRoom, startGame]);
-
-  const handleJoinByCode = () => {
+  const handleJoinByCode = async () => {
     const code = roomCode.trim().toUpperCase();
     if (code.length !== 6) {
       setJoinError('Please enter a 6-character room code');
       return;
     }
-    const room = Array.from(activeRooms.values()).find(r => r.roomCode === code);
-    if (!room) {
-      setJoinError('Room not found. Check the code and try again.');
-      return;
+    try {
+      if (!socketService.isConnected) await socketService.connect();
+      const result = await socketService.joinByCode(code);
+      if (!result.success) throw new Error(result.error || 'Room not found. Check the code and try again.');
+      setJoinError('');
+      setShowJoinByCode(false);
+      setRoomCode('');
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : 'Could not join table');
     }
-    if (room.currentPlayers >= room.maxPlayers) {
-      setJoinError('Room is full');
-      return;
-    }
-    setJoinError('');
-    setShowJoinByCode(false);
-    setRoomCode('');
-    handleJoinGame(room);
   };
 
-  const handleCreateRoom = (config: {
+  const handleCreateRoom = async (config: {
     name: string;
     variant: GameVariant;
     minBuyIn: number;
@@ -284,27 +224,47 @@ export function App() {
     maxPlayers: number;
     isPrivate: boolean;
   }) => {
-    const code = config.isPrivate ? Math.random().toString(36).substring(2, 8).toUpperCase() : undefined;
-    const newRoom: GameRoom = {
-      id: crypto.randomUUID(),
-      name: config.name || 'My Table',
-      variant: config.variant,
-      minBuyIn: config.minBuyIn,
-      maxBuyIn: config.maxBuyIn,
-      minBet: config.bootAmount,
-      maxPlayers: config.maxPlayers,
-      currentPlayers: 1,
-      status: 'waiting',
-      isPrivate: config.isPrivate,
-      roomCode: code,
-      createdBy: user?.id || '',
-    };
-    if (code) {
-      setActiveRooms(prev => new Map(prev).set(code, newRoom));
-      setCreatedRoomCode(code);
+    setJoinError('');
+    try {
+      if (!socketService.isConnected) await socketService.connect();
+      const result = await socketService.createRoom({
+        ...config,
+        variant: config.variant.toUpperCase(),
+        buyIn: Math.max(config.minBuyIn, Math.min(config.maxBuyIn, 5000)),
+      });
+      if (!result.success || !result.room) throw new Error(result.error || 'Could not create table');
+      joinRoom({
+        id: result.room.id,
+        name: config.name || 'My Table',
+        variant: config.variant,
+        minBuyIn: config.minBuyIn,
+        maxBuyIn: config.maxBuyIn,
+        minBet: config.bootAmount,
+        maxPlayers: config.maxPlayers,
+        currentPlayers: 1,
+        status: 'waiting',
+        isPrivate: config.isPrivate,
+        roomCode: result.room.roomCode,
+        createdBy: user?.id || '',
+      });
+      setCreatedRoomCode(result.room.roomCode || null);
+      setCreatedInviteUrl(null);
+      if (result.room.roomCode) {
+        try {
+          const summary = await api.getReferralSummary();
+          const inviteUrl = new URL(summary.shareUrl);
+          inviteUrl.searchParams.set('room', result.room.roomCode);
+          setCreatedInviteUrl(inviteUrl.toString());
+        } catch {
+          // The room code is still shareable if referral summary retrieval is unavailable.
+        }
+      }
+      if (!result.room.roomCode) setShowCreateRoom(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not create table';
+      setJoinError(message);
+      addToast({ message, type: 'error', duration: 4000 });
     }
-    handleJoinGame(newRoom);
-    setShowCreateRoom(false);
   };
 
   // ─── Screen Renderer ─────────────────────────────────────────────────
@@ -319,10 +279,8 @@ export function App() {
           <LoginScreen
             onComplete={handleLoginComplete}
             onGuestPlay={() => {
-              loginAsGuest().then(() => {
-                if (!hasSeenOnboarding) setCurrentScreen('onboarding');
-                else setCurrentScreen('home');
-              });
+              if (!hasSeenOnboarding) setCurrentScreen('onboarding');
+              else setCurrentScreen('home');
             }}
           />
         );
@@ -349,78 +307,17 @@ export function App() {
       case 'game':
         return (
           <EnhancedGameTable
-            onLeave={() => setCurrentScreen('home')}
+            onLeave={() => { leaveRoom(); setCurrentScreen('home'); }}
           />
         );
 
       case 'profile':
         return <ProfileScreenNew onNavigate={navigateTo} />;
 
-      case 'social':
-        return <FriendsScreen onNavigate={navigateTo} />;
-
-      case 'leaderboard':
-        return <LeaderboardScreen onNavigate={navigateTo} />;
-
-      case 'shop':
-        return (
-          <ChipStoreScreen
-            currentChips={user?.chips}
-            currentDiamonds={user?.diamonds}
-            isFirstPurchase={true}
-            onBack={goBack}
-            onPurchase={(pkgId, type) => {
-              soundManager.play('chip_win');
-              // In production: api.purchaseChips(pkgId, type)
-            }}
-          />
-        );
-
-      case 'tournaments':
-        return <TournamentScreen onNavigate={navigateTo} />;
-
-      case 'achievements':
-        return <AchievementsScreen onNavigate={navigateTo} />;
-
-      case 'season':
-        return <SeasonPassScreen onNavigate={navigateTo} />;
-
+      case 'referrals':
+        return <ReferralProgram onNavigate={navigateTo} />;
       case 'settings':
         return <SettingsScreen onNavigate={navigateTo} />;
-
-      case 'coaching':
-        return (
-          <CoachingScreen
-            onBack={goBack}
-            onPractice={handleQuickPlay}
-          />
-        );
-
-      case 'spectator':
-        return (
-          <SpectatorLobby
-            onWatch={(gameId) => {
-              // In production: join spectator socket for gameId
-              // In production: join spectator socket for gameId
-            }}
-            onNavigate={navigateTo}
-            currentScreen="spectator"
-          />
-        );
-
-      case 'spin':
-        return (
-          <div className="h-full w-full bg-gradient-to-b from-gray-900 to-black flex flex-col items-center justify-center p-6">
-            <SpinWheel
-              isOpen={true}
-              freeSpinsRemaining={1}
-              spinCostDiamonds={5}
-              diamondBalance={user?.diamonds || 0}
-              onSpin={() => { soundManager.play('win_big'); }}
-              onClose={() => setCurrentScreen('home')}
-            />
-          </div>
-        );
 
       default:
         return (
@@ -438,14 +335,16 @@ export function App() {
   // ─── Render ──────────────────────────────────────────────────────────
 
   return (
-    <>
+    <MotionConfig reducedMotion={reducedMotion ? 'always' : 'user'}>
       {/* Connection status banner (shows on poor network) */}
       <ConnectionStatus />
 
       {/* Main screen with transitions */}
       <AnimatePresence mode="wait">
         <SmoothPageTransition key={currentScreen} direction="forward" className="h-full w-full">
-          {renderScreen()}
+          <Suspense fallback={<div className="grid h-full w-full place-items-center bg-[#0B1221] text-[#FFD66B]">Loading table…</div>}>
+            {renderScreen()}
+          </Suspense>
         </SmoothPageTransition>
       </AnimatePresence>
 
@@ -454,9 +353,14 @@ export function App() {
       {/* Create Room Modal */}
       <CreateRoomModal
         isOpen={showCreateRoom}
-        onClose={() => { setShowCreateRoom(false); setCreatedRoomCode(null); }}
+        onClose={() => { setShowCreateRoom(false); setCreatedRoomCode(null); setCreatedInviteUrl(null); }}
         onCreate={handleCreateRoom}
         createdRoomCode={createdRoomCode}
+        createdInviteUrl={createdInviteUrl}
+        onInviteShared={(platform) => {
+          analytics.inviteShared(platform.toLowerCase());
+          void api.recordReferralShare(platform).catch(() => {});
+        }}
       />
 
       {/* Join by Code Modal */}
@@ -511,55 +415,8 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* Daily Reward Modal */}
-      <DailyRewardModal
-        isOpen={showDailyReward}
-        currentDay={3}
-        streak={3}
-        vipMultiplier={1}
-        onClaim={() => {
-          localStorage.setItem('tp_last_daily_claim', new Date().toDateString());
-          soundManager.play('daily_reward');
-          setShowDailyReward(false);
-        }}
-        onClose={() => setShowDailyReward(false)}
-      />
-
-      {/* Comeback Bonus */}
-      <ComebackBonus
-        isOpen={showComebackBonus}
-        daysAbsent={2}
-        playerName={user?.username || 'Player'}
-        onClaim={() => {
-          soundManager.play('chip_win');
-          setShowComebackBonus(false);
-        }}
-        onClose={() => setShowComebackBonus(false)}
-      />
-
-      {/* Notification Center */}
-      <NotificationCenter
-        isOpen={showNotifications}
-        onClose={() => setShowNotifications(false)}
-        onNotificationClick={(notification) => {
-          setShowNotifications(false);
-          if (notification.type === 'game_invite') navigateTo('home');
-          else if (notification.type === 'achievement') navigateTo('achievements');
-          else if (notification.type === 'daily_reward') navigateTo('home');
-        }}
-      />
-
-      {/* Hourly Bonus Toast (always mounted, shows itself when ready) */}
-      {currentScreen !== 'splash' && currentScreen !== 'login' && currentScreen !== 'onboarding' && (
-        <HourlyBonusToast
-          isVisible={false}
-          amount={500}
-          onTap={() => soundManager.play('chip_win')}
-        />
-      )}
-
       {/* Toast Notifications */}
       <ToastContainer />
-    </>
+    </MotionConfig>
   );
 }

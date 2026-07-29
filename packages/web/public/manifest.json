@@ -1,7 +1,7 @@
 {
   "name": "Social Teen Patti",
   "short_name": "Teen Patti",
-  "description": "India's first provably fair card game. Verify every hand.",
+  "description": "Private social Teen Patti tables for adult friend groups.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -8,15 +8,8 @@ import { Card } from '../types';
 /**
  * FIRST-TIME USER EXPERIENCE
  *
- * Instead of showing text about provably fair, we:
- * 1. Deal cards immediately (< 5 seconds from app open)
- * 2. Guide the player through their first hand
- * 3. Let them WIN the first hand (rigged in their favor — it's a tutorial)
- * 4. Show the "Verify Fairness" moment
- * 5. THEN take them to the lobby
- *
- * This is how Candy Crush, Coin Master, and every successful mobile game works.
- * Hook first. Educate second.
+ * A deterministic, clearly labelled practice hand that teaches the controls
+ * before the player enters a server-authoritative friend table.
  */
 
 interface FirstGameExperienceProps {
@@ -170,7 +163,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               animate={{ scale: 1 }}
               className="text-[#D4AF37] font-bold text-xl drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]"
             >
-              ₹{pot}
+              {pot} chips
             </motion.span>
             <span className="text-white/30 text-[9px] uppercase tracking-[0.2em]">Pot</span>
           </motion.div>
@@ -182,7 +175,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                 {/* Priya — top left */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: step === 'opponents_fold' ? 0.3 : 1, scale: 1 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0.3, scale: 0.85 }}
                   className="absolute top-[15%] left-[18%] flex flex-col items-center"
                 >
@@ -197,7 +190,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                 {/* Sharma Ji — top right */}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: step === 'opponents_fold' ? 0.3 : 1, scale: 1 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0.3, scale: 0.85 }}
                   className="absolute top-[15%] right-[18%] flex flex-col items-center"
                 >
@@ -321,7 +314,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
           >
             <Sparkles className="w-5 h-5" />
-            Chaal — Bet ₹100
+            Chaal — Bet 100 chips
           </motion.button>
         )}
 
@@ -377,7 +370,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                 transition={{ delay: 0.2 }}
                 className="text-green-400 text-xl font-bold mt-1"
               >
-                +₹{formatChips(pot)}
+                +{formatChips(pot)} chips
               </motion.p>
               <motion.p
                 initial={{ y: 20, opacity: 0 }}
@@ -412,12 +405,12 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               <Shield className="w-8 h-8 text-green-400" />
             </div>
             <div className="text-center max-w-xs">
-              <h3 className="text-xl font-bold text-white mb-2">Every Hand is Provably Fair</h3>
+              <h3 className="text-xl font-bold text-white mb-2">Now bring your table circle</h3>
               <p className="text-white/50 text-sm leading-relaxed">
-                That hand you just won? We can prove it wasn't rigged. Before every deal, we lock the deck with a cryptographic hash. After the hand, you verify it.
+                This was a guided practice hand. Real friend tables are dealt and settled by the server, and your referral only activates after a completed game with another human.
               </p>
               <p className="text-green-400 text-sm font-semibold mt-3">
-                No other Teen Patti app can do this.
+                Invite a friend. Play one real game. Both unlock Beli extras.
               </p>
             </div>
             <motion.button

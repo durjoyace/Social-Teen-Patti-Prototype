@@ -187,11 +187,11 @@ export function BettingControls({
         <div className="flex items-center justify-between mb-3 text-sm">
           <div className="flex items-center gap-2">
             <span className="text-white/50">Pot:</span>
-            <AnimatedChipCount value={pot} prefix="₹" className="text-yellow-400 font-bold" />
+            <AnimatedChipCount value={pot} prefix="◉ " className="text-yellow-400 font-bold" />
           </div>
           <div className="flex items-center gap-2">
             <Coins className="w-4 h-4 text-yellow-400" />
-            <AnimatedChipCount value={playerChips} prefix="₹" className="text-white font-medium" />
+            <AnimatedChipCount value={playerChips} prefix="◉ " className="text-white font-medium" />
           </div>
         </div>
 
@@ -214,7 +214,7 @@ export function BettingControls({
               </PressableButton>
 
               <div className="text-center">
-                <AnimatedChipCount value={customBet} prefix="₹" className="text-3xl font-bold text-yellow-400" duration={200} />
+                <AnimatedChipCount value={customBet} prefix="◉ " className="text-3xl font-bold text-yellow-400" duration={200} />
                 <p className="text-xs text-white/50 mt-1">Raise Amount</p>
               </div>
 
@@ -275,7 +275,7 @@ export function BettingControls({
               variant="primary"
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-lg"
             >
-              Raise <AnimatedChipCount value={customBet} prefix="₹" className="font-bold" duration={200} />
+              Raise <AnimatedChipCount value={customBet} prefix="◉ " className="font-bold" duration={200} />
             </PressableButton>
           </div>
         </SlideUpSheet>
@@ -344,7 +344,7 @@ export function BettingControls({
                   <Icon className="w-6 h-6 text-white mb-1" />
                   <span className="text-white font-bold">{config.shortLabel}</span>
                   {betAmount !== undefined && (
-                    <span className="text-white/70 text-xs">₹{formatChips(betAmount)}</span>
+                    <span className="text-white/70 text-xs">◉ {formatChips(betAmount)}</span>
                   )}
                 </motion.button>
               );
@@ -354,7 +354,7 @@ export function BettingControls({
 
         {/* Status info */}
         <div className="flex items-center justify-center gap-2 mt-3 text-xs text-white/50">
-          <span>Current bet: <AnimatedChipCount value={currentBet} prefix="₹" className="text-xs text-white/50" /></span>
+          <span>Current bet: <AnimatedChipCount value={currentBet} prefix="◉ " className="text-xs text-white/50" /></span>
           <span>•</span>
           <span className={isBlind ? 'text-blue-400' : 'text-green-400'}>
             {isBlind ? 'Playing Blind' : 'Seen'}
@@ -396,7 +396,7 @@ export function CompactActionBar({
         variant="primary"
         className="flex-1 py-2 px-4 rounded-lg bg-gradient-to-r from-green-500 to-green-600"
       >
-        Chaal <AnimatedChipCount value={betAmount} prefix="₹" className="font-medium text-sm" duration={200} />
+        Chaal <AnimatedChipCount value={betAmount} prefix="◉ " className="font-medium text-sm" duration={200} />
       </PressableButton>
 
       <PressableButton

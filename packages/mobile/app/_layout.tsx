@@ -3,6 +3,8 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuthStore } from '../src/stores/authStore';
 import { useRouter, useSegments } from 'expo-router';
+import * as Linking from 'expo-linking';
+import { captureReferralUrl } from '../src/services/referralAttribution';
 
 function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -26,8 +28,18 @@ export default function RootLayout() {
   const { restoreSession } = useAuthStore();
 
   useEffect(() => {
-    restoreSession();
-  }, []);
+    let active = true;
+    Linking.getInitialURL()
+      .then(url => captureReferralUrl(url))
+      .finally(() => { if (active) void restoreSession(); });
+    const subscription = Linking.addEventListener('url', event => {
+      if (!useAuthStore.getState().isAuthenticated) void captureReferralUrl(event.url);
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [restoreSession]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

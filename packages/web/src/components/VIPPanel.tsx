@@ -403,7 +403,7 @@ export function VIPPanel({
                 `border-2 ${VIP_TIERS[currentTierIndex].borderColor}`,
               )}
             >
-              {React.cloneElement(VIP_TIERS[currentTierIndex].icon as React.ReactElement, { size: 28 })}
+              {React.cloneElement(VIP_TIERS[currentTierIndex].icon as React.ReactElement<{ size?: number }>, { size: 28 })}
             </motion.div>
 
             <div>

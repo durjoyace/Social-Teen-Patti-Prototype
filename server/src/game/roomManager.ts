@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { randomBytes } from 'node:crypto';
 import {
   GameState,
   initializeGame,
@@ -17,6 +18,7 @@ import {
 } from './handRanking.js';
 import { prisma } from '../config/database.js';
 import { env } from '../config/env.js';
+import { qualifyReferralForGame } from '../services/referralService.js';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,8 @@ interface Room {
   aiTimers: Map<string, ReturnType<typeof setTimeout>>;
   status: 'waiting' | 'playing' | 'finished';
 }
+
+const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 // ─── AI Bot Definitions ────────────────────────────────────────────────────
 
@@ -86,9 +90,7 @@ export class RoomManager {
     createdBy: string;
   }): Room {
     const id = crypto.randomUUID();
-    const roomCode = config.isPrivate
-      ? Math.random().toString(36).substring(2, 8).toUpperCase()
-      : undefined;
+    const roomCode = config.isPrivate ? this.createUniqueRoomCode() : undefined;
 
     const room: Room = {
       id,
@@ -145,6 +147,9 @@ export class RoomManager {
     socket.join(roomId);
 
     this.broadcastRoomState(room);
+    if (room.players.size >= 2) {
+      queueMicrotask(() => this.startGame(room));
+    }
     return room;
   }
 
@@ -396,47 +401,70 @@ export class RoomManager {
     if (!room.gameState) return;
     this.clearTurnTimer(room);
 
-    const winners = room.gameState.winners;
-    const pot = room.gameState.pot;
+    const gameState = room.gameState;
+    const winners = gameState.winners;
+    const pot = gameState.pot;
+    const humanPlayers = gameState.players.filter(player => !player.isBot);
+    let resultsPersisted = false;
 
     // Persist game results to database
     try {
-      for (const player of room.gameState.players) {
-        if (player.isBot) continue;
-
-        const isWinner = winners.includes(player.id);
-        const chipsDelta = player.chipsInPlay - player.chips;
-
-        await prisma.user.update({
-          where: { id: player.odic },
-          data: {
-            chips: { increment: chipsDelta },
-            totalGames: { increment: 1 },
-            gamesWon: { increment: isWinner ? 1 : 0 },
-            handsPlayed: { increment: 1 },
-            biggestWin: isWinner && chipsDelta > 0n
-              ? { set: chipsDelta } // Simplified — should compare with current
-              : undefined,
-            totalWinnings: isWinner ? { increment: chipsDelta > 0n ? chipsDelta : 0n } : undefined,
-            totalLosses: !isWinner && chipsDelta < 0n ? { increment: -chipsDelta } : undefined,
-            currentStreak: isWinner ? { increment: 1 } : { set: 0 },
-          },
-        });
-
-        // Create transaction record
-        await prisma.transaction.create({
-          data: {
-            userId: player.odic,
-            type: isWinner ? 'GAME_WIN' : 'GAME_LOSS',
-            amount: chipsDelta,
-            balanceBefore: player.chips,
-            balanceAfter: player.chipsInPlay,
-            referenceId: room.gameState.sessionId,
-          },
-        });
-      }
+      await prisma.$transaction(async tx => {
+        for (const player of humanPlayers) {
+          const isWinner = winners.includes(player.id);
+          const chipsDelta = player.chipsInPlay - player.chips;
+          const current = await tx.user.findUniqueOrThrow({
+            where: { id: player.odic },
+            select: { chips: true, biggestWin: true },
+          });
+          const updated = await tx.user.update({
+            where: { id: player.odic },
+            data: {
+              chips: { increment: chipsDelta },
+              totalGames: { increment: 1 },
+              gamesWon: { increment: isWinner ? 1 : 0 },
+              handsPlayed: { increment: 1 },
+              biggestWin: isWinner && chipsDelta > current.biggestWin ? { set: chipsDelta } : undefined,
+              totalWinnings: isWinner && chipsDelta > 0n ? { increment: chipsDelta } : undefined,
+              totalLosses: !isWinner && chipsDelta < 0n ? { increment: -chipsDelta } : undefined,
+              currentStreak: isWinner ? { increment: 1 } : { set: 0 },
+            },
+            select: { chips: true },
+          });
+          await tx.transaction.create({
+            data: {
+              userId: player.odic,
+              type: isWinner ? 'GAME_WIN' : 'GAME_LOSS',
+              amount: chipsDelta,
+              balanceBefore: current.chips,
+              balanceAfter: updated.chips,
+              referenceId: gameState.sessionId,
+            },
+          });
+        }
+      });
+      resultsPersisted = true;
     } catch (err) {
       console.error('Error persisting game results:', err);
+    }
+
+    if (resultsPersisted && humanPlayers.length >= 2) {
+      const humanIds = humanPlayers.map(player => player.odic);
+      for (const player of humanPlayers) {
+        try {
+          const reward = await qualifyReferralForGame(player.odic, gameState.sessionId, humanIds);
+          if (reward.rewarded) {
+            const socket = this.io.sockets.sockets.get(room.players.get(player.odic)?.socketId ?? '');
+            socket?.emit('referral:rewarded', {
+              beli: 100,
+              balance: reward.inviteeBalance,
+              milestone: reward.milestone,
+            });
+          }
+        } catch (error) {
+          console.error('Referral qualification error:', error);
+        }
+      }
     }
 
     // Broadcast final state with all cards revealed
@@ -445,7 +473,7 @@ export class RoomManager {
     // Send winner celebration
     this.io.to(room.id).emit('game:ended', {
       winners: winners.map(wId => {
-        const p = room.gameState!.players.find(pl => pl.id === wId);
+        const p = gameState.players.find(pl => pl.id === wId);
         return {
           id: wId,
           username: p?.username,
@@ -517,6 +545,15 @@ export class RoomManager {
     return -1;
   }
 
+  private createUniqueRoomCode(): string {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const bytes = randomBytes(6);
+      const code = Array.from(bytes, byte => ROOM_CODE_ALPHABET[byte % ROOM_CODE_ALPHABET.length]).join('');
+      if (!Array.from(this.rooms.values()).some(room => room.roomCode === code)) return code;
+    }
+    throw new Error('Could not allocate a private room code');
+  }
+
   private cleanupRoom(room: Room): void {
     this.clearTurnTimer(room);
     this.rooms.delete(room.id);
@@ -534,6 +571,8 @@ export class RoomManager {
         name: r.name,
         variant: r.variant,
         bootAmount: r.bootAmount.toString(),
+        minBuyIn: r.minBuyIn.toString(),
+        maxBuyIn: r.maxBuyIn.toString(),
         maxPlayers: r.maxPlayers,
         currentPlayers: r.players.size,
         status: r.status,

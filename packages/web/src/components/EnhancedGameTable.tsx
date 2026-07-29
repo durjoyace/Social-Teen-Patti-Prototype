@@ -2,18 +2,16 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageCircle, LogOut, Volume2, VolumeX, Eye, EyeOff,
-  Shield, Crown, Clock, MoreHorizontal, Mic
+  Crown, Clock, MoreHorizontal, Mic
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
-import { useSimulatedMultiplayer } from '../hooks/useSocket';
 import { useSound } from '../hooks/useSound';
 import { useHaptics } from '../hooks/useHaptics';
 import { BettingControls } from './BettingControls';
 import { ChatPanel } from './ChatPanel';
 import { WinnerCelebration, ChipsFlying } from './Celebrations';
-import { FairnessBadge, FairnessVerifier } from './FairnessVerifier';
 import { PremiumCard, PremiumCardFan } from './PremiumCard';
 import { CharacterAvatar } from './AvatarSystem';
 import { PotGlow, TurnPulse, ActionFeedback } from './GameJuice';
@@ -124,21 +122,23 @@ interface EnhancedGameTableProps {
 export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
   const {
     gameState, myCards, isMyTurn, availableActions, showCards,
-    toggleShowCards, performAction, chatMessages, isChatOpen,
+    toggleShowCards, performOnlineAction, chatMessages, isChatOpen,
     toggleChat, gameMessage, currentRoom
   } = useGameStore();
 
   const { user } = useAuthStore();
   const { soundEnabled, toggleSound } = useUIStore();
-  const { aiThinking, currentAIPlayer } = useSimulatedMultiplayer();
   const { play, playChipSound } = useSound();
   const { onTurn, onWin, onButtonPress } = useHaptics();
 
   const [timeLeft, setTimeLeft] = useState(30);
   const [showWinCelebration, setShowWinCelebration] = useState(false);
-  const [showFairnessVerifier, setShowFairnessVerifier] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [winner, setWinner] = useState<{ name: string; amount: number; handRank: any } | null>(null);
+
+  const submitAction = useCallback((action: ActionType, amount?: number) => {
+    void performOnlineAction(action, amount);
+  }, [performOnlineAction]);
 
   // Play dealing sound when game starts
   useEffect(() => {
@@ -150,7 +150,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       });
       premiumSounds.play('game_start');
     }
-  }, [gameState?.sessionId]);
+  }, [gameState?.session.id]);
 
   // Timer
   useEffect(() => {
@@ -160,12 +160,12 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       setTimeLeft(prev => {
         if (prev <= 5) premiumSounds.play('countdown_urgent');
         else if (prev <= 10) premiumSounds.play('countdown_tick');
-        if (prev <= 1) { performAction('pack'); return 30; }
+        if (prev <= 1) { submitAction('pack'); return 30; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [isMyTurn, performAction, onTurn, play]);
+  }, [isMyTurn, submitAction, onTurn, play]);
 
   // Win detection
   useEffect(() => {
@@ -206,8 +206,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
     } else if (action === 'show') {
       premiumSounds.play('show_reveal');
     }
-    performAction(action, amount);
-  }, [performAction, onButtonPress]);
+    submitAction(action, amount);
+  }, [submitAction, onButtonPress]);
 
   const seatPositions = useMemo(() =>
     getSeatPositions(gameState?.session.players.length || 4),
@@ -255,7 +255,6 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
         </button>
 
         <div className="flex items-center gap-1">
-          <FairnessBadge commitment={{ hash: crypto.randomUUID(), nonce: 1, timestamp: Date.now() }} />
           <div className="px-3 py-1 rounded-full bg-white/5 text-white/70 text-xs font-medium">
             {currentRoom?.name || 'Table'}
           </div>
@@ -333,7 +332,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             </div>
             <AnimatedChipCount
               value={session.pot}
-              prefix="₹"
+              prefix="◉ "
               className="text-[#D4AF37] font-bold text-lg drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]"
             />
             <span className="text-white/30 text-[9px] uppercase tracking-[0.2em] mt-0.5">Pot</span>
@@ -341,7 +340,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
           {/* ─── Game Status Messages ────────────────────────────────── */}
           <AnimatePresence>
-            {(gameMessage || aiThinking) && (
+            {gameMessage && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -349,20 +348,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                 className="absolute top-[62%] left-1/2 -translate-x-1/2 z-20"
               >
                 <div className="px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
-                  {aiThinking ? (
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-0.5">
-                        {[0, 1, 2].map(i => (
-                          <motion.div key={i} className="w-1.5 h-1.5 bg-yellow-400 rounded-full"
-                            animate={{ y: [0, -4, 0], opacity: [0.4, 1, 0.4] }}
-                            transition={{ repeat: Infinity, duration: 0.6, delay: i * 0.12 }} />
-                        ))}
-                      </div>
-                      <span className="text-white/80 text-xs">{currentAIPlayer || 'Thinking'}...</span>
-                    </div>
-                  ) : (
-                    <span className="text-[#D4AF37] text-xs font-medium">{gameMessage}</span>
-                  )}
+                  <span className="text-[#D4AF37] text-xs font-medium">{gameMessage}</span>
                 </div>
               </motion.div>
             )}
@@ -426,7 +412,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   >
                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 border border-white/10">
                       <div className="w-3 h-3 rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600 border border-white/30" />
-                      <AnimatedChipCount value={player.currentBet} prefix="₹" className="text-yellow-300 text-[10px] font-bold" />
+                      <AnimatedChipCount value={player.currentBet} prefix="◉ " className="text-yellow-300 text-[10px] font-bold" />
                     </div>
                   </motion.div>
                 )}
@@ -509,7 +495,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                       'text-[9px] font-bold leading-tight',
                       isFolded ? 'text-red-400' : 'text-green-400'
                     )}>
-                      {isFolded ? 'PACKED' : <AnimatedChipCount value={player.chipsInPlay} prefix="₹" className="text-[9px] font-bold leading-tight" />}
+                      {isFolded ? 'PACKED' : <AnimatedChipCount value={player.chipsInPlay} prefix="◉ " className="text-[9px] font-bold leading-tight" />}
                     </span>
                   </div>
 
@@ -649,10 +635,6 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             className="px-8 py-3 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30">
             Play Again
           </button>
-          <button onClick={() => setShowFairnessVerifier(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium">
-            <Shield className="w-3.5 h-3.5" />Verify Fairness
-          </button>
         </motion.div>
       )}
 
@@ -669,14 +651,6 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       {/* Turn pulse — golden vignette when it's your turn */}
       <TurnPulse isMyTurn={isMyTurn && !gameState.isGameOver} />
 
-      {/* Fairness Verifier */}
-      <FairnessVerifier isVisible={showFairnessVerifier}
-        proof={gameState.isGameOver ? {
-          serverSeed: crypto.randomUUID(), serverSeedHash: crypto.randomUUID(),
-          clientSeeds: [], nonce: 1, deckOrder: 'Ah,Ks,Qd,...',
-          verificationHash: crypto.randomUUID(), timestamp: Date.now(), verified: true,
-        } : undefined}
-        onClose={() => setShowFairnessVerifier(false)} />
     </div>
   );
 }
