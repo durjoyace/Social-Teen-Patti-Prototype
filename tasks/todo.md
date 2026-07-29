@@ -49,8 +49,9 @@
 ## Account and ownership inventory
 
 - [x] Confirm which production accounts already exist and which identity owns them.
+- [x] Confirm that Battle Green Consulting has a D-U-N-S number without storing it in the repository.
 - [ ] Record the Battle Green Consulting legal details required by registrars and app stores.
-- [ ] Select a primary product domain and obtain approval immediately before purchase.
+- [ ] Select a primary product domain; no purchase is currently authorized.
 - [ ] Use company-controlled aliases for owner, support, privacy, security, and billing access.
 
 ## Production services
