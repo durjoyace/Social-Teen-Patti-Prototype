@@ -1,0 +1,33 @@
+name: Temporary production smoke probe
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    if: github.head_ref == 'codex/production-smoke-probe'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Discover API and verify health/readiness
+        env:
+          WEB_URL: https://social-teen-patti.vercel.app
+        run: node scripts/discover-production-api.mjs
+      - name: Install smoke-test runtime
+        run: npm ci --prefix server --omit=dev
+      - name: Run non-mutating production smoke
+        run: node server/scripts/smoke.mjs
+      - name: Run self-cleaning auth/referral/socket smoke
+        env:
+          SMOKE_MUTATING: "true"
+        run: node server/scripts/smoke.mjs
