@@ -208,9 +208,12 @@ class SocketService {
         return;
       }
 
-      this.socket.emit(event, data, (response: T) => {
-        resolve(response);
-      });
+      const acknowledge = (response: T) => resolve(response);
+      if (data === undefined) {
+        this.socket.emit(event, acknowledge);
+      } else {
+        this.socket.emit(event, data, acknowledge);
+      }
     });
   }
 }
