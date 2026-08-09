@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, User, Share2, Gamepad2 } from 'lucide-react';
+import { Home, User, Share2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface NavigationBarProps {
@@ -16,15 +16,15 @@ const tabs = [
 export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps) {
   return (
     <motion.nav
+      aria-label="Primary navigation"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
-      className="fixed bottom-0 left-0 right-0 z-30"
+      className="fixed bottom-0 left-0 right-0 z-30 lg:hidden"
     >
-      {/* Glass background */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-gray-900/95 to-gray-900/90 backdrop-blur-xl border-t border-white/10" />
+      <div className="absolute inset-0 border-t border-white/10 bg-[#09130F]/95 backdrop-blur-xl" />
 
       {/* Content */}
-      <div className="relative px-4 py-3 pb-6">
+      <div className="relative px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2.5">
         <div className="flex justify-around items-center max-w-md mx-auto">
           {tabs.map((tab) => {
             const isActive = currentScreen === tab.id;
@@ -32,16 +32,18 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
 
             return (
               <motion.button
+                type="button"
                 key={tab.id}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => onNavigate(tab.id)}
-                className="relative flex flex-col items-center gap-1 py-1 px-3"
+                aria-current={isActive ? 'page' : undefined}
+                className="relative flex min-h-12 min-w-16 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
               >
                 {/* Active background */}
                 {isActive && (
                   <motion.div
                     layoutId="nav-bg"
-                    className="absolute inset-0 bg-gradient-to-t from-red-900/50 to-transparent rounded-2xl"
+                    className="absolute inset-0 rounded-2xl border border-[#E8B04A]/20 bg-[#2A1714]"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -51,7 +53,7 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                   <Icon
                     className={cn(
                       'w-5 h-5 transition-colors duration-200',
-                      isActive ? 'text-yellow-400' : 'text-white/40'
+                      isActive ? 'text-[#E8B04A]' : 'text-[#66736D]'
                     )}
                     strokeWidth={isActive ? 2.5 : 2}
                   />
@@ -59,7 +61,7 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-yellow-400 rounded-full"
+                    className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-[#E8B04A]"
                     />
                   )}
                 </div>
@@ -68,7 +70,7 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                 <span
                   className={cn(
                     'text-[10px] font-medium transition-colors duration-200',
-                    isActive ? 'text-yellow-400' : 'text-white/40'
+                    isActive ? 'text-[#E8B04A]' : 'text-[#66736D]'
                   )}
                 >
                   {tab.label}
@@ -78,7 +80,7 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute -bottom-3 w-6 h-0.5 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full"
+                    className="absolute -bottom-2.5 h-0.5 w-6 rounded-full bg-[#E8B04A]"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -88,29 +90,6 @@ export function NavigationBar({ currentScreen, onNavigate }: NavigationBarProps)
         </div>
       </div>
 
-      {/* Safe area spacer for iOS */}
-      <div className="h-safe-bottom bg-black" />
     </motion.nav>
-  );
-}
-
-// Floating game button for quick access
-export function FloatingGameButton({ onClick }: { onClick: () => void }) {
-  return (
-    <motion.button
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
-      onClick={onClick}
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-16 h-16 rounded-full bg-gradient-to-br from-red-600 to-red-800 shadow-lg shadow-red-500/50 flex items-center justify-center ring-4 ring-black"
-    >
-      <Gamepad2 className="w-7 h-7 text-white" />
-      <motion.div
-        className="absolute inset-0 rounded-full bg-white/20"
-        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
-        transition={{ repeat: Infinity, duration: 2 }}
-      />
-    </motion.button>
   );
 }

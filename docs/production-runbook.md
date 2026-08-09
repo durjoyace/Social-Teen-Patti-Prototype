@@ -40,7 +40,7 @@ Web needs HTTPS `VITE_API_URL` and `VITE_SOCKET_URL`, `VITE_SENTRY_DSN`, an expl
 3. Deploy `server/` to Railway from its Dockerfile. Railway runs `npm run db:deploy` as a pre-deploy command; do not run multiple application replicas. Require HTTP 200 from `/health` and database-backed `/ready`, and verify the reported `APP_VERSION`.
 4. Run the non-mutating gate: `SMOKE_BASE_URL=https://<backend> SMOKE_WEB_URL=https://social-teen-patti.vercel.app pnpm smoke:production`.
 5. Run the self-cleaning auth/referral/WebSocket gate by adding `SMOKE_MUTATING=true`. It creates two guests, attributes an invite, joins both to a private table, then anonymizes both accounts in `finally` cleanup.
-6. Manually complete one multiplayer game, verify double-sided referral reward plus repeat-game idempotency, and redeem one Beli extra in the invite-only environment.
+6. Manually complete one multiplayer game, verify double-sided Club Points plus repeat-game idempotency, and redeem one cosmetic extra in the invite-only environment.
 7. Configure the production backend endpoints in Vercel, deploy the web client, and test a complete HTTPS invite-link flow in two clean browser sessions.
 8. Watch Sentry errors, readiness, socket disconnects, game settlement failures, referral reward failures/rejections, and p95 API latency for at least 30 minutes.
 
@@ -62,13 +62,13 @@ Railway PostgreSQL, Sentry, Mixpanel, Expo/EAS, Apple Developer, and Google Play
 
 ## Rollback
 
-The referral migration is additive. Roll application deployments back first to the previous image; do not roll the schema backward while either version may be running. Disable campaign entry points and set purchases false. If reward correctness is uncertain, stop new game traffic or referral qualification, preserve ledgers, and reconcile with idempotency keys before any adjustment. Never edit Beli balances without a corresponding `ADJUSTMENT` ledger entry.
+The referral migration is additive. Roll application deployments back first to the previous image; do not roll the schema backward while either version may be running. Disable campaign entry points and set purchases false. If reward correctness is uncertain, stop new game traffic or referral qualification, preserve ledgers, and reconcile with idempotency keys before any adjustment. Never edit Club Points balances without a corresponding `ADJUSTMENT` entry in the internal ledger.
 
 ## Incident playbooks
 
 **API not ready:** stop routing new traffic, inspect database reachability/migration state, keep `/health` separate from `/ready`, and restore the last known-good backend.
 
-**Duplicate or incorrect Beli:** pause referral promotion, query the immutable ledger by idempotency key/referral, confirm whether balances and entitlements diverged, ship a reviewed reconciliation, and notify affected players.
+**Duplicate or incorrect Club Points:** pause referral promotion, query the immutable ledger by idempotency key/referral, confirm whether balances and entitlements diverged, ship a reviewed reconciliation, and notify affected players.
 
 **Payment concern:** purchases are off by default. If ever enabled, immediately set both server and web flags false, preserve `PaymentReceipt` and transaction records, reconcile with Razorpay, and follow the approved refund/notification procedure.
 

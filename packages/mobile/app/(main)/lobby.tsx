@@ -90,7 +90,7 @@ export default function LobbyScreen() {
       const summary = await api.get<ReferralSummary>('/referrals/summary');
       const separator = summary.shareUrl.includes('?') ? '&' : '?';
       const inviteUrl = `${summary.shareUrl}${separator}room=${encodeURIComponent(result.room.roomCode)}`;
-      const message = `Join my private Teen Patti table. Finish one real multiplayer game and we both unlock ${summary.activationRewardBeli} Beli extras. ${inviteUrl}`;
+      const message = `Join my private Teen Patti table. Finish one real multiplayer game and we both earn ${summary.activationRewardBeli} Club Points for cosmetic extras. ${inviteUrl}`;
       Alert.alert('Your table is ready', `Room code: ${result.room.roomCode}\n\nThe game starts when your friend joins.`, [
         { text: 'Keep waiting', style: 'cancel' },
         {
@@ -150,7 +150,7 @@ export default function LobbyScreen() {
           <View>
             <Text style={styles.username}>{user?.username || 'Guest'}</Text>
             <AnimatedChipCount value={user?.chips || 0} prefix="◉ " style={styles.chips} />
-            <Text style={styles.beliMini}>{user?.beliBalance || 0} Beli</Text>
+            <Text style={styles.beliMini}>{user?.beliBalance || 0} Club Points</Text>
           </View>
         </View>
       </Animated.View>
@@ -175,7 +175,7 @@ export default function LobbyScreen() {
         <Pressable onPress={() => router.push('/(main)/referrals')} style={styles.inviteCard} accessibilityRole="button">
           <View style={styles.inviteCopy}>
             <Text style={styles.inviteEyebrow}>YOUR TABLE CIRCLE</Text>
-            <Text style={styles.inviteTitle}>Both unlock 100 Beli</Text>
+            <Text style={styles.inviteTitle}>Both earn 100 Club Points</Text>
             <Text style={styles.inviteSub}>After your friend's first real multiplayer game</Text>
           </View>
           <Text style={styles.inviteAction}>Invite</Text>

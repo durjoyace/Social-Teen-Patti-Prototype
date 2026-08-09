@@ -171,8 +171,10 @@ class SocketService {
 
   // ─── Chat ────────────────────────────────────────────────────────────────
 
-  sendChatMessage(roomId: string, message: string, type = 'text') {
-    this.socket?.emit('chat:send', { roomId, message, type });
+  sendChatMessage(roomId: string, message: string, type = 'text'): boolean {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('chat:send', { roomId, message, type });
+    return true;
   }
 
   // ─── Gifts ───────────────────────────────────────────────────────────────
@@ -206,9 +208,12 @@ class SocketService {
         return;
       }
 
-      this.socket.emit(event, data, (response: T) => {
-        resolve(response);
-      });
+      const acknowledge = (response: T) => resolve(response);
+      if (data === undefined) {
+        this.socket.emit(event, acknowledge);
+      } else {
+        this.socket.emit(event, data, acknowledge);
+      }
     });
   }
 }

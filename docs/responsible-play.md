@@ -4,7 +4,7 @@ Social Teen Patti is an adults-only entertainment product operated by Battle Gre
 
 ## Product boundaries
 
-- Beli is non-purchasable, non-transferable, non-wagerable, and has no cash value.
+- Club Points are non-purchasable, non-transferable, non-wagerable, and have no cash value.
 - Referral rewards are cosmetic/identity extras, not chips or prizes.
 - AI/practice play never activates a referral.
 - Purchases are disabled by default in every environment.
@@ -18,4 +18,4 @@ Social Teen Patti is an adults-only entertainment product operated by Battle Gre
 - Publish odds/rules for every variant and preserve auditable server game records.
 - Add configurable time-outs and self-exclusion before enabling monetized play.
 
-Marketing must not target minors, imply guaranteed earnings, or describe Beli or chips as money.
+Marketing must not target minors, imply guaranteed earnings, or describe Club Points or play chips as money.

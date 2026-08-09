@@ -1,38 +1,118 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Users, Plus, Search, Filter, Sparkles,
-  Crown, Zap, Gift, Settings, ChevronRight, Flame,
-  Play, Hash
+  ArrowUpRight,
+  ChevronRight,
+  CircleUserRound,
+  Crown,
+  Flame,
+  Gift,
+  Hash,
+  Play,
+  Plus,
+  Search,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Zap,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useGameStore } from '../stores/gameStore';
-import { useUIStore } from '../stores/uiStore';
 import { Layout } from '../components/Layout';
 import { NavigationBar } from '../components/NavigationBar';
+import { AnimatedChipCount, PullToRefresh, SkeletonLoader } from '../components/PolishTouches';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
-import { AnimatedChipCount, PressableButton, GlassCard, SkeletonLoader, EmptyState, PullToRefresh, ContextualTooltip } from '../components/PolishTouches';
-import { GameVariant, GameRoom } from '../types';
+import { GameRoom, GameVariant } from '../types';
 import { socketService } from '../services/socket';
 
-const variantConfig: Record<GameVariant, { color: string; icon: typeof Sparkles; label: string }> = {
-  classic: { color: 'from-red-600 to-red-800', icon: Crown, label: 'Classic' },
-  joker: { color: 'from-purple-600 to-purple-800', icon: Sparkles, label: 'Joker' },
-  muflis: { color: 'from-green-600 to-green-800', icon: Zap, label: 'Muflis' },
-  ak47: { color: 'from-orange-600 to-orange-800', icon: Flame, label: 'AK47' },
-  hukam: { color: 'from-blue-600 to-blue-800', icon: Crown, label: 'Hukam' },
-  lowball: { color: 'from-teal-600 to-teal-800', icon: Zap, label: 'Lowball' },
-  best_of_four: { color: 'from-yellow-600 to-yellow-800', icon: Sparkles, label: 'Best of 4' },
-  dealers_choice: { color: 'from-pink-600 to-pink-800', icon: Flame, label: "Dealer's" },
+const variantConfig: Record<GameVariant, { accent: string; icon: typeof Sparkles; label: string }> = {
+  classic: { accent: 'text-[#E8B04A]', icon: Crown, label: 'Classic' },
+  joker: { accent: 'text-[#D9B8FF]', icon: Sparkles, label: 'Joker' },
+  muflis: { accent: 'text-[#8ED4A5]', icon: Zap, label: 'Muflis' },
+  ak47: { accent: 'text-[#F19B79]', icon: Flame, label: 'AK47' },
+  hukam: { accent: 'text-[#9AC2FF]', icon: Crown, label: 'Hukam' },
+  lowball: { accent: 'text-[#79D6CE]', icon: Zap, label: 'Lowball' },
+  best_of_four: { accent: 'text-[#F1D375]', icon: Sparkles, label: 'Best of 4' },
+  dealers_choice: { accent: 'text-[#F0A7C4]', icon: Flame, label: "Dealer's" },
 };
 
 interface LobbyScreenProps {
-  onJoinGame: (room: GameRoom) => void;
+  onJoinGame: (room: GameRoom) => Promise<void>;
   onCreateGame: () => void;
-  onQuickPlay: () => void;
+  onQuickPlay: () => Promise<void>;
   onJoinByCode: () => void;
   onNavigate: (screen: string) => void;
+}
+
+interface LobbyActionProps {
+  onCreateGame: () => void;
+  onQuickPlay: () => Promise<void>;
+  onJoinByCode: () => void;
+  onNavigate: (screen: string) => void;
+}
+
+function CardFan() {
+  return (
+    <div className="relative mx-auto h-32 w-44" aria-hidden="true">
+      <div className="absolute bottom-1 left-6 h-28 w-20 -rotate-12 rounded-[18px] border border-[#D6CAB3] bg-[#F6ECD8] p-2 text-[#B74035] shadow-[0_14px_32px_rgba(0,0,0,0.28)]">
+        <span className="font-display text-2xl font-black">A</span>
+        <span className="block text-xl leading-none">♥</span>
+      </div>
+      <div className="absolute bottom-0 left-[62px] z-10 h-[120px] w-20 rounded-[18px] border border-[#D6CAB3] bg-[#FFF9ED] p-2 text-[#17130E] shadow-[0_16px_34px_rgba(0,0,0,0.34)]">
+        <span className="font-display text-2xl font-black">A</span>
+        <span className="block text-xl leading-none">♠</span>
+      </div>
+      <div className="absolute bottom-1 right-4 h-28 w-20 rotate-12 rounded-[18px] border border-[#D6CAB3] bg-[#F6ECD8] p-2 text-[#B74035] shadow-[0_14px_32px_rgba(0,0,0,0.28)]">
+        <span className="font-display text-2xl font-black">A</span>
+        <span className="block text-xl leading-none">♦</span>
+      </div>
+    </div>
+  );
+}
+
+function QuickPlayCard({ onQuickPlay, isPending }: Pick<LobbyActionProps, 'onQuickPlay'> & { isPending: boolean }) {
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.98 }}
+      onClick={() => void onQuickPlay()}
+      disabled={isPending}
+      aria-busy={isPending}
+      className="group flex w-full items-center gap-3 rounded-[22px] border border-white/10 bg-[#0E1B17] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.16)] transition-colors hover:border-[#E8B04A]/35 disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#F6ECD8] text-[#163E2D]">
+        <Play className="h-5 w-5 fill-current" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold text-[#F6ECD8]">{isPending ? 'Finding a seat…' : 'Quick Play'}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-[#B9C4BE]">Warm up instantly with AI opponents</span>
+      </span>
+      <ChevronRight className="h-5 w-5 text-[#66736D] transition-transform group-hover:translate-x-0.5" />
+    </motion.button>
+  );
+}
+
+function ReferralCard({ onNavigate }: Pick<LobbyActionProps, 'onNavigate'>) {
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate('referrals')}
+      className="group w-full rounded-[22px] border border-[#E8B04A]/25 bg-[#2A1714] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.16)] transition-colors hover:border-[#E8B04A]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+    >
+      <span className="flex items-start justify-between gap-4">
+        <span>
+          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#E8B04A]">
+            <Gift className="h-4 w-4" /> Table circle
+          </span>
+          <span className="mt-2 block font-display text-xl font-bold text-[#F6ECD8]">Bring a friend. You both earn 100 Club Points.</span>
+          <span className="mt-1 block text-xs leading-relaxed text-[#C9B9AF]">After their first completed multiplayer game. Club Points unlock cosmetic extras and have no cash value.</span>
+        </span>
+        <ArrowUpRight className="mt-1 h-5 w-5 shrink-0 text-[#E8B04A] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      </span>
+    </button>
+  );
 }
 
 export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCode, onNavigate }: LobbyScreenProps) {
@@ -41,10 +121,30 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVariant, setSelectedVariant] = useState<GameVariant | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const quickPlayRef = useRef<HTMLDivElement>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
-  const loadRooms = useCallback(async () => {
-    setIsLoading(true);
+  const startQuickPlay = useCallback(async () => {
+    if (pendingAction) return;
+    setPendingAction('quick-play');
+    try {
+      await onQuickPlay();
+    } finally {
+      setPendingAction(null);
+    }
+  }, [onQuickPlay, pendingAction]);
+
+  const joinOpenTable = useCallback(async (room: GameRoom) => {
+    if (pendingAction) return;
+    setPendingAction(room.id);
+    try {
+      await onJoinGame(room);
+    } finally {
+      setPendingAction(null);
+    }
+  }, [onJoinGame, pendingAction]);
+
+  const loadRooms = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       if (!socketService.isConnected) await socketService.connect();
       const result = await socketService.listRooms();
@@ -62,374 +162,243 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
         createdBy: '',
       })));
     } catch {
-      setRooms([]);
+      if (!silent) setRooms([]);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [setRooms]);
 
   useEffect(() => {
     void loadRooms();
-    const timer = window.setInterval(() => void loadRooms(), 10_000);
+    const timer = window.setInterval(() => void loadRooms(true), 10_000);
     return () => window.clearInterval(timer);
   }, [loadRooms]);
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredRooms = availableRooms.filter((room) => {
-    const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = room.name.toLowerCase().includes(normalizedQuery);
     const matchesVariant = selectedVariant === 'all' || room.variant === selectedVariant;
     return matchesSearch && matchesVariant;
   });
 
   return (
-    <Layout>
-      <div className="flex flex-col h-full bg-gradient-to-b from-gray-900 via-gray-900 to-black">
-        {/* Header */}
-        <motion.header
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="relative z-10 px-4 pt-4 pb-2"
-        >
-          {/* Top bar */}
-          <div className="flex items-center justify-between mb-4">
-            {/* Profile */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onNavigate('profile')}
-              className="flex items-center gap-3 text-left"
-              aria-label="Open profile"
-            >
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center text-white font-bold text-lg ring-2 ring-yellow-500/50">
-                  {user?.username?.[0]?.toUpperCase() || 'G'}
-                </div>
-                <div className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-yellow-500 rounded-full">
-                  <span className="text-[10px] font-bold text-yellow-900">Lv.{user?.level || 1}</span>
-                </div>
-              </div>
+    <Layout wide>
+      <div className="h-full overflow-y-auto bg-[#07110E] pb-24 lg:pb-8">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <header className="flex items-center justify-between gap-4 py-4 sm:py-5 lg:py-6">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 rotate-[-3deg] place-items-center rounded-xl border border-[#E8B04A]/45 bg-[#2A1714] font-display text-sm font-black text-[#E8B04A] shadow-[0_8px_20px_rgba(0,0,0,0.25)]">TP</div>
               <div>
-                <p className="text-white font-semibold">{user?.username || 'Guest'}</p>
-                <div className="flex items-center gap-1">
-                  <AnimatedChipCount value={user?.chips || 0} prefix="◉ " className="text-yellow-400 text-sm font-bold" />
-                </div>
+                <p className="font-display text-lg font-bold leading-tight text-[#F6ECD8]">Teen Patti Social</p>
+                <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7E8D85] sm:block">Private tables for friends</p>
               </div>
-            </motion.button>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              <motion.button
-                type="button"
-                aria-label="Settings"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onNavigate('settings')}
-                className="p-2.5 rounded-xl bg-white/10 backdrop-blur-sm"
-              >
-                <Settings className="w-5 h-5 text-white/80" />
-              </motion.button>
             </div>
-          </div>
 
-          {/* Referral wedge */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="relative overflow-hidden rounded-2xl border border-[#FFD66B]/30 bg-gradient-to-r from-[#176B45] to-[#0f4d35] p-4 mb-4"
-          >
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml,...')] opacity-10" />
-            <div className="relative flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Gift className="w-5 h-5 text-[#FFD66B]" />
-                  <span className="text-[#FFD66B] text-sm font-medium">Your table circle</span>
+            <div className="hidden items-center gap-2 lg:flex">
+              <button type="button" onClick={() => onNavigate('referrals')} className="rounded-full px-4 py-2 text-sm font-semibold text-[#B9C4BE] transition-colors hover:bg-white/5 hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">Invite</button>
+              <button type="button" onClick={() => onNavigate('profile')} className="flex items-center gap-3 rounded-full border border-white/10 bg-[#0E1B17] py-1.5 pl-2 pr-4 text-left transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#B74035] font-bold text-[#FFF9ED]">{user?.username?.[0]?.toUpperCase() || 'G'}</span>
+                <span>
+                  <span className="block text-xs font-semibold text-[#F6ECD8]">{user?.username || 'Guest'}</span>
+                  <AnimatedChipCount value={user?.chips || 0} prefix="● " className="block text-[11px] font-bold text-[#E8B04A]" />
+                </span>
+              </button>
+              <button type="button" aria-label="Open settings" onClick={() => onNavigate('settings')} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#0E1B17] text-[#B9C4BE] transition-colors hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 lg:hidden">
+              <button type="button" aria-label="Open profile" onClick={() => onNavigate('profile')} className="grid h-10 w-10 place-items-center rounded-full bg-[#B74035] font-bold text-[#FFF9ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">{user?.username?.[0]?.toUpperCase() || 'G'}</button>
+              <button type="button" aria-label="Open settings" onClick={() => onNavigate('settings')} className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#0E1B17] text-[#B9C4BE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
+          </header>
+
+          <main className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+            <div className="min-w-0">
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="relative overflow-hidden rounded-[30px] border border-[#D5B86A]/25 bg-[#163E2D] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.28)] sm:px-8 sm:py-8 lg:min-h-[342px] lg:px-10 lg:py-9"
+              >
+                <div className="relative z-10 grid items-center gap-6 sm:grid-cols-[minmax(0,1fr)_190px] lg:grid-cols-[minmax(0,1fr)_220px]">
+                  <div>
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#E8B04A]/30 bg-[#0C2C20] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Adults 18+ · Social play only
+                    </div>
+                    <h1 className="max-w-2xl font-display text-[2.35rem] font-black leading-[0.98] tracking-[-0.035em] text-[#FFF9ED] sm:text-5xl lg:text-[3.5rem]">
+                      Deal the night.<br />Keep it in the circle.
+                    </h1>
+                    <p className="mt-4 max-w-xl text-sm leading-6 text-[#C7D3CC] sm:text-base">
+                      Open a private Teen Patti table, send one code, and play with people you actually know.
+                    </p>
+                    <div className="mt-6 grid gap-3 sm:flex">
+                      <motion.button type="button" whileTap={{ scale: 0.98 }} onClick={onCreateGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] px-5 font-bold text-[#171006] shadow-[0_10px_24px_rgba(232,176,74,0.2)] transition-colors hover:bg-[#F0C268] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED] focus-visible:ring-offset-2 focus-visible:ring-offset-[#163E2D]">
+                        <Plus className="h-5 w-5" /> Create a friend table
+                      </motion.button>
+                      <motion.button type="button" whileTap={{ scale: 0.98 }} onClick={onJoinByCode} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#F6ECD8]/25 bg-[#0C2C20] px-5 font-bold text-[#F6ECD8] transition-colors hover:border-[#F6ECD8]/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                        <Hash className="h-5 w-5" /> Join with code
+                      </motion.button>
+                    </div>
+                  </div>
+                  <div className="hidden sm:block">
+                    <CardFan />
+                    <p className="mt-4 text-center font-display text-sm italic text-[#D8CDAF]">Your table. Your people.</p>
+                  </div>
                 </div>
-                <p className="text-white font-bold text-lg">Both unlock 100 Beli</p>
-                <p className="mt-0.5 text-xs text-white/60">After your friend's first real multiplayer game</p>
+              </motion.section>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:hidden">
+                <QuickPlayCard onQuickPlay={startQuickPlay} isPending={pendingAction === 'quick-play'} />
+                <ReferralCard onNavigate={onNavigate} />
               </div>
-              <PressableButton
-                onClick={() => onNavigate('referrals')}
-                variant="primary"
-                className="px-4 py-2 bg-[#F5A524] rounded-xl font-bold text-[#0B1221] shadow-none from-[#F5A524] to-[#F5A524]"
-              >
-                Invite
-              </PressableButton>
-            </div>
-            {/* Sparkle effects */}
-            <motion.div
-              className="absolute top-2 right-20 w-2 h-2 bg-white rounded-full"
-              animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-            />
-            <motion.div
-              className="absolute bottom-3 right-32 w-1.5 h-1.5 bg-yellow-200 rounded-full"
-              animate={{ opacity: [0, 1, 0], scale: [0.5, 1, 0.5] }}
-              transition={{ repeat: Infinity, duration: 1.5, delay: 0.5 }}
-            />
-          </motion.div>
 
-          {/* Quick Play Button */}
-          <motion.div
-            ref={quickPlayRef}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="mb-4"
-          >
-            <PressableButton
-              onClick={onQuickPlay}
-              className="w-full p-4 rounded-2xl bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 shadow-lg shadow-green-500/40 relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent shimmer" />
-              <div className="relative flex items-center justify-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                  <Play className="w-6 h-6 text-white fill-white" />
+              <section className="mt-7" aria-labelledby="tables-heading">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#E8B04A]">Table room</p>
+                    <h2 id="tables-heading" className="mt-1 font-display text-2xl font-bold text-[#F6ECD8]">Open tables</h2>
+                  </div>
+                  <p className="text-xs font-medium text-[#7E8D85]">{availableRooms.length} live</p>
                 </div>
-                <div className="text-left">
-                  <p className="text-white font-bold text-lg">Quick Play</p>
-                  <p className="text-white/80 text-sm">Play instantly with AI opponents</p>
+
+                <label className="relative mt-4 block">
+                  <span className="sr-only">Search tables</span>
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#66736D]" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search by table name"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0E1B17] pl-11 pr-4 text-sm text-[#F6ECD8] placeholder:text-[#66736D] focus:border-[#E8B04A]/50 focus:outline-none focus:ring-2 focus:ring-[#E8B04A]/25"
+                  />
+                </label>
+
+                <div className="variant-scroll -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" aria-label="Filter tables by game variant">
+                  <button type="button" aria-pressed={selectedVariant === 'all'} onClick={() => setSelectedVariant('all')} className={cn('whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', selectedVariant === 'all' ? 'border-[#E8B04A] bg-[#E8B04A] text-[#171006]' : 'border-white/10 bg-[#0E1B17] text-[#94A098] hover:border-white/20')}>All games</button>
+                  {(Object.keys(variantConfig) as GameVariant[]).map((variant) => {
+                    const config = variantConfig[variant];
+                    const Icon = config.icon;
+                    const selected = selectedVariant === variant;
+                    return (
+                      <button key={variant} type="button" aria-pressed={selected} onClick={() => setSelectedVariant(variant)} className={cn('flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', selected ? 'border-[#E8B04A] bg-[#E8B04A] text-[#171006]' : 'border-white/10 bg-[#0E1B17] text-[#94A098] hover:border-white/20')}>
+                        <Icon className="h-3.5 w-3.5" /> {config.label}
+                      </button>
+                    );
+                  })}
                 </div>
-                <ChevronRight className="w-6 h-6 text-white/60 ml-auto" />
-              </div>
-            </PressableButton>
-          </motion.div>
 
-          {/* Action Buttons Row */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="flex gap-2 mb-4"
-          >
-            <PressableButton
-              onClick={onCreateGame}
-              variant="primary"
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl"
-            >
-              <Plus className="w-5 h-5" />
-              Create Table
-            </PressableButton>
-            <PressableButton
-              onClick={onJoinByCode}
-              variant="secondary"
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl"
-            >
-              <Hash className="w-5 h-5" />
-              Join by Code
-            </PressableButton>
-          </motion.div>
+                <PullToRefresh onRefresh={loadRooms} className="mt-2 min-h-[250px]">
+                  <div className="space-y-3 pb-2">
+                    {isLoading ? (
+                      Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="rounded-[22px] border border-white/10 bg-[#0E1B17] p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-2">
+                              <SkeletonLoader variant="text" width="150px" height="16px" />
+                              <SkeletonLoader variant="text" width="220px" height="12px" />
+                            </div>
+                            <SkeletonLoader variant="avatar" width="36px" height="36px" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <AnimatePresence mode="popLayout">
+                        {filteredRooms.map((room, index) => {
+                          const config = variantConfig[room.variant] || variantConfig.classic;
+                          const Icon = config.icon;
+                          const isFull = room.currentPlayers >= room.maxPlayers;
+                          const isPlaying = room.status === 'playing';
+                          const unavailable = isFull || isPlaying;
+                          return (
+                            <motion.button
+                              type="button"
+                              key={room.id}
+                              layout
+                              initial={{ opacity: 0, y: 12 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -8 }}
+                              transition={{ delay: index * 0.04 }}
+                              disabled={unavailable || pendingAction !== null}
+                              aria-busy={pendingAction === room.id}
+                              onClick={() => void joinOpenTable(room)}
+                              className="group relative w-full overflow-hidden rounded-[22px] border border-white/10 bg-[#0E1B17] p-4 text-left transition-colors hover:border-[#E8B04A]/30 disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+                            >
+                              <span className="flex items-start justify-between gap-4">
+                                <span className="min-w-0">
+                                  <span className="flex items-center gap-2">
+                                    <Icon className={cn('h-4 w-4', config.accent)} />
+                                    <span className="truncate font-semibold text-[#F6ECD8]">{room.name}</span>
+                                  </span>
+                                  <span className="mt-2 block text-xs text-[#8C9A92]">{formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} play chips · {formatChips(room.minBet)}-chip boot</span>
+                                  <span className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#B9C4BE]">
+                                    <Users className="h-3.5 w-3.5" /> {room.currentPlayers}/{room.maxPlayers} seated
+                                    <span className="text-[#58645E]">·</span> {config.label}
+                                  </span>
+                                </span>
+                                <span className="flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-[#07110E] px-3 py-2 text-xs font-semibold text-[#B9C4BE]">
+                                  {isPlaying ? 'In play' : isFull ? 'Full' : pendingAction === room.id ? 'Joining…' : 'Join'}
+                                  {!unavailable && <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />}
+                                </span>
+                              </span>
+                            </motion.button>
+                          );
+                        })}
 
-          {/* Search and filter */}
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tables..."
-                className="w-full bg-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-              />
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              className="p-2.5 rounded-xl bg-white/10"
-            >
-              <Filter className="w-5 h-5 text-white/60" />
-            </motion.button>
-          </div>
-        </motion.header>
-
-        {/* Variant filters */}
-        <div className="px-4 py-2 flex gap-2 overflow-x-auto scrollbar-hide">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedVariant('all')}
-            className={cn(
-              'px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all',
-              selectedVariant === 'all'
-                ? 'bg-yellow-500 text-yellow-900'
-                : 'bg-white/10 text-white/60'
-            )}
-          >
-            All Games
-          </motion.button>
-          {(Object.keys(variantConfig) as GameVariant[]).map((variant) => {
-            const config = variantConfig[variant];
-            const Icon = config.icon;
-            return (
-              <motion.button
-                key={variant}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setSelectedVariant(variant)}
-                className={cn(
-                  'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all',
-                  selectedVariant === variant
-                    ? `bg-gradient-to-r ${config.color} text-white`
-                    : 'bg-white/10 text-white/60'
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {config.label}
-              </motion.button>
-            );
-          })}
-        </div>
-
-        {/* Tables list */}
-        <PullToRefresh
-          onRefresh={async () => {
-            await loadRooms();
-          }}
-          className="flex-1 overflow-y-auto px-4 py-2"
-        >
-        <div className="space-y-3">
-          {/* Skeleton loading state */}
-          {isLoading && (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-2xl p-4 bg-gray-800/50 border border-white/5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="space-y-2">
-                      <SkeletonLoader variant="text" width="140px" height="16px" />
-                      <SkeletonLoader variant="text" width="200px" height="12px" />
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <SkeletonLoader variant="text" width="50px" height="14px" />
-                      <SkeletonLoader variant="button" width="70px" height="20px" />
-                    </div>
-                  </div>
-                  <div className="flex gap-1">
-                    {Array.from({ length: 3 }).map((_, j) => (
-                      <SkeletonLoader key={j} variant="avatar" width="24px" height="24px" />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!isLoading && <AnimatePresence mode="popLayout">
-            {filteredRooms.map((room, index) => {
-              const config = variantConfig[room.variant];
-              const Icon = config.icon;
-              const isFull = room.currentPlayers >= room.maxPlayers;
-              const isPlaying = room.status === 'playing';
-
-              return (
-                <motion.div
-                  key={room.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => !isFull && !isPlaying && onJoinGame(room)}
-                  className={cn(
-                    'relative overflow-hidden rounded-2xl p-4',
-                    'bg-gradient-to-br from-gray-800/80 to-gray-900/80',
-                    'backdrop-blur-sm border border-white/10',
-                    'cursor-pointer transition-all',
-                    (isFull || isPlaying) && 'opacity-60'
-                  )}
-                >
-                  {/* Variant indicator */}
-                  <div className={cn(
-                    'absolute top-0 right-0 px-3 py-1 rounded-bl-xl',
-                    `bg-gradient-to-r ${config.color}`
-                  )}>
-                    <div className="flex items-center gap-1">
-                      <Icon className="w-3 h-3 text-white" />
-                      <span className="text-xs font-medium text-white">{config.label}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-white font-semibold mb-1">{room.name}</h3>
-                      <div className="flex items-center gap-3 text-sm">
-                        <span className="text-yellow-400">
-                          {formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} chips
-                        </span>
-                        <span className="text-white/40">•</span>
-                        <span className="text-white/60">
-                          Boot: {formatChips(room.minBet)} chips
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-white/40" />
-                        <span className={cn(
-                          'text-sm font-medium',
-                          isFull ? 'text-red-400' : 'text-green-400'
-                        )}>
-                          {room.currentPlayers}/{room.maxPlayers}
-                        </span>
-                      </div>
-                      {isPlaying && (
-                        <span className="px-2 py-0.5 bg-green-500/20 rounded-full text-xs text-green-400">
-                          In Progress
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Player avatars */}
-                  <div className="flex items-center gap-1 mt-3">
-                    {Array.from({ length: room.currentPlayers }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-6 h-6 rounded-full bg-gradient-to-br from-red-600 to-red-900 ring-2 ring-gray-800 flex items-center justify-center text-[10px] text-white font-bold"
-                        style={{ marginLeft: i > 0 ? -8 : 0 }}
-                      >
-                        {String.fromCharCode(65 + i)}
-                      </div>
-                    ))}
-                    {room.currentPlayers < room.maxPlayers && (
-                      <div className="w-6 h-6 rounded-full bg-white/10 ring-2 ring-gray-800 flex items-center justify-center ml-[-8px]">
-                        <Plus className="w-3 h-3 text-white/40" />
-                      </div>
+                        {filteredRooms.length === 0 && (
+                          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[26px] border border-dashed border-white/15 bg-[#0A1612] px-6 py-10 text-center">
+                            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#E8B04A]/25 bg-[#2A1714] font-display text-2xl text-[#E8B04A]">♠</div>
+                            <h3 className="mt-4 font-display text-xl font-bold text-[#F6ECD8]">No open tables yet</h3>
+                            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#7E8D85]">Be the host tonight—open a private table and share the code with your circle.</p>
+                            <button type="button" onClick={onCreateGame} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] px-5 text-sm font-bold text-[#171006] transition-colors hover:bg-[#F0C268] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F6ECD8]">
+                              <Plus className="h-4 w-4" /> Start a table
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     )}
                   </div>
+                </PullToRefresh>
+              </section>
+            </div>
 
-                  {/* Join arrow */}
-                  {!isFull && !isPlaying && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                      <ChevronRight className="w-5 h-5 text-white/30" />
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
+            <aside className="hidden space-y-4 lg:block" aria-label="Player and invite tools">
+              <section className="rounded-[26px] border border-white/10 bg-[#0E1B17] p-5 shadow-[0_18px_42px_rgba(0,0,0,0.18)]">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-12 w-12 place-items-center rounded-full bg-[#B74035] text-lg font-bold text-[#FFF9ED]">{user?.username?.[0]?.toUpperCase() || 'G'}</span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-[#F6ECD8]">{user?.username || 'Guest'}</p>
+                    <p className="mt-0.5 text-xs text-[#7E8D85]">Level {user?.level || 1} · Ready to deal</p>
+                  </div>
+                  <CircleUserRound className="ml-auto h-5 w-5 text-[#58645E]" />
+                </div>
+                <div className="mt-4 flex items-end justify-between rounded-2xl border border-white/10 bg-[#07110E] px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#66736D]">Club Points balance</p>
+                    <AnimatedChipCount value={user?.beliBalance || 0} prefix="✦ " className="mt-1 block text-lg font-bold text-[#E8B04A]" />
+                  </div>
+                  <span className="text-[10px] text-[#66736D]">No cash value</span>
+                </div>
+              </section>
 
+              <QuickPlayCard onQuickPlay={startQuickPlay} isPending={pendingAction === 'quick-play'} />
+              <ReferralCard onNavigate={onNavigate} />
 
-          {filteredRooms.length === 0 && (
-            <EmptyState
-              emoji="🃏"
-              title="No tables found"
-              subtitle="Try adjusting your filters or create your own table"
-              actionLabel="Create Table"
-              onAction={onCreateGame}
-            />
-          )}
-          </AnimatePresence>}
+              <section className="rounded-[26px] border border-white/10 bg-[#0A1612] p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">Tonight's table</p>
+                <h2 className="mt-2 font-display text-2xl font-bold text-[#F6ECD8]">Three moves to game night.</h2>
+                <ol className="mt-5 space-y-4 text-sm text-[#AAB6AF]">
+                  <li className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#E8B04A] text-xs font-black text-[#171006]">1</span><span>Create a private friend table.</span></li>
+                  <li className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[#E8B04A]/35 text-xs font-black text-[#E8B04A]">2</span><span>Share the six-character code.</span></li>
+                  <li className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[#E8B04A]/35 text-xs font-black text-[#E8B04A]">3</span><span>The deal begins when friends join.</span></li>
+                </ol>
+              </section>
+            </aside>
+          </main>
         </div>
-        </PullToRefresh>
 
-        {/* First-time tooltip */}
-        <ContextualTooltip
-          id="quick-play-hint"
-          text="Tap here to jump straight into a game!"
-          emoji="🎮"
-          targetRef={quickPlayRef}
-          position="bottom"
-        />
-
-        {/* Navigation */}
         <NavigationBar currentScreen="home" onNavigate={onNavigate} />
       </div>
     </Layout>

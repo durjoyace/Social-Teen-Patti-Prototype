@@ -103,6 +103,7 @@ export interface GamePlayer {
   isBlind: boolean;
   isDealer: boolean;
   isTurn: boolean;
+  isBot?: boolean;
 }
 
 // Room Types

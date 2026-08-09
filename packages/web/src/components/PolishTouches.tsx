@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useState,
   useRef,
   useCallback,
@@ -118,16 +119,17 @@ interface PressableButtonProps {
   className?: string;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  ariaLabel?: string;
 }
 
 const VARIANT_CLASSES: Record<NonNullable<PressableButtonProps['variant']>, string> = {
   primary:
-    'bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/30 hover:shadow-amber-500/40',
+    'border border-[#E8B04A] bg-[#E8B04A] text-[#07110E] shadow-[0_7px_18px_rgba(0,0,0,0.22)] hover:bg-[#F0BE60]',
   secondary:
-    'bg-white/10 text-white border border-white/20 hover:bg-white/15',
+    'border border-white/15 bg-white/[0.06] text-[#F6ECD8] hover:bg-white/10',
   danger:
-    'bg-gradient-to-b from-red-500 to-red-600 text-white shadow-lg shadow-red-500/30',
-  ghost: 'bg-transparent text-white/70 hover:text-white hover:bg-white/5',
+    'border border-[#B74035]/65 bg-[#2A1714] text-[#F2B1A9] shadow-[0_7px_18px_rgba(0,0,0,0.2)] hover:bg-[#35201C]',
+  ghost: 'border border-transparent bg-transparent text-[#C9D3CE] hover:bg-white/[0.055] hover:text-[#F6ECD8]',
 };
 
 export function PressableButton({
@@ -136,6 +138,7 @@ export function PressableButton({
   className,
   disabled = false,
   variant = 'primary',
+  ariaLabel,
 }: PressableButtonProps) {
   const reduced = useReducedMotion();
   const [pressed, setPressed] = useState(false);
@@ -143,6 +146,7 @@ export function PressableButton({
   return (
     <motion.button
       type="button"
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={onClick}
       onPointerDown={() => setPressed(true)}
@@ -164,7 +168,7 @@ export function PressableButton({
       }}
       className={cn(
         'relative rounded-xl px-5 py-3 font-semibold text-sm',
-        'select-none outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50',
+        'select-none outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A] focus-visible:ring-offset-2 focus-visible:ring-offset-[#07110E]',
         'transition-colors duration-150',
         'disabled:opacity-40 disabled:pointer-events-none',
         VARIANT_CLASSES[variant],
@@ -208,6 +212,9 @@ export function SlideUpSheet({
 }: SlideUpSheetProps) {
   const reduced = useReducedMotion();
   const [snapIndex, setSnapIndex] = useState(0);
+  const titleId = useId();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const sheetHeight = typeof window !== 'undefined' ? window.innerHeight * snapPoints[snapIndex] : 400;
 
   const handleDragEnd = useCallback(
@@ -229,13 +236,61 @@ export function SlideUpSheet({
     if (isOpen) setSnapIndex(0);
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusTimer = window.setTimeout(() => {
+      const focusTarget = sheetRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      );
+      (focusTarget ?? sheetRef.current)?.focus();
+    }, 0);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !sheetRef.current) return;
+
+      const focusable = Array.from(sheetRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        sheetRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [isOpen, onClose]);
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            aria-hidden="true"
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -245,7 +300,13 @@ export function SlideUpSheet({
 
           {/* Sheet */}
           <motion.div
-            className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-gray-900 shadow-2xl"
+            ref={sheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-label={title ? undefined : 'Dialog'}
+            tabIndex={-1}
+            className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl border-t border-[#E8B04A]/20 bg-[#0E1B17] shadow-[0_-24px_60px_rgba(0,0,0,0.55)] outline-none"
             style={{ maxHeight: '92vh' }}
             initial={{ y: '100%' }}
             animate={{ y: 0, height: sheetHeight }}
@@ -267,10 +328,17 @@ export function SlideUpSheet({
 
             {/* Title */}
             {title && (
-              <div className="shrink-0 border-b border-white/10 px-5 pb-3">
-                <h2 className="text-center text-lg font-semibold text-white">
-                  {title}
-                </h2>
+              <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-5 pb-3">
+                <span aria-hidden="true" className="h-9 w-9" />
+                <h2 id={titleId} className="font-display text-center text-lg font-semibold text-[#F6ECD8]">{title}</h2>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label={`Close ${title}`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-xl text-[#C9D3CE] transition-colors hover:bg-white/[0.06] hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
               </div>
             )}
 
@@ -978,7 +1046,7 @@ export function GlassCard({
       }
     >
       {/* Subtle inner highlight at top */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/10" />
       {children}
     </motion.div>
   );

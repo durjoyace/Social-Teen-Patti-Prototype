@@ -1,4 +1,4 @@
-# Referral and Beli system
+# Referral and Club Points system
 
 ## Product contract
 
@@ -7,20 +7,20 @@ The growth loop is deliberately narrow:
 1. An adult player creates or opens a private table and shares one personal link containing the referral and room codes.
 2. A new player opens the link. Attribution and the pending room are retained across guest or registered account creation, then the client joins that table automatically.
 3. The new player completes a server-authoritative game with at least one other human.
-4. The inviter and invitee each receive 100 Beli in one serializable database transaction.
-5. The inviter can earn milestone Beli and redeem it only for identity extras.
+4. The inviter and invitee each receive 100 Club Points in one serializable database transaction.
+5. The inviter can earn milestone Club Points and redeem them only for cosmetic extras.
 
 An install, account creation, AI game, abandoned table, or repeated game never issues the activation reward.
 
-## Beli rules
+## Club Points rules
 
-Beli is a loyalty point, separate from play chips and diamonds. It cannot be purchased, transferred, gifted, wagered, cashed out, or converted to another balance. Current redemptions are an emote, avatar frame, table theme, and profile title.
+Club Points are loyalty points, separate from play chips and diamonds. They cannot be purchased, transferred, gifted, wagered, cashed out, or converted to another balance. Current redemptions are an emote, avatar frame, table theme, and profile title.
 
-Activation awards 100 Beli to each side. Inviter milestones award 50 at one activated friend, 150 at three, 300 at five, 750 at ten, and 2,500 at twenty-five.
+Activation awards 100 Club Points to each side. Inviter milestones award 50 at one activated friend, 150 at three, 300 at five, 750 at ten, and 2,500 at twenty-five.
 
 ## State and data
 
-`Referral` progresses through `PENDING -> QUALIFIED -> REWARDED`. `REJECTED` is terminal for an automated risk decision. `BeliTransaction` is the immutable, idempotent ledger; `User.beliBalance` is its materialized balance. `RewardEntitlement` records permanent extras.
+`Referral` progresses through `PENDING -> QUALIFIED -> REWARDED`. `REJECTED` is terminal for an automated risk decision. The implementation retains the legacy internal names `BeliTransaction` and `User.beliBalance` to avoid a risky data migration; public surfaces call this balance Club Points. `RewardEntitlement` records permanent extras.
 
 Reward issuance uses a serializable Prisma transaction. Unique ledger keys prevent repeated activation, milestone, and redemption writes. Game results are committed before referral qualification begins.
 

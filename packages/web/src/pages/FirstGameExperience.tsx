@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, ChevronRight, Sparkles, Trophy, Eye } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -125,18 +125,19 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
   };
 
   return (
-    <div className="h-full w-full bg-[#0a1628] flex flex-col relative overflow-hidden">
+    <div className="relative flex h-full w-full flex-col overflow-hidden bg-[#07110E] text-[#F6ECD8]">
       {/* Ambient */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#1a5a2a] rounded-full blur-[180px] opacity-20" />
+        <div className="absolute left-1/2 top-[40%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#163E2D] opacity-20 blur-[160px]" />
       </div>
 
       {/* Top bar */}
       <div className="relative z-20 flex items-center justify-between px-5 py-3 pt-4">
-        <div className="text-white/40 text-xs font-medium">Your First Hand</div>
+        <div><p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#E8B04A]">Guided practice</p><p className="font-display text-lg font-bold text-[#F6ECD8]">Your first hand</p></div>
         <button
+          type="button"
           onClick={onComplete}
-          className="text-white/30 text-xs hover:text-white/60 transition"
+          className="min-h-10 rounded-full px-3 text-xs font-semibold text-[#7E8D85] transition hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
         >
           Skip Tutorial
         </button>
@@ -146,9 +147,9 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
       <div className="flex-1 relative z-10 flex items-center justify-center px-4">
         <div className="relative w-full max-w-[360px]" style={{ aspectRatio: '1 / 1.1' }}>
           {/* Table felt */}
-          <div className="absolute inset-0 rounded-[50%] bg-gradient-to-b from-[#5a3825] via-[#4a2e1c] to-[#3a2415] shadow-[0_8px_40px_rgba(0,0,0,0.6)]" />
-          <div className="absolute inset-[6px] rounded-[50%] border-[2px] border-[#D4AF37]/40" />
-          <div className="absolute inset-[10px] rounded-[50%] bg-gradient-to-br from-[#1a5c32] via-[#145228] to-[#0e3d1e] shadow-[inset_0_0_60px_rgba(0,0,0,0.5)]" />
+          <div className="absolute inset-0 rounded-[50%] bg-[#4A2E1C] shadow-[0_8px_40px_rgba(0,0,0,0.6)]" />
+          <div className="absolute inset-[6px] rounded-[50%] border-[2px] border-[#E8B04A]/40" />
+          <div className="absolute inset-[10px] rounded-[50%] bg-[#163E2D] shadow-[inset_0_0_60px_rgba(0,0,0,0.5)]" />
 
           {/* Pot */}
           <motion.div
@@ -161,7 +162,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               key={pot}
               initial={{ scale: 1.4 }}
               animate={{ scale: 1 }}
-              className="text-[#D4AF37] font-bold text-xl drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]"
+              className="text-xl font-bold text-[#E8B04A] drop-shadow-[0_0_12px_rgba(232,176,74,0.35)]"
             >
               {pot} chips
             </motion.span>
@@ -179,7 +180,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                   exit={{ opacity: 0.3, scale: 0.85 }}
                   className="absolute top-[15%] left-[18%] flex flex-col items-center"
                 >
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-purple-800 flex items-center justify-center text-white font-bold border-2 border-white/20">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/20 bg-[#5B3E72] font-bold text-white">
                     👩
                   </div>
                   <div className="mt-1 px-2 py-0.5 rounded-lg bg-black/40 text-center">
@@ -194,7 +195,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                   exit={{ opacity: 0.3, scale: 0.85 }}
                   className="absolute top-[15%] right-[18%] flex flex-col items-center"
                 >
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-800 flex items-center justify-center text-white font-bold border-2 border-white/20">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/20 bg-[#246246] font-bold text-white">
                     🧔
                   </div>
                   <div className="mt-1 px-2 py-0.5 rounded-lg bg-black/40 text-center">
@@ -212,7 +213,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               animate={{ opacity: 1, y: 0 }}
               className="absolute top-[20%] left-1/2 -translate-x-1/2 z-20"
             >
-              <div className="px-4 py-2 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium">
+              <div className="rounded-full border border-[#B74035]/30 bg-[#2A1714] px-4 py-2 text-sm font-medium text-[#F2B1A9]">
                 Both opponents folded!
               </div>
             </motion.div>
@@ -224,12 +225,12 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.3, type: 'spring' }}
-              className="w-14 h-14 rounded-full bg-gradient-to-br from-yellow-500 to-amber-700 flex items-center justify-center text-white font-bold text-lg border-2 border-yellow-500/60"
+              className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#E8B04A]/60 bg-[#B74035] text-lg font-bold text-white"
             >
               {username[0]?.toUpperCase() || 'Y'}
             </motion.div>
             <div className="mt-1 px-2 py-0.5 rounded-lg bg-black/40 text-center">
-              <span className="text-yellow-400 text-[10px] font-semibold">You</span>
+              <span className="text-[10px] font-semibold text-[#E8B04A]">You</span>
             </div>
           </div>
         </div>
@@ -265,9 +266,9 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-[130px] left-1/2 -translate-x-1/2 z-20 px-4 py-1 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30"
+            className="fixed bottom-[130px] left-1/2 z-20 -translate-x-1/2 rounded-full border border-[#E8B04A]/30 bg-[#2A1714] px-4 py-1"
           >
-            <span className="text-yellow-400 text-xs font-bold">Trail (Three of a Kind) — BEST HAND!</span>
+            <span className="text-xs font-bold text-[#E8B04A]">Trail (Three of a Kind) — best hand</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -281,7 +282,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
             exit={{ opacity: 0, y: 10 }}
             className="fixed bottom-[220px] left-1/2 -translate-x-1/2 z-30 w-[85%] max-w-sm"
           >
-            <div className="px-5 py-3 rounded-2xl bg-black/80 backdrop-blur-sm border border-yellow-500/20">
+            <div className="rounded-2xl border border-[#E8B04A]/20 bg-[#0E1B17]/95 px-5 py-3 backdrop-blur-sm">
               <p className="text-white/90 text-sm text-center leading-relaxed">{coachMessage}</p>
             </div>
           </motion.div>
@@ -293,11 +294,12 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
         {/* Peek prompt */}
         {step === 'peek_prompt' && (
           <motion.button
+            type="button"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             whileTap={{ scale: 0.98 }}
             onClick={handlePeek}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-[#14231E] py-4 text-lg font-bold text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
           >
             <Eye className="w-5 h-5" />
             Peek at Your Cards
@@ -307,11 +309,12 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
         {/* Bet prompt */}
         {step === 'bet_prompt' && (
           <motion.button
+            type="button"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleBet}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] py-4 text-lg font-bold text-[#171006] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]"
           >
             <Sparkles className="w-5 h-5" />
             Chaal — Bet 100 chips
@@ -328,7 +331,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-              className="w-5 h-5 border-2 border-yellow-500/20 border-t-yellow-500 rounded-full"
+              className="h-5 w-5 rounded-full border-2 border-[#E8B04A]/20 border-t-[#E8B04A]"
             />
             <span className="text-white/60 text-sm">Dealing cards...</span>
           </motion.div>
@@ -352,15 +355,15 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               initial={{ scale: 0, rotate: -10 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ type: 'spring', damping: 12 }}
-              className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-2xl shadow-yellow-500/50"
+              className="flex h-20 w-20 items-center justify-center rounded-full bg-[#E8B04A] shadow-[0_18px_42px_rgba(232,176,74,0.3)]"
             >
-              <Trophy className="w-10 h-10 text-yellow-900" />
+              <Trophy className="h-10 w-10 text-[#171006]" />
             </motion.div>
             <div className="text-center">
               <motion.h2
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400"
+                className="font-display text-3xl font-black text-[#E8B04A]"
               >
                 YOU WIN!
               </motion.h2>
@@ -368,7 +371,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="text-green-400 text-xl font-bold mt-1"
+                className="mt-1 text-xl font-bold text-[#8ED4A5]"
               >
                 +{formatChips(pot)} chips
               </motion.p>
@@ -382,12 +385,13 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
               </motion.p>
             </div>
             <motion.button
+              type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleContinueAfterWin}
-              className="px-8 py-3 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30"
+              className="rounded-2xl bg-[#E8B04A] px-8 py-3 font-bold text-[#171006] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]"
             >
               Continue
             </motion.button>
@@ -401,22 +405,23 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center gap-5"
           >
-            <div className="w-16 h-16 rounded-2xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-              <Shield className="w-8 h-8 text-green-400" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#E8B04A]/30 bg-[#163E2D]">
+              <Shield className="h-8 w-8 text-[#E8B04A]" />
             </div>
             <div className="text-center max-w-xs">
               <h3 className="text-xl font-bold text-white mb-2">Now bring your table circle</h3>
               <p className="text-white/50 text-sm leading-relaxed">
                 This was a guided practice hand. Real friend tables are dealt and settled by the server, and your referral only activates after a completed game with another human.
               </p>
-              <p className="text-green-400 text-sm font-semibold mt-3">
-                Invite a friend. Play one real game. Both unlock Beli extras.
+              <p className="mt-3 text-sm font-semibold text-[#8ED4A5]">
+                Invite a friend. Play one real game. You both earn Club Points for cosmetic extras.
               </p>
             </div>
             <motion.button
+              type="button"
               whileTap={{ scale: 0.98 }}
               onClick={handleFinish}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg shadow-lg shadow-green-500/30 flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] py-4 text-lg font-bold text-[#171006] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]"
             >
               Start Playing
               <ChevronRight className="w-5 h-5" />
@@ -444,22 +449,17 @@ function TutorialCard({ card, hidden }: { card: Card; hidden: boolean }) {
     <div className="w-[62px] h-[86px] rounded-xl relative select-none"
       style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }}>
       {hidden ? (
-        <div className="w-full h-full rounded-xl bg-gradient-to-br from-[#8B0000] via-[#7a0000] to-[#520000] border border-[#D4AF37]/50 overflow-hidden">
-          <div className="absolute inset-[2px] rounded-[10px] border border-[#D4AF37]/25 overflow-hidden">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `linear-gradient(45deg, rgba(212,175,55,0.08) 25%, transparent 25%), linear-gradient(-45deg, rgba(212,175,55,0.08) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(212,175,55,0.08) 75%), linear-gradient(-45deg, transparent 75%, rgba(212,175,55,0.08) 75%)`,
-              backgroundSize: '12px 12px',
-            }} />
-          </div>
+        <div className="h-full w-full overflow-hidden rounded-xl border border-[#E8B04A]/50 bg-[#B74035]">
+          <div className="absolute inset-[2px] overflow-hidden rounded-[10px] border border-[#E8B04A]/25" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#D4AF37]/40 to-[#8B6914]/30 border border-[#D4AF37]/50 flex items-center justify-center">
-              <span className="text-[#D4AF37] text-[8px] font-black">TP</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#E8B04A]/50 bg-[#2A1714]">
+              <span className="text-[8px] font-black text-[#E8B04A]">TP</span>
             </div>
           </div>
         </div>
       ) : (
         <div className="w-full h-full rounded-xl bg-white border border-gray-300/80 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-50" />
+          <div className="absolute inset-0 bg-[#FFF9ED]" />
           <div className={cn('absolute top-[3px] left-[4px] flex flex-col items-center leading-none', suit.color)}>
             <span className="text-[17px] font-extrabold" style={{ lineHeight: 1 }}>{card.rank}</span>
             <span className="text-[11px]" style={{ lineHeight: 1, marginTop: '-1px' }}>{suit.symbol}</span>
@@ -471,7 +471,7 @@ function TutorialCard({ card, hidden }: { card: Card; hidden: boolean }) {
             <span className="text-[17px] font-extrabold" style={{ lineHeight: 1 }}>{card.rank}</span>
             <span className="text-[11px]" style={{ lineHeight: 1, marginTop: '-1px' }}>{suit.symbol}</span>
           </div>
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/60 via-transparent to-transparent opacity-50 pointer-events-none" />
+          <div className="pointer-events-none absolute left-2 top-2 h-3 w-6 rounded-full bg-white/60" />
         </div>
       )}
     </div>

@@ -39,6 +39,15 @@ const giftSchema = z.object({
   giftType: z.string().trim().min(1).max(64),
 });
 
+type SocketAcknowledgement = (payload: unknown) => void;
+
+/** Keep malformed or older clients from crashing the process when they omit an ack. */
+export function safeSocketAcknowledgement(callback: unknown): SocketAcknowledgement {
+  return typeof callback === 'function'
+    ? callback as SocketAcknowledgement
+    : () => undefined;
+}
+
 export function setupSocketHandlers(io: Server) {
   const roomManager = new RoomManager(io);
 
@@ -88,16 +97,18 @@ export function setupSocketHandlers(io: Server) {
     // ─── Room Events ─────────────────────────────────────────────────────
 
     socket.on('room:list', (callback) => {
+      const respond = safeSocketAcknowledgement(callback);
       const rooms = roomManager.getPublicRooms();
-      callback({ rooms });
+      respond({ rooms });
     });
 
     socket.on('room:create', async (data, callback) => {
+      const respond = safeSocketAcknowledgement(callback);
       try {
         const input = roomCreateSchema.parse(data);
         const account = await prisma.user.findUnique({ where: { id: user.userId }, select: { chips: true } });
         if (!account || account.chips < BigInt(input.buyIn)) {
-          callback({ success: false, error: 'Not enough chips for this table' });
+          respond({ success: false, error: 'Not enough chips for this table' });
           return;
         }
         const room = roomManager.createRoom({
@@ -114,22 +125,23 @@ export function setupSocketHandlers(io: Server) {
         // Auto-join the created room
         roomManager.joinRoom(room.id, socket, user.userId, user.username, input.buyIn);
 
-        callback({ success: true, room: { id: room.id, roomCode: room.roomCode } });
+        respond({ success: true, room: { id: room.id, roomCode: room.roomCode } });
       } catch (err) {
-        callback({ success: false, error: err instanceof z.ZodError ? 'Invalid table settings' : 'Failed to create room' });
+        respond({ success: false, error: err instanceof z.ZodError ? 'Invalid table settings' : 'Failed to create room' });
       }
     });
 
     socket.on('room:join', async (data, callback) => {
+      const respond = safeSocketAcknowledgement(callback);
       try {
         const parsed = joinSchema.safeParse(data);
         if (!parsed.success) {
-          callback({ success: false, error: 'Invalid join request' });
+          respond({ success: false, error: 'Invalid join request' });
           return;
         }
         const account = await prisma.user.findUnique({ where: { id: user.userId }, select: { chips: true } });
         if (!account || account.chips < BigInt(parsed.data.buyIn)) {
-          callback({ success: false, error: 'Not enough chips for this table' });
+          respond({ success: false, error: 'Not enough chips for this table' });
           return;
         }
         const room = roomManager.joinRoom(
@@ -140,29 +152,30 @@ export function setupSocketHandlers(io: Server) {
           parsed.data.buyIn
         );
 
-        callback(room ? { success: true } : { success: false, error: 'Cannot join room' });
+        respond(room ? { success: true } : { success: false, error: 'Cannot join room' });
       } catch {
-        callback({ success: false, error: 'Failed to join room' });
+        respond({ success: false, error: 'Failed to join room' });
       }
     });
 
     socket.on('room:join_by_code', async (data, callback) => {
+      const respond = safeSocketAcknowledgement(callback);
       try {
         const parsed = joinCodeSchema.safeParse(data);
         if (!parsed.success) {
-          callback({ success: false, error: 'Invalid room code' });
+          respond({ success: false, error: 'Invalid room code' });
           return;
         }
         const room = roomManager.getRoomByCode(parsed.data.code);
         if (!room) {
-          callback({ success: false, error: 'Room not found' });
+          respond({ success: false, error: 'Room not found' });
           return;
         }
         const buyIn = parsed.data.buyIn
           ?? Number(room.minBuyIn > 5000n ? room.minBuyIn : room.maxBuyIn < 5000n ? room.maxBuyIn : 5000n);
         const account = await prisma.user.findUnique({ where: { id: user.userId }, select: { chips: true } });
         if (!account || account.chips < BigInt(buyIn)) {
-          callback({ success: false, error: 'Not enough chips for this table' });
+          respond({ success: false, error: 'Not enough chips for this table' });
           return;
         }
 
@@ -174,9 +187,9 @@ export function setupSocketHandlers(io: Server) {
           buyIn
         );
 
-        callback(joined ? { success: true } : { success: false, error: 'Cannot join room' });
+        respond(joined ? { success: true } : { success: false, error: 'Cannot join room' });
       } catch {
-        callback({ success: false, error: 'Failed to join room' });
+        respond({ success: false, error: 'Failed to join room' });
       }
     });
 
@@ -187,25 +200,27 @@ export function setupSocketHandlers(io: Server) {
     // ─── Quick Play ──────────────────────────────────────────────────────
 
     socket.on('game:quick_play', async (callback) => {
+      const respond = safeSocketAcknowledgement(callback);
       try {
         const account = await prisma.user.findUnique({ where: { id: user.userId }, select: { chips: true } });
         if (!account || account.chips < 5000n) {
-          callback({ success: false, error: 'You need 5,000 chips for quick play' });
+          respond({ success: false, error: 'You need 5,000 chips for quick play' });
           return;
         }
         const room = roomManager.quickPlay(socket, user.userId, user.username);
-        callback({ success: true, roomId: room.id });
+        respond({ success: true, roomId: room.id });
       } catch (err) {
-        callback({ success: false, error: 'Failed to start quick play' });
+        respond({ success: false, error: 'Failed to start quick play' });
       }
     });
 
     // ─── Game Events ─────────────────────────────────────────────────────
 
     socket.on('game:action', (data, callback) => {
+      const respond = safeSocketAcknowledgement(callback);
       const parsed = actionSchema.safeParse(data);
       if (!parsed.success) {
-        callback({ success: false, error: 'Invalid game action' });
+        respond({ success: false, error: 'Invalid game action' });
         return;
       }
       const result = roomManager.handleAction(
@@ -213,7 +228,7 @@ export function setupSocketHandlers(io: Server) {
         parsed.data.action,
         parsed.data.amount
       );
-      callback(result);
+      respond(result);
     });
 
     // ─── Chat Events ─────────────────────────────────────────────────────
@@ -224,6 +239,7 @@ export function setupSocketHandlers(io: Server) {
 
       io.to(parsed.data.roomId).emit('chat:message', {
         id: crypto.randomUUID(),
+        roomId: parsed.data.roomId,
         userId: user.userId,
         username: user.username,
         message: parsed.data.message,

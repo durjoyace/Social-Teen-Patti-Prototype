@@ -4,15 +4,15 @@
 
 - Audience: adult Indian friend groups who already organize games in WhatsApp.
 - Single job: move a friend from an invite to a shared private table in under 60 seconds.
-- Growth loop: invite -> referred friend completes a legitimate multiplayer game -> both receive Beli -> inviter progresses toward identity rewards -> both invite again.
-- Safety: Beli is a non-purchasable loyalty currency and never a wager, prize, or cash-equivalent balance.
+- Growth loop: invite -> referred friend completes a legitimate multiplayer game -> both receive Club Points -> inviter progresses toward cosmetic rewards -> both invite again.
+- Safety: Club Points are non-purchasable loyalty points and never a wager, prize, or cash-equivalent balance.
 
 ## Design direction
 
-- Palette: Night Navy `#0B1221`, Card Green `#176B45`, Saffron `#F5A524`, Sindoor `#D94841`, Beli Gold `#FFD66B`, Ivory `#FFF4D6`.
+- Palette: Night Navy `#0B1221`, Card Green `#176B45`, Saffron `#F5A524`, Sindoor `#D94841`, Club Gold `#FFD66B`, Ivory `#FFF4D6`.
 - Type: Playfair Display for one ceremonial headline, Poppins for controls/body, Hind for Indic scripts.
 - Layout: a compact "invite hand" showing three seats—inviter, friend, and earned reward—above the sharing actions.
-- Signature: the Beli trail, a restrained gold thread that connects each activated friend to the next milestone like cards being dealt around a real table.
+- Signature: the Club Points trail, a restrained gold thread that connects each activated friend to the next milestone like cards being dealt around a real table.
 - Copy: plain, specific, and trust-forward; never describe virtual value with the rupee symbol.
 
 ## Checklist
@@ -21,9 +21,9 @@
 - [x] Add production-safe environment validation and remove automatic demo payment success.
 - [x] Add referral, activation, reward-ledger, and abuse-signal models to Prisma.
 - [x] Add referral-code creation, attribution, status, share tracking, and activation APIs.
-- [x] Award double-sided Beli only after a qualifying multiplayer game.
+- [x] Award double-sided Club Points only after a qualifying multiplayer game.
 - [x] Add velocity, self-referral, duplicate-device, and idempotency protections.
-- [x] Add Beli balance and referral state to authenticated user responses.
+- [x] Add Club Points balance and referral state to authenticated user responses.
 - [x] Add web referral hub and share sheet with WhatsApp/native/copy flows.
 - [x] Capture referral parameters before authentication and attribute guest signup.
 - [x] Add mobile deep-link attribution and native sharing entry point.

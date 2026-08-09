@@ -1,11 +1,11 @@
 # Social Teen Patti
 
-An adults-only social Teen Patti prototype centered on fast private tables: share a link or room code, bring a real friend into a server-authoritative game, and unlock non-cash Beli identity extras together.
+An adults-only social Teen Patti prototype centered on fast private tables: share a link or room code, bring a real friend into a server-authoritative game, and earn Club Points for cosmetic extras together.
 
 ## What is productionized
 
-- Web and Expo mobile invite attribution, one-link private-table joining, native/WhatsApp sharing, referral status, milestones, and Beli redemption
-- Double-sided Beli only after the invitee completes a persisted game with at least two human players
+- Web and Expo mobile invite attribution, one-link private-table joining, native/WhatsApp sharing, referral status, milestones, and Club Points redemption
+- Double-sided Club Points only after the invitee completes a persisted game with at least two human players
 - Transactional/idempotent reward ledger with self-referral, duplicate-device, IP, and velocity controls
 - Server-backed public/private rooms, room-code joining, auto-start at the second human, reconnect support, and server game actions
 - Fail-closed production environment validation, readiness/health endpoints, exact CORS allowlist, request IDs, and API rate limits
@@ -90,9 +90,9 @@ Mobile release builds require `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_SOCKET_URL`
 
 ## Referral contract
 
-An invite link may include both the personal referral code and a private room code. Web and mobile preserve both through authentication and automatically join the friend table. The referral is `PENDING` after attribution. The first completed server game with at least two humans qualifies it. In one serializable transaction, each side receives 100 Beli, the inviter receives any exact-count milestone award, notifications are written, and the referral becomes `REWARDED`. AI games and repeat games do not qualify.
+An invite link may include both the personal referral code and a private room code. Web and mobile preserve both through authentication and automatically join the friend table. The referral is `PENDING` after attribution. The first completed server game with at least two humans qualifies it. In one serializable transaction, each side receives 100 Club Points, the inviter receives any exact-count milestone award, notifications are written, and the referral becomes `REWARDED`. AI games and repeat games do not qualify.
 
-Beli cannot be purchased, transferred, wagered, converted to chips, cashed out, or exchanged for money. See:
+Club Points cannot be purchased, transferred, wagered, converted to play chips, cashed out, or exchanged for money. See:
 
 - [Referral system](docs/referral-system.md)
 - [Analytics contract](docs/analytics-tracking.md)
@@ -106,7 +106,7 @@ Beli cannot be purchased, transferred, wagered, converted to chips, cashed out, 
 - `GET /health` — process liveness and release version
 - `GET /ready` — database readiness
 - `/api/auth/*` — guest/register/login/refresh/profile
-- `/api/referrals/summary` — code, Beli, milestones, referrals, extras
+- `/api/referrals/summary` — code, Club Points balance, milestones, referrals, extras
 - `/api/referrals/share` — first-party share record
 - `/api/referrals/redeem` — transactional cosmetic redemption
 - `/api/payments/*` — returns 503 unless purchases are explicitly enabled and configured

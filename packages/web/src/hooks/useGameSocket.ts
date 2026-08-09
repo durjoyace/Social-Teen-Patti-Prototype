@@ -3,13 +3,14 @@ import { socketService } from '../services/socket';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
+import type { GameVariant } from '../types';
 
 /**
  * Hook that syncs socket events with game state.
  * Should be mounted at the app level.
  */
 export function useGameSocket() {
-  const { updateFromServer, addChatMessage, setGameMessage } = useGameStore();
+  const { updateFromServer, addChatMessage, setGameMessage, joinRoom } = useGameStore();
   const { refreshProfile } = useAuthStore();
   const { addToast } = useUIStore();
 
@@ -17,6 +18,25 @@ export function useGameSocket() {
     // Listen for game state updates from server
     const unsubState = socketService.on('game:state', (state: any) => {
       updateFromServer(state);
+    });
+
+    const unsubRoom = socketService.on('room:state', (room: any) => {
+      const existing = useGameStore.getState().currentRoom;
+      const bootAmount = Number(room.bootAmount || existing?.minBet || 50);
+      joinRoom({
+        id: room.id,
+        name: room.name || existing?.name || 'Friend table',
+        variant: String(room.variant || existing?.variant || 'classic').toLowerCase() as GameVariant,
+        minBuyIn: Number(room.minBuyIn || existing?.minBuyIn || bootAmount * 10),
+        maxBuyIn: Number(room.maxBuyIn || existing?.maxBuyIn || bootAmount * 100),
+        minBet: bootAmount,
+        maxPlayers: Number(room.maxPlayers || existing?.maxPlayers || 6),
+        currentPlayers: Number(room.currentPlayers || 0),
+        status: room.status || 'waiting',
+        isPrivate: room.isPrivate ?? existing?.isPrivate ?? true,
+        roomCode: room.roomCode || existing?.roomCode,
+        createdBy: room.createdBy || existing?.createdBy || '',
+      });
     });
 
     // Game ended
@@ -66,7 +86,7 @@ export function useGameSocket() {
 
     const unsubReferral = socketService.on('referral:rewarded', (data: any) => {
       addToast({
-        message: `First real game complete — ${data.beli} Beli unlocked!`,
+        message: `First real game complete — you earned ${data.beli} Club Points!`,
         type: 'success',
         duration: 6000,
       });
@@ -89,6 +109,7 @@ export function useGameSocket() {
 
     return () => {
       unsubState();
+      unsubRoom();
       unsubEnded();
       unsubAI();
       unsubTimeout();
@@ -99,5 +120,5 @@ export function useGameSocket() {
       unsubDisconnected();
       unsubError();
     };
-  }, [updateFromServer, addChatMessage, setGameMessage, refreshProfile, addToast]);
+  }, [updateFromServer, addChatMessage, setGameMessage, joinRoom, refreshProfile, addToast]);
 }

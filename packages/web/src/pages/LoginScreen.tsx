@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Mail, Lock, User, Eye, EyeOff,
-  ChevronRight, ArrowLeft, Sparkles
-} from 'lucide-react';
+import { FormEvent, ReactNode, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
-import { cn } from '../utils/cn';
+import { analytics } from '../services/analytics';
 
 interface LoginScreenProps {
   onComplete: () => void;
@@ -13,6 +10,22 @@ interface LoginScreenProps {
 }
 
 type AuthMode = 'welcome' | 'login' | 'register';
+
+function TableCards() {
+  return (
+    <div className="relative h-32 w-48" aria-hidden="true">
+      <div className="absolute bottom-0 left-4 h-28 w-20 -rotate-12 rounded-[18px] border border-[#D7CBB5] bg-[#F6ECD8] p-2 text-[#B74035] shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+        <span className="font-display text-2xl font-black">A</span><span className="block text-xl">♥</span>
+      </div>
+      <div className="absolute bottom-1 left-16 z-10 h-[124px] w-20 rounded-[18px] border border-[#D7CBB5] bg-[#FFF9ED] p-2 text-[#17130E] shadow-[0_22px_48px_rgba(0,0,0,0.36)]">
+        <span className="font-display text-2xl font-black">A</span><span className="block text-xl">♠</span>
+      </div>
+      <div className="absolute bottom-0 right-3 h-28 w-20 rotate-12 rounded-[18px] border border-[#D7CBB5] bg-[#F6ECD8] p-2 text-[#B74035] shadow-[0_20px_45px_rgba(0,0,0,0.3)]">
+        <span className="font-display text-2xl font-black">A</span><span className="block text-xl">♦</span>
+      </div>
+    </div>
+  );
+}
 
 export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
   const [mode, setMode] = useState<AuthMode>('welcome');
@@ -23,302 +36,192 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
   const [isAdult, setIsAdult] = useState(false);
   const { loginWithCredentials, register, loginAsGuest, isLoading, error, clearError } = useAuthStore();
 
-  const handleLogin = async () => {
+  const changeMode = (nextMode: AuthMode) => {
+    clearError();
+    setMode(nextMode);
+  };
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    analytics.authStarted('login');
     await loginWithCredentials(email, password);
     if (!useAuthStore.getState().error) onComplete();
   };
 
-  const handleRegister = async () => {
+  const handleRegister = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    analytics.authStarted('register');
     await register(username, email, password);
     if (!useAuthStore.getState().error) onComplete();
   };
 
   const handleGuestPlay = async () => {
+    analytics.authStarted('guest');
     await loginAsGuest();
     if (!useAuthStore.getState().error) onGuestPlay();
   };
 
   return (
-    <div className="h-full w-full bg-gradient-to-b from-[#1a0a0a] via-[#2C0E0E] to-[#1a0a0a] flex flex-col relative overflow-hidden">
-      {/* Background effects */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-yellow-600/10 rounded-full blur-3xl" />
-      </div>
+    <main className="h-full overflow-y-auto bg-[#07110E] text-[#F6ECD8]">
+      <div className="mx-auto grid min-h-full w-full max-w-6xl lg:grid-cols-[minmax(0,1.05fr)_minmax(390px,0.75fr)]">
+        <section className="relative hidden overflow-hidden border-r border-white/10 bg-[#163E2D] px-12 py-10 lg:flex lg:flex-col lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 rotate-[-3deg] place-items-center rounded-xl border border-[#E8B04A]/45 bg-[#2A1714] font-display text-sm font-black text-[#E8B04A]">TP</div>
+            <div>
+              <p className="font-display text-xl font-bold">Teen Patti Social</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A9B9B0]">Private tables for friends</p>
+            </div>
+          </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6">
-        {/* Back button */}
-        {mode !== 'welcome' && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            onClick={() => { setMode('welcome'); clearError(); }}
-            className="self-start mt-6 p-2 rounded-xl bg-white/10 text-white/60"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </motion.button>
-        )}
+          <div className="py-10">
+            <TableCards />
+            <h1 className="mt-8 max-w-xl font-display text-6xl font-black leading-[0.95] tracking-[-0.04em] text-[#FFF9ED]">
+              The group chat has a table now.
+            </h1>
+            <p className="mt-5 max-w-lg text-base leading-7 text-[#C7D3CC]">
+              Create one private room, share one code, and deal with the people you already know.
+            </p>
+          </div>
 
-        {/* Logo area */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className={cn(
-            'flex flex-col items-center',
-            mode === 'welcome' ? 'mt-20 mb-8' : 'mt-6 mb-6'
-          )}
-        >
-          <motion.div
-            animate={{ scale: mode === 'welcome' ? 1 : 0.7 }}
-            className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-600 to-red-900 flex items-center justify-center shadow-xl shadow-red-500/30 mb-3"
-          >
-            <span className="text-3xl font-bold text-yellow-400">TP</span>
-          </motion.div>
-          <h1 className="text-2xl font-bold text-yellow-400">Teen Patti Social</h1>
-          {mode === 'welcome' && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-white/40 text-sm mt-1"
-            >
-              Your private table, one invite away
-            </motion.p>
-          )}
-        </motion.div>
+          <div className="flex items-center gap-3 border-t border-white/10 pt-5 text-xs text-[#A9B9B0]">
+            <ShieldCheck className="h-4 w-4 text-[#E8B04A]" />
+            Adults 18+ · Social play only · No cash value
+          </div>
+        </section>
 
-        {/* Content */}
-        <AnimatePresence mode="wait">
-          {mode === 'welcome' && (
-            <motion.div
-              key="welcome"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex-1 flex flex-col gap-3"
-            >
-              <label className="mb-1 flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75">
-                <input
-                  type="checkbox"
-                  checked={isAdult}
-                  onChange={event => setIsAdult(event.target.checked)}
-                  className="h-5 w-5 accent-[#176B45]"
-                />
-                I confirm I am 18 or older
-              </label>
-              {/* Google Login */}
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                disabled
-                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-white text-gray-900 font-semibold shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span>Google sign-in coming soon</span>
-                <ChevronRight className="w-4 h-4 ml-auto text-gray-400" />
-              </motion.button>
+        <section className="flex min-h-full flex-col px-5 py-5 sm:px-8 lg:px-10 lg:py-10">
+          <div className="flex items-center justify-between lg:hidden">
+            <div className="flex items-center gap-2.5">
+              <div className="grid h-10 w-10 rotate-[-3deg] place-items-center rounded-xl border border-[#E8B04A]/45 bg-[#2A1714] font-display text-xs font-black text-[#E8B04A]">TP</div>
+              <p className="font-display text-lg font-bold">Teen Patti Social</p>
+            </div>
+            <span className="rounded-full border border-[#E8B04A]/25 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#E8B04A]">18+ only</span>
+          </div>
 
-              {/* Email Login */}
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setMode('login')}
-                disabled={!isAdult}
-                className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl bg-white/10 text-white font-semibold border border-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Mail className="w-5 h-5 text-white/60" />
-                <span>Continue with Email</span>
-                <ChevronRight className="w-4 h-4 ml-auto text-white/30" />
-              </motion.button>
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8 sm:py-12">
+            <AnimatePresence mode="wait">
+              {mode === 'welcome' ? (
+                <motion.div key="welcome" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                  <div className="lg:hidden">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">Your table is one invite away</p>
+                    <h1 className="mt-2 font-display text-[2.6rem] font-black leading-[0.98] tracking-[-0.035em] text-[#FFF9ED]">Deal with your people.</h1>
+                    <p className="mt-3 text-sm leading-6 text-[#8E9C94]">Private friend tables, built for the group chat.</p>
+                  </div>
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 my-2">
-                <div className="flex-1 h-px bg-white/10" />
-                <span className="text-white/30 text-xs">or</span>
-                <div className="flex-1 h-px bg-white/10" />
-              </div>
+                  <div className="mt-8 rounded-[28px] border border-white/10 bg-[#0E1B17] p-5 shadow-[0_24px_55px_rgba(0,0,0,0.24)] sm:p-6 lg:mt-0">
+                    <p className="hidden text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A] lg:block">Enter the clubhouse</p>
+                    <h2 className="mt-1 hidden font-display text-3xl font-bold text-[#FFF9ED] lg:block">Ready when your friends are.</h2>
 
-              {/* Guest Play */}
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleGuestPlay}
-                disabled={isLoading || !isAdult}
-                className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Sparkles className="w-5 h-5" />
-                <span>Play as Guest</span>
-              </motion.button>
-              <p className="text-center text-white/30 text-xs">
-                18+ only • Play for entertainment • Beli has no cash value
-              </p>
-            </motion.div>
-          )}
+                    <label className="mt-1 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-[#07110E] px-4 py-4 text-sm leading-5 text-[#C7D3CC] lg:mt-6">
+                      <input
+                        type="checkbox"
+                        checked={isAdult}
+                        onChange={(event) => setIsAdult(event.target.checked)}
+                        className="mt-0.5 h-5 w-5 shrink-0 accent-[#E8B04A]"
+                      />
+                      <span><strong className="font-semibold text-[#F6ECD8]">I am 18 or older.</strong><span className="mt-0.5 block text-xs text-[#7E8D85]">Club Points and play chips cannot be bought, wagered, or cashed out.</span></span>
+                    </label>
 
-          {mode === 'login' && (
-            <motion.div
-              key="login"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex-1 flex flex-col gap-4"
-            >
-              <h2 className="text-xl font-bold text-white mb-2">Welcome Back</h2>
+                    <button
+                      type="button"
+                      onClick={() => void handleGuestPlay()}
+                      disabled={!isAdult || isLoading}
+                      className="mt-4 min-h-[52px] w-full rounded-2xl bg-[#E8B04A] px-5 py-3.5 font-bold text-[#171006] transition-colors hover:bg-[#F0C268] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]"
+                    >
+                      {isLoading ? 'Preparing your seat…' : 'Play as guest'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => changeMode('login')}
+                      disabled={!isAdult}
+                      className="mt-3 min-h-[52px] w-full rounded-2xl border border-white/15 bg-[#14231E] px-5 py-3.5 font-semibold text-[#F6ECD8] transition-colors hover:border-white/30 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+                    >
+                      Sign in
+                    </button>
+                    <button type="button" onClick={() => changeMode('register')} disabled={!isAdult} className="mt-4 w-full text-sm font-semibold text-[#E8B04A] disabled:cursor-not-allowed disabled:opacity-35">
+                      New here? Create an account
+                    </button>
 
-              <InputField
-                icon={<Mail className="w-5 h-5" />}
-                placeholder="Email or username"
-                value={email}
-                onChange={setEmail}
-                type="email"
-              />
-              <InputField
-                icon={<Lock className="w-5 h-5" />}
-                placeholder="Password"
-                value={password}
-                onChange={setPassword}
-                type={showPassword ? 'text' : 'password'}
-                rightElement={
-                  <button onClick={() => setShowPassword(!showPassword)} className="text-white/30">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {error && <p role="alert" className="mt-4 rounded-xl border border-[#B74035]/30 bg-[#2A1714] px-3 py-2 text-sm text-[#F2B1A9]">{error}</p>}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div key={mode} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                  <button type="button" onClick={() => changeMode('welcome')} className="inline-flex min-h-11 items-center gap-2 rounded-full px-2 text-sm font-semibold text-[#A9B9B0] hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                    <ArrowLeft className="h-4 w-4" /> Back
                   </button>
-                }
-              />
+                  <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">{mode === 'login' ? 'Welcome back' : 'Save your seat'}</p>
+                  <h1 className="mt-1 font-display text-4xl font-black tracking-[-0.03em] text-[#FFF9ED]">{mode === 'login' ? 'Return to your table.' : 'Create your account.'}</h1>
+                  <p className="mt-2 text-sm leading-6 text-[#7E8D85]">{mode === 'login' ? 'Use your email or username.' : 'Keep your profile and progress across devices.'}</p>
 
-              {error && (
-                <p className="text-red-400 text-sm text-center">{error}</p>
-              )}
+                  <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="mt-7 space-y-4">
+                    {mode === 'register' && (
+                      <InputField label="Username" icon={<User className="h-5 w-5" />} value={username} onChange={setUsername} autoComplete="username" />
+                    )}
+                    <InputField label={mode === 'login' ? 'Email or username' : 'Email'} icon={<Mail className="h-5 w-5" />} value={email} onChange={setEmail} type={mode === 'login' ? 'text' : 'email'} autoComplete={mode === 'login' ? 'username' : 'email'} />
+                    <InputField
+                      label={mode === 'register' ? 'Password (12+ characters)' : 'Password'}
+                      icon={<Lock className="h-5 w-5" />}
+                      value={password}
+                      onChange={setPassword}
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                      trailing={
+                        <button type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="grid h-9 w-9 place-items-center rounded-full text-[#7E8D85] hover:bg-white/5 hover:text-[#F6ECD8]">
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      }
+                    />
+                    {error && <p role="alert" className="rounded-xl border border-[#B74035]/30 bg-[#2A1714] px-3 py-2 text-sm text-[#F2B1A9]">{error}</p>}
+                    <button
+                      type="submit"
+                      disabled={isLoading || !email || !password || (mode === 'register' && (username.length < 3 || password.length < 12))}
+                      className="min-h-[52px] w-full rounded-2xl bg-[#E8B04A] px-5 py-3.5 font-bold text-[#171006] transition-colors hover:bg-[#F0C268] disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]"
+                    >
+                      {isLoading ? (mode === 'login' ? 'Signing in…' : 'Creating account…') : (mode === 'login' ? 'Sign in' : 'Create account')}
+                    </button>
+                  </form>
 
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleLogin}
-                disabled={isLoading || !email || !password}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-600 to-red-700 text-white font-bold shadow-lg shadow-red-500/30 disabled:opacity-50"
-              >
-                {isLoading ? 'Logging in...' : 'Log In'}
-              </motion.button>
-
-              <button
-                onClick={() => { setMode('register'); clearError(); }}
-                className="text-center text-yellow-400 text-sm font-medium mt-2"
-              >
-                Don't have an account? Sign Up
-              </button>
-            </motion.div>
-          )}
-
-          {mode === 'register' && (
-            <motion.div
-              key="register"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex-1 flex flex-col gap-4"
-            >
-              <h2 className="text-xl font-bold text-white mb-2">Create Account</h2>
-
-              <InputField
-                icon={<User className="w-5 h-5" />}
-                placeholder="Username"
-                value={username}
-                onChange={setUsername}
-              />
-              <InputField
-                icon={<Mail className="w-5 h-5" />}
-                placeholder="Email"
-                value={email}
-                onChange={setEmail}
-                type="email"
-              />
-              <InputField
-                icon={<Lock className="w-5 h-5" />}
-                placeholder="Password (12+ characters)"
-                value={password}
-                onChange={setPassword}
-                type={showPassword ? 'text' : 'password'}
-                rightElement={
-                  <button onClick={() => setShowPassword(!showPassword)} className="text-white/30">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  <button type="button" onClick={() => changeMode(mode === 'login' ? 'register' : 'login')} className="mt-5 w-full text-sm font-semibold text-[#E8B04A]">
+                    {mode === 'login' ? 'Need an account? Create one' : 'Already have an account? Sign in'}
                   </button>
-                }
-              />
-
-              {error && (
-                <p className="text-red-400 text-sm text-center">{error}</p>
+                </motion.div>
               )}
+            </AnimatePresence>
+          </div>
 
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleRegister}
-                disabled={isLoading || username.length < 3 || !email || password.length < 12}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold shadow-lg shadow-green-500/30 disabled:opacity-50"
-              >
-                {isLoading ? 'Creating...' : 'Create Account'}
-              </motion.button>
-
-              <button
-                onClick={() => { setMode('login'); clearError(); }}
-                className="text-center text-yellow-400 text-sm font-medium mt-2"
-              >
-                Already have an account? Log In
-              </button>
-            </motion.div>
-          )}
-
-        </AnimatePresence>
-
-        {/* Footer */}
-        <div className="py-6 text-center">
-          <p className="text-white/20 text-[10px]">
-            By continuing, you agree to our{' '}
-            <a href="/legal.html#terms" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Terms</a>
-            {' '}and{' '}
-            <a href="/legal.html#privacy" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Privacy Notice</a>
-          </p>
-        </div>
+          <footer className="mx-auto w-full max-w-md border-t border-white/10 pt-4 text-center text-[10px] leading-5 text-[#66736D]">
+            By continuing, you agree to our <a href="/legal.html#terms" target="_blank" rel="noreferrer" className="underline hover:text-[#A9B9B0]">Terms</a> and <a href="/legal.html#privacy" target="_blank" rel="noreferrer" className="underline hover:text-[#A9B9B0]">Privacy Notice</a>.
+          </footer>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
-// ─── Input Field ───────────────────────────────────────────────────────────
-
-function InputField({
-  icon,
-  placeholder,
-  value,
-  onChange,
-  type = 'text',
-  rightElement,
-  className,
-}: {
-  icon: React.ReactNode;
-  placeholder: string;
+function InputField({ label, icon, value, onChange, type = 'text', autoComplete, trailing }: {
+  label: string;
+  icon: ReactNode;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
   type?: string;
-  rightElement?: React.ReactNode;
-  className?: string;
+  autoComplete?: string;
+  trailing?: ReactNode;
 }) {
   return (
-    <div className={cn('relative', className)}>
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
-        {icon}
-      </div>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-white/10 rounded-xl pl-12 pr-12 py-3.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 border border-white/10 text-sm"
-      />
-      {rightElement && (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-          {rightElement}
-        </div>
-      )}
-    </div>
+    <label className="block text-sm font-semibold text-[#C7D3CC]">
+      {label}
+      <span className="relative mt-2 block">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#66736D]">{icon}</span>
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          className="min-h-[52px] w-full rounded-2xl border border-white/10 bg-[#0E1B17] py-3.5 pl-12 pr-12 text-base font-normal text-[#F6ECD8] outline-none transition-colors placeholder:text-[#58645E] focus:border-[#E8B04A]/60 focus:ring-2 focus:ring-[#E8B04A]/20"
+        />
+        {trailing && <span className="absolute right-2 top-1/2 -translate-y-1/2">{trailing}</span>}
+      </span>
+    </label>
   );
 }

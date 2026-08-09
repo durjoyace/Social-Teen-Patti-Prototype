@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wifi, WifiOff, Signal, SignalLow, SignalMedium, SignalHigh, Zap } from 'lucide-react';
+import { Wifi, WifiOff, SignalLow, SignalMedium, SignalHigh, Zap } from 'lucide-react';
 import { useNetworkQuality } from '../hooks/useNetworkQuality';
 import { cn } from '../utils/cn';
 
@@ -17,7 +17,7 @@ const qualityConfig = {
 };
 
 export function ConnectionStatus({ className, compact }: ConnectionStatusProps) {
-  const { quality, isOnline, rtt, settings } = useNetworkQuality();
+  const { quality, settings } = useNetworkQuality();
   const config = qualityConfig[quality];
   const Icon = config.icon;
 
@@ -39,6 +39,8 @@ export function ConnectionStatus({ className, compact }: ConnectionStatusProps) 
     <AnimatePresence>
       {showBanner && (
         <motion.div
+          role="status"
+          aria-live="polite"
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
@@ -51,8 +53,8 @@ export function ConnectionStatus({ className, compact }: ConnectionStatusProps) 
           <Icon className={cn('w-4 h-4', config.color)} />
           <span className={cn('text-xs font-medium', config.color)}>
             {quality === 'offline'
-              ? 'No internet connection — playing offline'
-              : 'Poor connection — animations reduced for better experience'}
+              ? 'No internet connection — reconnect to keep playing'
+              : 'Poor connection — motion reduced to keep the table responsive'}
           </span>
           {!settings.enableAnimations && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10">

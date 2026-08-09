@@ -55,7 +55,7 @@ export default function LoginScreen() {
 
       {/* Footer */}
       <Animated.Text entering={FadeIn.delay(1000)} style={styles.footer}>
-        18+ only • Play for entertainment • Beli has no cash value
+        18+ only • Play for entertainment • Club Points have no cash value
       </Animated.Text>
       <Pressable onPress={() => void Linking.openURL(legalUrl)} style={styles.legalLink} accessibilityRole="link">
         <Text style={styles.legalText}>Terms • Privacy • Responsible play</Text>

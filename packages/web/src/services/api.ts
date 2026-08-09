@@ -14,33 +14,51 @@ interface ApiResponse<T = unknown> {
 class ApiClient {
   private token: string | null = null;
   private refreshToken: string | null = null;
+  private volatileDeviceId = crypto.randomUUID();
 
   private getDeviceId() {
-    let deviceId = localStorage.getItem('tp_device_id');
-    if (!deviceId) {
-      deviceId = crypto.randomUUID();
-      localStorage.setItem('tp_device_id', deviceId);
+    try {
+      let deviceId = localStorage.getItem('tp_device_id');
+      if (!deviceId) {
+        deviceId = this.volatileDeviceId;
+        localStorage.setItem('tp_device_id', deviceId);
+      }
+      return deviceId;
+    } catch {
+      return this.volatileDeviceId;
     }
-    return deviceId;
   }
 
   setTokens(token: string, refreshToken: string) {
     this.token = token;
     this.refreshToken = refreshToken;
-    localStorage.setItem('tp_token', token);
-    localStorage.setItem('tp_refresh_token', refreshToken);
+    try {
+      localStorage.setItem('tp_token', token);
+      localStorage.setItem('tp_refresh_token', refreshToken);
+    } catch {
+      // In-memory tokens still allow the current private-storage session to play.
+    }
   }
 
   loadTokens() {
-    this.token = localStorage.getItem('tp_token');
-    this.refreshToken = localStorage.getItem('tp_refresh_token');
+    try {
+      this.token = localStorage.getItem('tp_token');
+      this.refreshToken = localStorage.getItem('tp_refresh_token');
+    } catch {
+      this.token = null;
+      this.refreshToken = null;
+    }
   }
 
   clearTokens() {
     this.token = null;
     this.refreshToken = null;
-    localStorage.removeItem('tp_token');
-    localStorage.removeItem('tp_refresh_token');
+    try {
+      localStorage.removeItem('tp_token');
+      localStorage.removeItem('tp_refresh_token');
+    } catch {
+      // Tokens are already cleared in memory.
+    }
   }
 
   getToken() {
@@ -100,7 +118,7 @@ class ApiClient {
       this.setTokens(data.token, data.refreshToken);
       return true;
     } catch {
-      this.clearTokens();
+      // Preserve the session through temporary network failures.
       return false;
     }
   }

@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { Card, GameRoom, GameSession, GamePlayer, ActionType, ChatMessage, GameVariant } from '../types';
+import { Card, GameRoom, GamePlayer, ActionType, ChatMessage, GameVariant } from '../types';
 import { GameState, initializeGame, processAction, getAvailableActions, distributePot } from '../game/gameEngine';
 import { socketService } from '../services/socket';
+import { useAuthStore } from './authStore';
 
 interface GameStore {
   // Connection mode
@@ -243,10 +244,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isBlind: p.isBlind,
       isDealer: p.isDealer,
       isTurn: p.isTurn,
+      isBot: p.isBot,
       user: { id: p.odic, username: p.username } as any,
     }));
 
-    const myPlayer = players.find(p => serverState.availableActions?.length > 0 && p.isTurn)
+    const currentUserId = useAuthStore.getState().user?.id;
+    const myPlayer = players.find(p => p.id === serverState.viewerPlayerId)
+      || players.find(p => p.userId === currentUserId)
+      || players.find(p => serverState.availableActions?.length > 0 && p.isTurn)
       || players.find(p => p.cards && p.cards.length > 0);
 
     set({

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
-import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
+import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { SmoothPageTransition } from './components/PolishTouches';
 
 // ─── Pages ─────────────────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ const SettingsScreen = lazy(() => import('./pages/SettingsScreen').then(module =
 
 // ─── Global Overlays & Modals ──────────────────────────────────────────────
 import { CreateRoomModal } from './components/CreateRoomModal';
+import { JoinRoomModal } from './components/JoinRoomModal';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { ToastContainer } from './components/Toast';
 
@@ -56,27 +57,53 @@ export function App() {
   const [referralAttribution] = useState(() => captureReferralAttribution());
   // Screen state
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
+  const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   // Modal state
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [showJoinByCode, setShowJoinByCode] = useState(false);
 
   // Room state
-  const [roomCode, setRoomCode] = useState('');
-  const [joinError, setJoinError] = useState('');
   const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
   const [createdInviteUrl, setCreatedInviteUrl] = useState<string | null>(null);
   const pendingInviteAttempted = useRef(false);
+  const startedSessionRef = useRef<string | null>(null);
+  const completedSessionRef = useRef<string | null>(null);
+  const joinedFriendSessionRef = useRef<string | null>(null);
 
   // Stores
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, refreshProfile } = useAuthStore();
   const { hasSeenOnboarding, setHasSeenOnboarding, addToast, reducedMotion } = useUIStore();
-  const { joinRoom, leaveRoom, gameState, isOnlineMode } = useGameStore();
+  const { joinRoom, leaveRoom, gameState, isOnlineMode, currentRoom } = useGameStore();
 
   // Initialize socket listeners
   useGameSocket();
 
   useEffect(() => {
-    if (!isAuthenticated || pendingInviteAttempted.current) return;
+    let active = true;
+    if (!isAuthenticated) {
+      setSessionReady(true);
+      return undefined;
+    }
+
+    setSessionReady(false);
+    void refreshProfile().finally(() => {
+      if (active) setSessionReady(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, refreshProfile]);
+
+  useEffect(() => {
+    if (!splashAnimationComplete || !sessionReady || currentScreen !== 'splash') return;
+    if (!isAuthenticated) setCurrentScreen('login');
+    else if (!hasSeenOnboarding) setCurrentScreen('onboarding');
+    else setCurrentScreen('home');
+  }, [currentScreen, hasSeenOnboarding, isAuthenticated, sessionReady, splashAnimationComplete]);
+
+  useEffect(() => {
+    if (!sessionReady || !isAuthenticated || pendingInviteAttempted.current) return;
     const pendingRoomCode = getPendingRoomCode();
     if (!pendingRoomCode) return;
 
@@ -87,6 +114,7 @@ export function App() {
         const result = await socketService.joinByCode(pendingRoomCode);
         if (!result.success) throw new Error(result.error || 'That friend table is no longer available');
         clearPendingRoomCode();
+        analytics.friendJoined('invite_link');
         addToast({ message: 'Friend table joined — waiting for the deal', type: 'success', duration: 4000 });
       } catch (error) {
         clearPendingRoomCode();
@@ -95,7 +123,7 @@ export function App() {
         setCurrentScreen('home');
       }
     })();
-  }, [addToast, isAuthenticated]);
+  }, [addToast, isAuthenticated, sessionReady]);
 
   useEffect(() => {
     if (isOnlineMode && gameState) {
@@ -105,11 +133,33 @@ export function App() {
     }
   }, [isOnlineMode, gameState]);
 
+  useEffect(() => {
+    if (!gameState) return;
+    const sessionId = gameState.session.id;
+    const humanPlayerCount = gameState.session.players.filter((player) => !player.isBot).length;
+    if (humanPlayerCount < 2) return;
+
+    if (currentRoom?.createdBy === user?.id && joinedFriendSessionRef.current !== sessionId) {
+      joinedFriendSessionRef.current = sessionId;
+      analytics.friendJoined('host_table');
+    }
+
+    if (!gameState.isGameOver && startedSessionRef.current !== sessionId) {
+      startedSessionRef.current = sessionId;
+      analytics.firstHandStarted(gameState.session.variant, humanPlayerCount);
+    }
+    if (gameState.isGameOver && completedSessionRef.current !== sessionId) {
+      completedSessionRef.current = sessionId;
+      analytics.multiplayerGameCompleted(gameState.session.variant, humanPlayerCount);
+    }
+  }, [currentRoom?.createdBy, gameState, user?.id]);
+
   // ─── Initialization ──────────────────────────────────────────────────
 
   // Initialize all services
   useEffect(() => {
     pushNotifications.init();
+    analytics.welcomeViewed();
     if (referralAttribution) {
       analytics.referralLinkOpened(
         referralAttribution.source || 'referral',
@@ -151,13 +201,7 @@ export function App() {
   // ─── Screen Handlers ─────────────────────────────────────────────────
 
   const handleSplashComplete = () => {
-    if (!isAuthenticated) {
-      setCurrentScreen('login');
-    } else if (!hasSeenOnboarding) {
-      setCurrentScreen('onboarding');
-    } else {
-      setCurrentScreen('home');
-    }
+    setSplashAnimationComplete(true);
   };
 
   const handleLoginComplete = () => {
@@ -176,7 +220,6 @@ export function App() {
   // ─── Game Handlers ───────────────────────────────────────────────────
 
   const handleQuickPlay = useCallback(async () => {
-    setJoinError('');
     try {
       if (!socketService.isConnected) await socketService.connect();
       const result = await socketService.quickPlay();
@@ -184,13 +227,11 @@ export function App() {
       soundManager.play('game_start');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not start quick play';
-      setJoinError(message);
       addToast({ message, type: 'error', duration: 4000 });
     }
   }, [addToast]);
 
   const handleJoinGame = useCallback(async (room: GameRoom) => {
-    setJoinError('');
     joinRoom(room);
     try {
       if (!socketService.isConnected) await socketService.connect();
@@ -200,27 +241,16 @@ export function App() {
     } catch (error) {
       leaveRoom();
       const message = error instanceof Error ? error.message : 'Could not join table';
-      setJoinError(message);
       addToast({ message, type: 'error', duration: 4000 });
     }
   }, [joinRoom, leaveRoom, addToast]);
 
-  const handleJoinByCode = async () => {
-    const code = roomCode.trim().toUpperCase();
-    if (code.length !== 6) {
-      setJoinError('Please enter a 6-character room code');
-      return;
-    }
-    try {
-      if (!socketService.isConnected) await socketService.connect();
-      const result = await socketService.joinByCode(code);
-      if (!result.success) throw new Error(result.error || 'Room not found. Check the code and try again.');
-      setJoinError('');
-      setShowJoinByCode(false);
-      setRoomCode('');
-    } catch (error) {
-      setJoinError(error instanceof Error ? error.message : 'Could not join table');
-    }
+  const handleJoinByCode = async (code: string) => {
+    if (!socketService.isConnected) await socketService.connect();
+    const result = await socketService.joinByCode(code);
+    if (!result.success) throw new Error(result.error || 'Room not found. Check the code and try again.');
+    analytics.friendJoined('room_code');
+    setShowJoinByCode(false);
   };
 
   const handleCreateRoom = async (config: {
@@ -232,7 +262,6 @@ export function App() {
     maxPlayers: number;
     isPrivate: boolean;
   }) => {
-    setJoinError('');
     try {
       if (!socketService.isConnected) await socketService.connect();
       const result = await socketService.createRoom({
@@ -241,6 +270,7 @@ export function App() {
         buyIn: Math.max(config.minBuyIn, Math.min(config.maxBuyIn, 5000)),
       });
       if (!result.success || !result.room) throw new Error(result.error || 'Could not create table');
+      analytics.friendTableCreated(config.variant, config.maxPlayers);
       joinRoom({
         id: result.room.id,
         name: config.name || 'My Table',
@@ -270,7 +300,6 @@ export function App() {
       if (!result.room.roomCode) setShowCreateRoom(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not create table';
-      setJoinError(message);
       addToast({ message, type: 'error', duration: 4000 });
     }
   };
@@ -350,7 +379,7 @@ export function App() {
       {/* Main screen with transitions */}
       <AnimatePresence mode="wait">
         <SmoothPageTransition key={currentScreen} direction="forward" className="h-full w-full">
-          <Suspense fallback={<div className="grid h-full w-full place-items-center bg-[#0B1221] text-[#FFD66B]">Loading table…</div>}>
+          <Suspense fallback={<div className="grid h-full w-full place-items-center bg-[#07110E] font-medium text-[#E8B04A]">Opening the clubhouse…</div>}>
             {renderScreen()}
           </Suspense>
         </SmoothPageTransition>
@@ -371,57 +400,7 @@ export function App() {
         }}
       />
 
-      {/* Join by Code Modal */}
-      <AnimatePresence>
-        {showJoinByCode && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => { setShowJoinByCode(false); setRoomCode(''); setJoinError(''); }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 50 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 50 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm z-50"
-            >
-              <div className="bg-gradient-to-b from-gray-900 to-black rounded-3xl border border-white/10 overflow-hidden p-6">
-                <h2 className="text-xl font-bold text-white mb-4 text-center">Join by Code</h2>
-                <p className="text-white/60 text-sm text-center mb-6">
-                  Enter the 6-character room code shared by your friend
-                </p>
-                <input
-                  type="text"
-                  value={roomCode}
-                  onChange={(e) => { setRoomCode(e.target.value.toUpperCase().slice(0, 6)); setJoinError(''); }}
-                  placeholder="ABCD12"
-                  maxLength={6}
-                  className="w-full bg-white/10 rounded-xl px-4 py-4 text-white text-center text-2xl tracking-[0.5em] font-mono placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 mb-4"
-                />
-                {joinError && <p className="text-red-400 text-sm text-center mb-4">{joinError}</p>}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => { setShowJoinByCode(false); setRoomCode(''); setJoinError(''); }}
-                    className="flex-1 py-3 rounded-xl bg-white/10 text-white font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleJoinByCode}
-                    disabled={roomCode.length !== 6}
-                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-bold shadow-lg shadow-green-500/30 disabled:opacity-50"
-                  >
-                    Join
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <JoinRoomModal isOpen={showJoinByCode} onClose={() => setShowJoinByCode(false)} onJoin={handleJoinByCode} />
 
       {/* Toast Notifications */}
       <ToastContainer />

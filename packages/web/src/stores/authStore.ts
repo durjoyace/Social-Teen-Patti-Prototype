@@ -173,7 +173,11 @@ export const useAuthStore = create<AuthState>()(
           const { user } = await api.getProfile();
           set({ user: mapApiUser(user) });
         } catch {
-          // Silent fail
+          if (!api.getToken()) {
+            socketService.disconnect();
+            set({ user: null, token: null, isAuthenticated: false });
+          }
+          // Temporary network failures preserve the current returning session.
         }
       },
 

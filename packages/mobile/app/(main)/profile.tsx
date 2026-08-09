@@ -22,7 +22,7 @@ export default function ProfileScreen() {
             <Text style={styles.chipsLabel}>Play chips: </Text>
             <AnimatedChipCount value={user?.chips || 0} prefix="◉ " style={styles.chipsValue} />
           </View>
-          <Text style={styles.beli}>{user?.beliBalance || 0} Beli • extras in Invite</Text>
+          <Text style={styles.beli}>{user?.beliBalance || 0} Club Points • extras in Invite</Text>
         </GlassCard>
       </Animated.View>
 

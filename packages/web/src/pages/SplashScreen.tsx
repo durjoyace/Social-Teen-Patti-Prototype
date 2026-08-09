@@ -5,6 +5,17 @@ interface SplashScreenProps {
   onComplete: () => void;
 }
 
+const PARTICLES = [
+  { x: -132, duration: 3.8, delay: 0 },
+  { x: -98, duration: 4.6, delay: 0.28 },
+  { x: -64, duration: 5.1, delay: 0.56 },
+  { x: -30, duration: 3.5, delay: 0.84 },
+  { x: 8, duration: 4.2, delay: 1.12 },
+  { x: 42, duration: 5.4, delay: 1.4 },
+  { x: 76, duration: 3.9, delay: 1.68 },
+  { x: 116, duration: 4.8, delay: 1.96 },
+];
+
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [progress, setProgress] = useState(0);
 
@@ -21,26 +32,23 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   }, [onComplete]);
 
   return (
-    <div
-      onClick={onComplete}
-      className="h-full w-full bg-[#0a0e1a] flex flex-col items-center justify-center relative overflow-hidden cursor-pointer"
-    >
+    <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-[#07110E]">
       {/* Background glow */}
       <motion.div
         className="absolute w-[500px] h-[500px] rounded-full blur-[200px]"
-        style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)' }}
+        style={{ background: 'rgba(22,62,45,0.32)' }}
         animate={{ scale: [1, 1.2, 1], opacity: [0.8, 1, 0.8] }}
         transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
       />
 
       {/* Floating gold particles */}
-      {Array.from({ length: 12 }).map((_, i) => (
+      {PARTICLES.map((particle, i) => (
         <motion.div
           key={i}
-          className="absolute w-1 h-1 bg-[#D4AF37] rounded-full"
-          initial={{ x: (Math.random() - 0.5) * 300, y: 400, opacity: 0 }}
+          className="absolute h-1 w-1 rounded-full bg-[#E8B04A]"
+          initial={{ x: particle.x, y: 400, opacity: 0 }}
           animate={{ y: -400, opacity: [0, 0.8, 0], scale: [0, 1.5, 0] }}
-          transition={{ duration: 3 + Math.random() * 3, repeat: Infinity, delay: i * 0.3, ease: 'easeOut' }}
+          transition={{ duration: particle.duration, repeat: Infinity, delay: particle.delay, ease: 'easeOut' }}
         />
       ))}
 
@@ -69,7 +77,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                 transformOrigin: 'center 120%',
                 marginLeft: -28,
                 marginTop: -50,
-                background: 'linear-gradient(135deg, #8B0000, #520000)',
+                background: '#2A1714',
                 border: '1px solid rgba(212,175,55,0.3)',
                 zIndex: 5 - Math.abs(i - 2),
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
@@ -83,7 +91,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           <div className="absolute -inset-4 rounded-3xl bg-[#D4AF37]/20 blur-2xl" />
 
           {/* Icon */}
-          <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-[#1a1a2e] to-[#0f0f23] border-2 border-[#D4AF37]/40 flex items-center justify-center shadow-2xl overflow-hidden">
+          <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-2 border-[#E8B04A]/40 bg-[#0E1B17] shadow-2xl">
             {/* Inner pattern */}
             <div className="absolute inset-0 opacity-10" style={{
               backgroundImage: `linear-gradient(45deg, rgba(212,175,55,0.15) 25%, transparent 25%), linear-gradient(-45deg, rgba(212,175,55,0.15) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, rgba(212,175,55,0.15) 75%), linear-gradient(-45deg, transparent 75%, rgba(212,175,55,0.15) 75%)`,
@@ -97,8 +105,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               }}>TP</span>
             </div>
 
-            {/* Shine */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent" />
+            <div className="absolute left-3 top-3 h-4 w-8 rounded-full bg-white/5" />
           </div>
         </motion.div>
 
@@ -107,12 +114,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="text-3xl font-bold tracking-wide mb-1"
-          style={{
-            background: 'linear-gradient(135deg, #D4AF37, #F7EF8A, #D4AF37)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
+          className="mb-1 font-display text-3xl font-black tracking-tight text-[#F6ECD8]"
         >
           Teen Patti Social
         </motion.h1>
@@ -148,24 +150,26 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="absolute bottom-16 flex flex-col items-center gap-3 w-full px-16"
+        className="absolute bottom-10 flex w-full flex-col items-center gap-3 px-8 sm:bottom-14"
       >
         <div className="w-full max-w-[180px] h-[3px] bg-white/5 rounded-full overflow-hidden">
           <motion.div
             className="h-full rounded-full"
-            style={{ background: 'linear-gradient(90deg, #D4AF37, #F7EF8A)' }}
+            style={{ background: '#E8B04A' }}
             initial={{ width: '0%' }}
             animate={{ width: `${progress}%` }}
             transition={{ ease: 'linear' }}
           />
         </div>
-        <motion.p
-          className="text-white/20 text-[10px] tracking-wider"
-          animate={{ opacity: [0.3, 0.7, 0.3] }}
+        <motion.button
+          type="button"
+          onClick={onComplete}
+          className="min-h-10 rounded-full px-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40 transition-colors hover:text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+          animate={{ opacity: [0.45, 0.75, 0.45] }}
           transition={{ repeat: Infinity, duration: 2 }}
         >
-          Tap to skip
-        </motion.p>
+          Skip intro
+        </motion.button>
       </motion.div>
     </div>
   );
