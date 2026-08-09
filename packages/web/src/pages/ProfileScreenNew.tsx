@@ -46,7 +46,7 @@ export function ProfileScreenNew({ onNavigate }: ProfileScreenProps) {
                 <p className="mt-1 text-xl font-black text-[#F6ECD8]">● {formatChips(user?.chips || 0)}</p>
               </div>
               <div className="rounded-2xl border border-[#E8B04A]/20 bg-[#2A1714] p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#A98768]">Beli extras</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#A98768]">Club Points</p>
                 <p className="mt-1 text-xl font-black text-[#E8B04A]">{(user?.beliBalance || 0).toLocaleString('en-IN')}</p>
               </div>
             </div>
@@ -75,7 +75,7 @@ export function ProfileScreenNew({ onNavigate }: ProfileScreenProps) {
           </button>
 
           <div className="mt-4 rounded-[22px] border border-white/10 bg-[#0E1B17] p-4">
-            <p className="text-sm leading-6 text-[#8E9C94]">Beli and play chips have no cash value and cannot be bought, transferred, wagered, or cashed out.</p>
+            <p className="text-sm leading-6 text-[#8E9C94]">Club Points and play chips have no cash value and cannot be bought, transferred, wagered, or cashed out.</p>
           </div>
 
           <button type="button" onClick={() => { logout(); onNavigate('login'); }} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#0E1B17] font-semibold text-[#A9B9B0] hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">

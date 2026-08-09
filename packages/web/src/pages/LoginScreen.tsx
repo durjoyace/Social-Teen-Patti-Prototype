@@ -119,7 +119,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
                         onChange={(event) => setIsAdult(event.target.checked)}
                         className="mt-0.5 h-5 w-5 shrink-0 accent-[#E8B04A]"
                       />
-                      <span><strong className="font-semibold text-[#F6ECD8]">I am 18 or older.</strong><span className="mt-0.5 block text-xs text-[#7E8D85]">Beli and play chips cannot be bought, wagered, or cashed out.</span></span>
+                      <span><strong className="font-semibold text-[#F6ECD8]">I am 18 or older.</strong><span className="mt-0.5 block text-xs text-[#7E8D85]">Club Points and play chips cannot be bought, wagered, or cashed out.</span></span>
                     </label>
 
                     <button

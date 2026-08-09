@@ -2,7 +2,7 @@
 
 ## Wedge
 
-Move an adult Indian friend group from WhatsApp to a private, server-backed Teen Patti table in under 60 seconds. The invitee’s first completed human multiplayer game unlocks Beli for both sides; Beli buys identity extras only.
+Move an adult Indian friend group from WhatsApp to a private, server-backed Teen Patti table in under 60 seconds. The invitee’s first completed human multiplayer game earns Club Points for both sides; Club Points unlock cosmetic extras only.
 
 ## Built in this release
 
@@ -10,8 +10,8 @@ Move an adult Indian friend group from WhatsApp to a private, server-backed Teen
 - [x] WhatsApp, native share, and copy flows with one referral-plus-room link and a first-party share record
 - [x] Private room codes and automatic start when the second human joins
 - [x] Server-authoritative action path on web and mobile
-- [x] Transactional, idempotent, double-sided Beli activation after persisted multiplayer settlement
-- [x] Inviter milestones, Beli ledger, reward catalog, and permanent entitlements
+- [x] Transactional, idempotent, double-sided Club Points activation after persisted multiplayer settlement
+- [x] Inviter milestones, Club Points ledger, reward catalog, and permanent entitlements
 - [x] Self-referral, duplicate-device, IP-velocity, daily-velocity, and duplicate-write controls
 - [x] Non-PII acquisition/activation analytics contract
 - [x] Fail-closed production config, readiness, request IDs, CORS, and API limits
@@ -36,4 +36,4 @@ Move an adult Indian friend group from WhatsApp to a private, server-backed Teen
 - [ ] Add remote-configured referral amounts and A/B assignment with holdouts
 - [ ] Localize the full acquisition loop beyond English and validate copy with native speakers
 
-Purchased play value remains out of scope until legal, KYC/geofencing, platform billing, refund, and responsible-play gates are approved. Beli remains non-purchasable and non-wagerable.
+Purchased play value remains out of scope until legal, KYC/geofencing, platform billing, refund, and responsible-play gates are approved. Club Points remain non-purchasable and non-wagerable.

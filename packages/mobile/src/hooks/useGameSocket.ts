@@ -25,7 +25,7 @@ export function useGameSocket() {
       void restoreSession();
     };
     const onReferralRewarded = (data: any) => {
-      Alert.alert('Beli unlocked', `First real game complete — you earned ${data.beli} Beli.`);
+      Alert.alert('Club Points earned', `First real game complete — you earned ${data.beli} Club Points.`);
       void restoreSession();
     };
 

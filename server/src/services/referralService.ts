@@ -291,14 +291,14 @@ export async function qualifyReferralForGame(
             userId: referral.inviterId,
             type: 'REFERRAL_ACTIVATED',
             title: 'Your friend joined the table',
-            body: `You earned ${REFERRAL_ACTIVATION_BELI} Beli.`,
+            body: `You earned ${REFERRAL_ACTIVATION_BELI} Club Points.`,
             data: { referralId: referral.id },
           },
           {
             userId: referral.inviteeId,
             type: 'BELI_REWARD',
-            title: 'Your first Beli is here',
-            body: `You earned ${REFERRAL_ACTIVATION_BELI} Beli for completing a real multiplayer game.`,
+            title: 'Club Points earned',
+            body: `You earned ${REFERRAL_ACTIVATION_BELI} Club Points for completing a real multiplayer game.`,
             data: { referralId: referral.id },
           },
         ],
@@ -325,7 +325,7 @@ export async function redeemBeliReward(userId: string, itemId: string) {
 
       const user = await tx.user.findUnique({ where: { id: userId }, select: { beliBalance: true } });
       if (!user) throw new ReferralError('User not found', 404);
-      if (user.beliBalance < item.costBeli) throw new ReferralError('Not enough Beli', 409);
+      if (user.beliBalance < item.costBeli) throw new ReferralError('Not enough Club Points', 409);
 
       const updated = await tx.user.update({
         where: { id: userId },

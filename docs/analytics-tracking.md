@@ -10,7 +10,7 @@ Events use lower snake case and object-action names. Every web event adds `occur
 | `invite_share_started` | Share action begins | `share_platform` |
 | `invite_shared` | Native share resolves or channel opens | `share_platform` |
 | `referral_code_copied` | Invite link reaches clipboard | none |
-| `reward_redeemed` | Server confirms redemption | `item_id`, `cost_beli` |
+| `reward_redeemed` | Server confirms Club Points redemption | `item_id`, `cost_beli` (legacy internal field name) |
 | `game_started` | Server or practice game starts | `variant`, `player_count`, `is_quick_play` |
 | `game_ended` | Game settles | aggregate game properties only |
 

@@ -26,7 +26,7 @@ interface ReferralProgramProps {
 const statusCopy = {
   PENDING: 'Needs their first real game',
   QUALIFIED: 'Reward being confirmed',
-  REWARDED: 'Beli unlocked',
+  REWARDED: 'Club Points earned',
   REJECTED: 'Could not be verified',
 } as const;
 
@@ -53,7 +53,7 @@ export function ReferralProgram({ onNavigate }: ReferralProgramProps) {
   useEffect(() => { void loadSummary(); }, [loadSummary]);
 
   const shareMessage = summary
-    ? `Come join my Teen Patti table. Finish one real multiplayer game and we both unlock ${summary.activationRewardBeli} Beli for profile extras. ${summary.shareUrl}`
+    ? `Come join my Teen Patti table. Finish one real multiplayer game and we both earn ${summary.activationRewardBeli} Club Points for cosmetic extras. ${summary.shareUrl}`
     : '';
 
   const recordShare = async (platform: ReferralSharePlatform) => {
@@ -158,7 +158,7 @@ export function ReferralProgram({ onNavigate }: ReferralProgramProps) {
         <section className="overflow-hidden rounded-[28px] border border-[#E8B04A]/25 bg-[#0E1B17] shadow-2xl shadow-black/30">
           <div className="relative p-6">
             <p className="relative max-w-lg text-sm leading-6 text-white/65">
-              Your friend joins, completes one real multiplayer game, and both of you unlock <strong className="text-[#E8B04A]">{summary.activationRewardBeli} Beli</strong>. Signups and bot games do not count.
+              Your friend joins, completes one real multiplayer game, and both of you earn <strong className="text-[#E8B04A]">{summary.activationRewardBeli} Club Points</strong>. Signups and bot games do not count.
             </p>
 
             <div className="relative mt-6 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2" aria-label="Invite reward flow">
@@ -186,7 +186,7 @@ export function ReferralProgram({ onNavigate }: ReferralProgramProps) {
 
             <div className="relative mt-6 flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
               <div>
-                <p className="text-xs text-white/50">Your Beli</p>
+                <p className="text-xs text-white/50">Your Club Points</p>
                 <p className="text-3xl font-black text-[#E8B04A]">{summary.beliBalance.toLocaleString('en-IN')}</p>
               </div>
               <div className="text-right">
@@ -220,7 +220,7 @@ export function ReferralProgram({ onNavigate }: ReferralProgramProps) {
         <section aria-labelledby="milestone-title" className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-[#E8B04A]">Beli trail</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#E8B04A]">Club Points trail</p>
               <h2 id="milestone-title" className="font-display text-xl font-bold">Keep the circle moving</h2>
             </div>
             {summary.nextMilestone && <p className="text-xs text-white/50">{summary.stats.activated}/{summary.nextMilestone.count}</p>}
@@ -271,7 +271,7 @@ export function ReferralProgram({ onNavigate }: ReferralProgramProps) {
                     className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-white/10 px-3 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {busyItem === item.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : item.owned ? <Check className="h-4 w-4" /> : !canAfford ? <LockKeyhole className="h-4 w-4" /> : null}
-                    {item.owned ? 'Unlocked' : `${item.costBeli} Beli`}
+                    {item.owned ? 'Unlocked' : `${item.costBeli} Club Points`}
                   </button>
                 </article>
               );
@@ -299,7 +299,7 @@ export function ReferralProgram({ onNavigate }: ReferralProgramProps) {
         )}
 
         <p className="px-3 text-center text-[11px] leading-5 text-white/35">
-          Beli is earned through verified social play. It cannot be bought, transferred, wagered, cashed out, or exchanged for chips.
+          Club Points are earned through verified social play. They cannot be bought, transferred, wagered, cashed out, or exchanged for play chips.
         </p>
       </div>
       <NavigationBar currentScreen="referrals" onNavigate={onNavigate} />

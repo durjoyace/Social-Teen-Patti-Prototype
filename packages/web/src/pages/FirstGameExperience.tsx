@@ -414,7 +414,7 @@ export function FirstGameExperience({ username, onComplete }: FirstGameExperienc
                 This was a guided practice hand. Real friend tables are dealt and settled by the server, and your referral only activates after a completed game with another human.
               </p>
               <p className="mt-3 text-sm font-semibold text-[#8ED4A5]">
-                Invite a friend. Play one real game. Both unlock Beli extras.
+                Invite a friend. Play one real game. You both earn Club Points for cosmetic extras.
               </p>
             </div>
             <motion.button

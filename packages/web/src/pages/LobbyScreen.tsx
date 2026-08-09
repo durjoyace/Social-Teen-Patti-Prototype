@@ -106,8 +106,8 @@ function ReferralCard({ onNavigate }: Pick<LobbyActionProps, 'onNavigate'>) {
           <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#E8B04A]">
             <Gift className="h-4 w-4" /> Table circle
           </span>
-          <span className="mt-2 block font-display text-xl font-bold text-[#F6ECD8]">Bring a friend. Both unlock 100 Beli.</span>
-          <span className="mt-1 block text-xs leading-relaxed text-[#C9B9AF]">After their first completed multiplayer game. Beli has no cash value.</span>
+          <span className="mt-2 block font-display text-xl font-bold text-[#F6ECD8]">Bring a friend. You both earn 100 Club Points.</span>
+          <span className="mt-1 block text-xs leading-relaxed text-[#C9B9AF]">After their first completed multiplayer game. Club Points unlock cosmetic extras and have no cash value.</span>
         </span>
         <ArrowUpRight className="mt-1 h-5 w-5 shrink-0 text-[#E8B04A] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
       </span>
@@ -332,7 +332,7 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
                                     <Icon className={cn('h-4 w-4', config.accent)} />
                                     <span className="truncate font-semibold text-[#F6ECD8]">{room.name}</span>
                                   </span>
-                                  <span className="mt-2 block text-xs text-[#8C9A92]">{formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} Beli · Boot {formatChips(room.minBet)}</span>
+                                  <span className="mt-2 block text-xs text-[#8C9A92]">{formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} play chips · {formatChips(room.minBet)}-chip boot</span>
                                   <span className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#B9C4BE]">
                                     <Users className="h-3.5 w-3.5" /> {room.currentPlayers}/{room.maxPlayers} seated
                                     <span className="text-[#58645E]">·</span> {config.label}
@@ -376,8 +376,8 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
                 </div>
                 <div className="mt-4 flex items-end justify-between rounded-2xl border border-white/10 bg-[#07110E] px-4 py-3">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#66736D]">Beli balance</p>
-                    <AnimatedChipCount value={user?.chips || 0} prefix="● " className="mt-1 block text-lg font-bold text-[#E8B04A]" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#66736D]">Club Points balance</p>
+                    <AnimatedChipCount value={user?.beliBalance || 0} prefix="✦ " className="mt-1 block text-lg font-bold text-[#E8B04A]" />
                   </div>
                   <span className="text-[10px] text-[#66736D]">No cash value</span>
                 </div>

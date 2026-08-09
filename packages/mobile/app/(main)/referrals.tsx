@@ -53,7 +53,7 @@ export default function ReferralsScreen() {
 
   const shareInvite = async () => {
     if (!summary) return;
-    const message = `Come join my Teen Patti table. Finish one real multiplayer game and we both unlock ${summary.activationRewardBeli} Beli for profile extras. ${summary.shareUrl}`;
+    const message = `Come join my Teen Patti table. Finish one real multiplayer game and we both earn ${summary.activationRewardBeli} Club Points for cosmetic extras. ${summary.shareUrl}`;
     const result = await Share.share({ title: 'Join my Teen Patti table', message });
     if (result.action === Share.sharedAction) await recordShare('NATIVE');
   };
@@ -67,7 +67,7 @@ export default function ReferralsScreen() {
   };
 
   const redeem = (itemId: string, name: string, costBeli: number) => {
-    Alert.alert('Unlock this extra?', `${name} costs ${costBeli} Beli.`, [
+    Alert.alert('Unlock this extra?', `${name} costs ${costBeli} Club Points.`, [
       { text: 'Not now', style: 'cancel' },
       {
         text: 'Unlock',
@@ -115,7 +115,7 @@ export default function ReferralsScreen() {
         <Text style={styles.eyebrow}>YOUR TABLE CIRCLE</Text>
         <Text style={styles.title}>Invite the people you play with</Text>
         <Text style={styles.intro}>
-          Your friend completes one real multiplayer game, then both of you unlock {summary.activationRewardBeli} Beli. Signups and bot games do not count.
+          Your friend completes one real multiplayer game, then both of you earn {summary.activationRewardBeli} Club Points. Signups and bot games do not count.
         </Text>
 
         {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
@@ -129,7 +129,7 @@ export default function ReferralsScreen() {
             <View style={styles.flowStep}><Text style={styles.flowIcon}>✨</Text><Text style={styles.flowText}>Both earn</Text></View>
           </View>
           <View style={styles.statsRow}>
-            <View><Text style={styles.statLabel}>Your Beli</Text><Text style={styles.beli}>{summary.beliBalance.toLocaleString('en-IN')}</Text></View>
+            <View><Text style={styles.statLabel}>Your Club Points</Text><Text style={styles.beli}>{summary.beliBalance.toLocaleString('en-IN')}</Text></View>
             <View style={styles.statRight}><Text style={styles.statLabel}>Friends activated</Text><Text style={styles.statValue}>{summary.stats.activated}</Text></View>
           </View>
         </View>
@@ -145,7 +145,7 @@ export default function ReferralsScreen() {
         </View>
 
         <View style={styles.card}>
-          <View style={styles.sectionRow}><View><Text style={styles.eyebrow}>BELI TRAIL</Text><Text style={styles.cardTitle}>Keep the circle moving</Text></View><Text style={styles.cardSub}>{summary.stats.activated}/{nextCount}</Text></View>
+          <View style={styles.sectionRow}><View><Text style={styles.eyebrow}>CLUB POINTS TRAIL</Text><Text style={styles.cardTitle}>Keep the circle moving</Text></View><Text style={styles.cardSub}>{summary.stats.activated}/{nextCount}</Text></View>
           <View style={styles.track}><View style={[styles.fill, { width: `${progress}%` }]} /></View>
           {summary.milestones.map(milestone => (
             <View key={milestone.count} style={styles.milestone}>
@@ -168,13 +168,13 @@ export default function ReferralsScreen() {
                 disabled={item.owned || !canAfford || busyItem !== null}
                 style={[styles.redeemButton, (item.owned || !canAfford) && styles.disabled]}
               >
-                {busyItem === item.id ? <ActivityIndicator color="#0B1221" /> : <Text style={styles.redeemText}>{item.owned ? 'Owned' : `${item.costBeli} Beli`}</Text>}
+                {busyItem === item.id ? <ActivityIndicator color="#0B1221" /> : <Text style={styles.redeemText}>{item.owned ? 'Owned' : `${item.costBeli} Club Points`}</Text>}
               </Pressable>
             </View>
           );
         })}
 
-        <Text style={styles.disclaimer}>Beli cannot be bought, transferred, wagered, cashed out, or exchanged for chips.</Text>
+        <Text style={styles.disclaimer}>Club Points cannot be bought, transferred, wagered, cashed out, or exchanged for play chips.</Text>
       </ScrollView>
     </View>
   );

@@ -86,7 +86,7 @@ export function useGameSocket() {
 
     const unsubReferral = socketService.on('referral:rewarded', (data: any) => {
       addToast({
-        message: `First real game complete — ${data.beli} Beli unlocked!`,
+        message: `First real game complete — you earned ${data.beli} Club Points!`,
         type: 'success',
         duration: 6000,
       });
