@@ -1,6 +1,6 @@
 {
   "name": "@teen-patti/brace-expansion-compat",
-  "version": "5.0.8",
+  "version": "5.0.9",
   "private": true,
   "description": "Callable CommonJS adapter for patched brace-expansion v5",
   "main": "index.cjs",
@@ -8,6 +8,6 @@
     "test": "node --test index.test.cjs"
   },
   "dependencies": {
-    "brace-expansion-modern": "npm:brace-expansion@5.0.8"
+    "brace-expansion-modern": "npm:brace-expansion@5.0.9"
   }
 }

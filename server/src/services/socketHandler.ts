@@ -28,6 +28,16 @@ const actionSchema = z.object({
   action: z.enum(['boot', 'blind', 'chaal', 'raise', 'pack', 'show', 'sideshow', 'sideshow_accept', 'sideshow_reject', 'timeout']),
   amount: z.coerce.number().int().positive().max(1_000_000).optional(),
 });
+const chatSchema = z.object({
+  roomId: z.string().uuid(),
+  message: z.string().trim().min(1).max(500),
+  type: z.enum(['text', 'emoji']).default('text'),
+});
+const giftSchema = z.object({
+  roomId: z.string().uuid(),
+  receiverId: z.string().trim().min(1).max(64),
+  giftType: z.string().trim().min(1).max(64),
+});
 
 export function setupSocketHandlers(io: Server) {
   const roomManager = new RoomManager(io);
@@ -208,33 +218,35 @@ export function setupSocketHandlers(io: Server) {
 
     // ─── Chat Events ─────────────────────────────────────────────────────
 
-    socket.on('chat:send', async (data) => {
-      if (!data.message?.trim()) return;
+    socket.on('chat:send', (data) => {
+      const parsed = chatSchema.safeParse(data);
+      if (!parsed.success || !roomManager.isPlayerInRoom(parsed.data.roomId, user.userId)) return;
 
-      const message = {
+      io.to(parsed.data.roomId).emit('chat:message', {
         id: crypto.randomUUID(),
         userId: user.userId,
         username: user.username,
-        message: data.message.trim().slice(0, 500), // Limit message length
-        type: data.type || 'text',
+        message: parsed.data.message,
+        type: parsed.data.type,
         createdAt: new Date().toISOString(),
-      };
-
-      // Broadcast to room
-      if (data.roomId) {
-        io.to(data.roomId).emit('chat:message', message);
-      }
+      });
     });
 
     // ─── Social Events ───────────────────────────────────────────────────
 
-    socket.on('gift:send', async (data) => {
-      // Table gifts during games
-      io.to(data.roomId).emit('gift:received', {
+    socket.on('gift:send', (data) => {
+      const parsed = giftSchema.safeParse(data);
+      if (
+        !parsed.success ||
+        !roomManager.isPlayerInRoom(parsed.data.roomId, user.userId) ||
+        !roomManager.isPlayerInRoom(parsed.data.roomId, parsed.data.receiverId)
+      ) return;
+
+      io.to(parsed.data.roomId).emit('gift:received', {
         senderId: user.userId,
         senderName: user.username,
-        receiverId: data.receiverId,
-        giftType: data.giftType,
+        receiverId: parsed.data.receiverId,
+        giftType: parsed.data.giftType,
       });
     });
 

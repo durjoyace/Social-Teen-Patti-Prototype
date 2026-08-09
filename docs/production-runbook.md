@@ -6,6 +6,18 @@ The repository is configured for a single real-time server replica. Rooms live i
 
 Purchases must remain disabled (`PURCHASES_ENABLED=false`, `VITE_PURCHASES_ENABLED=false`) until the responsible-play and legal gates are complete.
 
+## Approved beta scope
+
+The approved 9 August 2026 release scope is an invite-only web beta:
+
+- Ship the Vercel web client and one Railway API/Socket.io replica.
+- Keep purchases disabled and do not market the beta publicly.
+- Do not submit iOS or Android builds to a store.
+- Use `pnpm audit:web-beta` as the blocking runtime audit for this scope.
+- Keep `pnpm audit:prod` visible as the broader web/server/mobile audit.
+
+The mobile store release remains blocked by the unpatched `image-size` advisories in Expo/Metro's build-only dependency graph. This is a release hold, not an audit suppression.
+
 ## Required configuration
 
 Server production startup fails closed unless database/JWT/referral secrets are strong and `PUBLIC_APP_URL` is HTTPS. Configure:
@@ -21,16 +33,24 @@ Server production startup fails closed unless database/JWT/referral secrets are 
 
 Web needs HTTPS `VITE_API_URL` and `VITE_SOCKET_URL`, `VITE_SENTRY_DSN`, an explicit analytics choice plus `VITE_MIXPANEL_TOKEN`, and purchases disabled. Production clients refuse insecure or missing backend endpoints. EAS needs HTTPS `EXPO_PUBLIC_API_URL` (including `/api`) and `EXPO_PUBLIC_SOCKET_URL`; dynamic Expo configuration fails preview and production builds when either is absent or insecure.
 
-## Deploy
+## Web beta deploy
 
 1. Take/verify a PostgreSQL backup and test restore evidence.
-2. Run `pnpm install --frozen-lockfile`, `pnpm audit:prod`, and `pnpm verify` on Node 22.
+2. Run `pnpm install --frozen-lockfile`, `pnpm audit:web-beta`, and `pnpm verify` on Node 22.
 3. Deploy `server/` to Railway from its Dockerfile. Railway runs `npm run db:deploy` as a pre-deploy command; do not run multiple application replicas. Require HTTP 200 from `/health` and database-backed `/ready`, and verify the reported `APP_VERSION`.
 4. Run the non-mutating gate: `SMOKE_BASE_URL=https://<backend> SMOKE_WEB_URL=https://social-teen-patti.vercel.app pnpm smoke:production`.
 5. Run the self-cleaning auth/referral/WebSocket gate by adding `SMOKE_MUTATING=true`. It creates two guests, attributes an invite, joins both to a private table, then anonymizes both accounts in `finally` cleanup.
 6. Manually complete one multiplayer game, verify double-sided referral reward plus repeat-game idempotency, and redeem one Beli extra in the invite-only environment.
-7. Configure the same backend endpoints in Vercel and EAS. Run `pnpm --filter @teen-patti/mobile config:release`, then `build:preview`; test HTTPS universal/app links and `teenpatti://invite/<code>` on physical Android and iOS devices.
+7. Configure the production backend endpoints in Vercel, deploy the web client, and test a complete HTTPS invite-link flow in two clean browser sessions.
 8. Watch Sentry errors, readiness, socket disconnects, game settlement failures, referral reward failures/rejections, and p95 API latency for at least 30 minutes.
+
+## Mobile release hold
+
+Continue building and exporting mobile bundles in CI so incompatibilities remain visible, but do not submit them to Apple or Google. Before store release:
+
+1. Require a patched Expo/Metro path for GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq, or obtain a separately documented owner-approved exception after security review.
+2. Require `pnpm audit:prod` to pass for the complete web/server/mobile graph unless that explicit exception exists.
+3. Configure the same backend endpoints in EAS, run `pnpm --filter @teen-patti/mobile config:release` and `build:preview`, then verify universal/app links on physical Android and iOS devices.
 
 ## Account deletion and retention
 
@@ -59,7 +79,8 @@ The referral migration is additive. Roll application deployments back first to t
 - CI database migration and integration test pass.
 - Shared, server, web, and mobile typechecks pass.
 - Server and web production builds plus Android Expo export pass.
-- The production dependency audit and Expo SDK compatibility check pass.
+- The blocking web/server beta runtime audit and Expo SDK compatibility check pass.
+- Mobile store submission remains blocked until the full production dependency audit passes or a separately approved exception is recorded.
 - No demo payment response can credit value.
 - Reward creation is multiplayer-only, transactional, and idempotent.
 - Analytics payload review finds no PII.
@@ -68,3 +89,5 @@ The referral migration is additive. Roll application deployments back first to t
 ## Dependency security
 
 Expo's build graph still contains consumers of the callable `brace-expansion` 1.x API, while the current memory-bound implementation is 5.x. `packages/brace-expansion-compat` is a tested CommonJS adapter over patched 5.x and is applied through a narrow pnpm override. Do not remove or widen that override without rerunning `pnpm audit:prod`, `pnpm verify`, and the Android export gate.
+
+The full dependency audit currently reports only GHSA-w3rx-r6r6-pgpr and GHSA-5p2g-fcmc-qvqq through Expo/Metro's `image-size@1.2.1`. Both advisories currently report no patched version. They are outside the web/server runtime graph, which is why the approved web beta uses a separately blocking `audit:web-beta` command while retaining the failing full audit as the mobile-store hold.

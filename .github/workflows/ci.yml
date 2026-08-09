@@ -50,7 +50,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm audit:prod
       - run: pnpm generate
       - run: pnpm --filter teen-patti-server exec prisma migrate deploy
       - run: pnpm test
@@ -72,3 +71,8 @@ jobs:
         run: |
           pnpm --filter @teen-patti/mobile exec expo install --check
           pnpm --filter @teen-patti/mobile exec expo export --platform android --output-dir dist-ci
+      - name: Audit web and server beta runtimes
+        run: pnpm audit:web-beta
+      - name: Mobile store dependency gate (release held)
+        continue-on-error: true
+        run: pnpm audit:prod
