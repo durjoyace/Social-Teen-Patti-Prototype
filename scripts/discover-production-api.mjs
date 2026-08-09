@@ -15,15 +15,42 @@ async function fetchText(url) {
   return response.text();
 }
 
+const webOrigin = new URL(webUrl).origin;
 const html = await fetchText(webUrl);
-const scriptSources = [...html.matchAll(/<script[^>]+src=["']([^"']+\.js(?:\?[^"']*)?)["']/gi)]
-  .map((match) => new URL(match[1], webUrl).href);
+const queued = [];
+const seen = new Set();
+const bundles = [];
 
-if (scriptSources.length === 0) {
+function enqueueJavaScript(reference, base) {
+  try {
+    const url = new URL(reference, base);
+    if (url.origin === webOrigin && /\.js(?:$|\?)/i.test(url.href) && !seen.has(url.href)) {
+      queued.push(url.href);
+    }
+  } catch {
+    // Ignore strings that are not valid asset references.
+  }
+}
+
+for (const match of html.matchAll(/(?:src|href)=["']([^"']+\.js(?:\?[^"']*)?)["']/gi)) {
+  enqueueJavaScript(match[1], webUrl);
+}
+
+while (queued.length > 0 && seen.size < 100) {
+  const assetUrl = queued.shift();
+  if (seen.has(assetUrl)) continue;
+  seen.add(assetUrl);
+  const source = await fetchText(assetUrl);
+  bundles.push(source);
+  for (const match of source.matchAll(/["']([^"'\n]+\.js(?:\?[^"'\n]*)?)["']/gi)) {
+    enqueueJavaScript(match[1], assetUrl);
+  }
+}
+
+if (bundles.length === 0) {
   throw new Error('No JavaScript assets were found in the production web page');
 }
 
-const bundles = await Promise.all(scriptSources.map(fetchText));
 const compiled = bundles.join('\n').replaceAll('\\/', '/').replaceAll('\\u002F', '/');
 const discoveredUrls = [...compiled.matchAll(/https:\/\/[a-z0-9.-]+(?::\d+)?(?:\/api)?/gi)]
   .map((match) => match[0]);
@@ -41,7 +68,7 @@ const candidates = [...new Set(discoveredUrls)]
   .sort((left, right) => Number(!left.includes('railway')) - Number(!right.includes('railway')));
 
 if (candidates.length === 0) {
-  throw new Error('No production API candidate was found in the deployed web bundle');
+  throw new Error('No production API candidate was found after scanning all deployed JavaScript chunks. Check the production Vercel VITE_API_URL and VITE_SOCKET_URL values, then redeploy.');
 }
 
 let selected;
