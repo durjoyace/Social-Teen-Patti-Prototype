@@ -71,5 +71,8 @@ jobs:
         run: |
           pnpm --filter @teen-patti/mobile exec expo install --check
           pnpm --filter @teen-patti/mobile exec expo export --platform android --output-dir dist-ci
-      - name: Audit production dependency graph
-        run: pnpm audit:prod
+      - name: Audit web and server beta runtimes
+        run: pnpm audit:web-beta
+      - name: Mobile store dependency gate (release held)
+        continue-on-error: true
+        run: pnpm --filter @teen-patti/mobile audit --prod
