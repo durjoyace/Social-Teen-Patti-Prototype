@@ -48,6 +48,7 @@ interface Room {
   gameState?: GameState;
   turnTimer?: ReturnType<typeof setTimeout>;
   aiTimers: Map<string, ReturnType<typeof setTimeout>>;
+  disconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
   status: 'waiting' | 'playing' | 'finished';
 }
 
@@ -105,6 +106,7 @@ export class RoomManager {
       createdBy: config.createdBy,
       players: new Map(),
       aiTimers: new Map(),
+      disconnectTimers: new Map(),
       status: 'waiting',
     };
 
@@ -556,6 +558,8 @@ export class RoomManager {
 
   private cleanupRoom(room: Room): void {
     this.clearTurnTimer(room);
+    for (const timer of room.disconnectTimers.values()) clearTimeout(timer);
+    room.disconnectTimers.clear();
     this.rooms.delete(room.id);
   }
 
@@ -599,14 +603,19 @@ export class RoomManager {
             }
           }
 
-          // Start reconnection timer (60 seconds)
-          setTimeout(() => {
+          // Start reconnection timer (60 seconds). Track it so a successful
+          // reconnect or room cleanup cannot leave stale timers behind.
+          const existingTimer = room.disconnectTimers.get(odic);
+          if (existingTimer) clearTimeout(existingTimer);
+          const disconnectTimer = setTimeout(() => {
+            room.disconnectTimers.delete(odic);
             const p = room.players.get(odic);
             if (p && p.socketId === socketId) {
               // Still disconnected — remove from room
               this.leaveRoom(odic, { leave: () => {}, id: socketId } as any);
             }
           }, 60000);
+          room.disconnectTimers.set(odic, disconnectTimer);
 
           return;
         }
@@ -623,6 +632,12 @@ export class RoomManager {
 
     const player = room.players.get(userId);
     if (!player) return false;
+
+    const disconnectTimer = room.disconnectTimers.get(userId);
+    if (disconnectTimer) {
+      clearTimeout(disconnectTimer);
+      room.disconnectTimers.delete(userId);
+    }
 
     // Update socket
     player.socketId = socket.id;
