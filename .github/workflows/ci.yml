@@ -75,4 +75,4 @@ jobs:
         run: pnpm audit:web-beta
       - name: Mobile store dependency gate (release held)
         continue-on-error: true
-        run: pnpm --filter @teen-patti/mobile audit --prod
+        run: pnpm audit:prod
