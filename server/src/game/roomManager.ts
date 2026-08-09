@@ -563,6 +563,10 @@ export class RoomManager {
     return Array.from(this.rooms.values()).find(r => r.roomCode === code);
   }
 
+  isPlayerInRoom(roomId: string, userId: string): boolean {
+    return this.rooms.get(roomId)?.players.has(userId) ?? false;
+  }
+
   getPublicRooms(): Array<Record<string, unknown>> {
     return Array.from(this.rooms.values())
       .filter(r => !r.isPrivate && r.status === 'waiting')
@@ -584,11 +588,13 @@ export class RoomManager {
     for (const [roomId, room] of this.rooms) {
       for (const [odic, player] of room.players) {
         if (player.socketId === socketId && !player.isBot) {
-          // Mark as disconnected (give them time to reconnect)
+          // Keep the player active while the reconnection grace period runs.
+          // The existing turn timer can then auto-fold a disconnected current
+          // player instead of finding a non-actionable status and deadlocking
+          // the table.
           if (room.gameState) {
             const gamePlayer = room.gameState.players.find(p => p.odic === odic);
             if (gamePlayer) {
-              gamePlayer.status = 'disconnected';
               gamePlayer.disconnectedAt = Date.now();
             }
           }
@@ -622,11 +628,11 @@ export class RoomManager {
     player.socketId = socket.id;
     socket.join(roomId);
 
-    // Restore game state
+    // Restore connectivity without reviving a player that was already
+    // folded by a turn timeout while they were offline.
     if (room.gameState) {
       const gamePlayer = room.gameState.players.find(p => p.odic === userId);
-      if (gamePlayer && gamePlayer.status === 'disconnected') {
-        gamePlayer.status = 'playing';
+      if (gamePlayer) {
         gamePlayer.disconnectedAt = undefined;
       }
     }
