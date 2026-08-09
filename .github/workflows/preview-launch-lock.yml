@@ -6,6 +6,10 @@ on:
     paths:
       - package.json
       - packages/brace-expansion-compat/package.json
+  pull_request:
+    paths:
+      - package.json
+      - packages/brace-expansion-compat/package.json
 
 permissions:
   contents: read
