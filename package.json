@@ -14,6 +14,7 @@
     "build": "pnpm --filter teen-patti-server build && pnpm --filter @teen-patti/web build",
     "smoke:production": "pnpm --filter teen-patti-server smoke",
     "generate": "pnpm --filter teen-patti-server db:generate",
+    "audit:web-beta": "pnpm --filter @teen-patti/web audit --prod && npm --prefix server audit --omit=dev",
     "audit:prod": "pnpm audit --prod",
     "test": "pnpm --filter @teen-patti/brace-expansion-compat test && pnpm --filter @teen-patti/shared test && pnpm --filter teen-patti-server test",
     "typecheck": "pnpm -r typecheck",
