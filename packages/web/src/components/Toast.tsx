@@ -1,41 +1,40 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { AlertCircle, CheckCircle, Info, X, XCircle } from 'lucide-react';
 import { useUIStore } from '../stores/uiStore';
 import { cn } from '../utils/cn';
-import { SuccessCheckmark } from './PolishTouches';
 
 const toastConfig = {
   success: {
     icon: CheckCircle,
-    bg: 'from-green-600 to-green-800',
-    border: 'border-green-500/50',
-    iconColor: 'text-green-300'
+    surface: 'border-[#5E9B75]/50 bg-[#132A20]',
+    iconColor: 'text-[#8FC7A5]',
+    live: 'polite' as const,
   },
   error: {
     icon: XCircle,
-    bg: 'from-red-600 to-red-800',
-    border: 'border-red-500/50',
-    iconColor: 'text-red-300'
+    surface: 'border-[#B74035]/55 bg-[#2A1714]',
+    iconColor: 'text-[#F2B1A9]',
+    live: 'assertive' as const,
   },
   warning: {
     icon: AlertCircle,
-    bg: 'from-yellow-600 to-yellow-800',
-    border: 'border-yellow-500/50',
-    iconColor: 'text-yellow-300'
+    surface: 'border-[#E8B04A]/45 bg-[#2A2518]',
+    iconColor: 'text-[#E8B04A]',
+    live: 'polite' as const,
   },
   info: {
     icon: Info,
-    bg: 'from-blue-600 to-blue-800',
-    border: 'border-blue-500/50',
-    iconColor: 'text-blue-300'
-  }
+    surface: 'border-[#6E94A8]/45 bg-[#13232B]',
+    iconColor: 'text-[#9FC7DB]',
+    live: 'polite' as const,
+  },
 };
 
 export function ToastContainer() {
   const { toasts, removeToast } = useUIStore();
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+    <div className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[70] flex flex-col items-end gap-2 sm:left-auto sm:right-4 sm:w-[360px]">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => {
           const config = toastConfig[toast.type];
@@ -44,160 +43,32 @@ export function ToastContainer() {
           return (
             <motion.div
               key={toast.id}
+              role={toast.type === 'error' ? 'alert' : 'status'}
+              aria-live={config.live}
               layout
-              initial={{ opacity: 0, x: 100, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 100, scale: 0.9 }}
+              initial={{ opacity: 0, y: -10, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
               transition={{ type: 'spring', stiffness: 350, damping: 28 }}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl',
-                `bg-gradient-to-r ${config.bg}`,
-                'bg-gray-900/90 backdrop-blur-lg border border-white/10',
-                config.border,
-                'shadow-lg min-w-[250px] max-w-[350px]'
+                'pointer-events-auto flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-[#F6ECD8] shadow-[0_16px_40px_rgba(0,0,0,0.4)] backdrop-blur-xl',
+                config.surface,
               )}
             >
-              <Icon className={cn('w-5 h-5 flex-shrink-0', config.iconColor)} />
-              <span className="flex-1 text-sm text-white font-medium">{toast.message}</span>
+              <Icon aria-hidden="true" className={cn('h-5 w-5 shrink-0', config.iconColor)} />
+              <span className="min-w-0 flex-1 text-sm font-medium leading-5">{toast.message}</span>
               <button
+                type="button"
                 onClick={() => removeToast(toast.id)}
-                className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                aria-label="Dismiss notification"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#8E9C94] transition-colors hover:bg-white/[0.07] hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
               >
-                <X className="w-4 h-4 text-white/60" />
+                <X aria-hidden="true" className="h-4 w-4" />
               </button>
             </motion.div>
           );
         })}
       </AnimatePresence>
-    </div>
-  );
-}
-
-// Win announcement overlay
-export function WinAnnouncement({
-  winner,
-  amount,
-  handName,
-  onClose
-}: {
-  winner: string;
-  amount: number;
-  handName: string;
-  onClose: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.5, rotateY: 90 }}
-        animate={{ scale: 1, rotateY: 0 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        className="relative p-8 rounded-3xl bg-gradient-to-b from-yellow-900/90 to-yellow-950/90 border border-yellow-500/50"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Sparkle effects */}
-        <motion.div
-          className="absolute -inset-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {Array.from({ length: 20 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 bg-yellow-400 rounded-full"
-              initial={{
-                x: '50%',
-                y: '50%',
-                scale: 0
-              }}
-              animate={{
-                x: `${Math.random() * 100}%`,
-                y: `${Math.random() * 100}%`,
-                scale: [0, 1, 0],
-                opacity: [0, 1, 0]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                delay: i * 0.1
-              }}
-            />
-          ))}
-        </motion.div>
-
-        {/* Trophy icon */}
-        <motion.div
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="flex justify-center mb-4"
-        >
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg shadow-yellow-500/50">
-            <span className="text-4xl">🏆</span>
-          </div>
-        </motion.div>
-
-        {/* Winner text */}
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-center"
-        >
-          <h2 className="text-3xl font-bold text-yellow-400 mb-2">Winner!</h2>
-          <p className="text-xl text-white font-semibold mb-1">{winner}</p>
-          <p className="text-yellow-500/80 text-sm mb-4">{handName}</p>
-
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.5, type: 'spring' }}
-            className="text-4xl font-bold text-green-400"
-          >
-            +◉ {amount.toLocaleString()}
-          </motion.div>
-        </motion.div>
-
-        {/* Close hint */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="text-center text-white/40 text-xs mt-6"
-        >
-          Tap anywhere to continue
-        </motion.p>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// Loading spinner
-export function LoadingSpinner({ message }: { message?: string }) {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm">
-      <motion.div
-        className="relative w-16 h-16"
-        animate={{ rotate: 360 }}
-        transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-      >
-        <div className="absolute inset-0 rounded-full border-4 border-yellow-500/20" />
-        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-yellow-500" />
-      </motion.div>
-      {message && (
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 text-white/80 text-sm"
-        >
-          {message}
-        </motion.p>
-      )}
     </div>
   );
 }

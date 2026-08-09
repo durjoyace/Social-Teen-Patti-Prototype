@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Eye, EyeOff, XCircle, TrendingUp, Users, Sparkles, Minus, Plus, Coins } from 'lucide-react';
-import { ActionType } from '../types';
+import type { ActionType } from '../types';
 import { cn } from '../utils/cn';
 import { formatChips } from '../game/gameEngine';
 import { useHaptics } from '../hooks/useHaptics';
@@ -19,87 +19,72 @@ interface BettingControlsProps {
   disabled?: boolean;
 }
 
-const actionConfig: Record<ActionType, {
+interface ActionConfig {
   label: string;
   shortLabel: string;
   icon: typeof Coins;
-  gradient: string;
   description: string;
-}> = {
+  tone: string;
+}
+
+const actionConfig: Record<ActionType, ActionConfig> = {
   blind: {
-    label: 'Play Blind',
-    shortLabel: 'Blind',
-    icon: EyeOff,
-    gradient: 'from-blue-500 to-blue-700',
-    description: 'Bet without seeing your cards'
+    label: 'Play Blind', shortLabel: 'Blind', icon: EyeOff,
+    description: 'Bet without seeing your cards',
+    tone: 'border-[#E8B04A] bg-[#E8B04A] text-[#07110E]',
   },
   chaal: {
-    label: 'Chaal',
-    shortLabel: 'Chaal',
-    icon: Eye,
-    gradient: 'from-green-500 to-green-700',
-    description: 'See your cards and bet'
+    label: 'Play Chaal', shortLabel: 'Chaal', icon: Eye,
+    description: 'Bet after seeing your cards',
+    tone: 'border-[#E8B04A] bg-[#E8B04A] text-[#07110E]',
   },
   raise: {
-    label: 'Raise',
-    shortLabel: 'Raise',
-    icon: TrendingUp,
-    gradient: 'from-yellow-500 to-orange-600',
-    description: 'Double the current bet'
+    label: 'Raise', shortLabel: 'Raise', icon: TrendingUp,
+    description: 'Increase the current bet',
+    tone: 'border-[#E8B04A]/55 bg-[#1A2B24] text-[#F6ECD8]',
   },
   pack: {
-    label: 'Pack',
-    shortLabel: 'Pack',
-    icon: XCircle,
-    gradient: 'from-red-500 to-red-700',
-    description: 'Fold your hand'
+    label: 'Pack hand', shortLabel: 'Pack', icon: XCircle,
+    description: 'Fold this hand',
+    tone: 'border-[#B74035]/65 bg-[#2A1714] text-[#F2B1A9]',
   },
   show: {
-    label: 'Show',
-    shortLabel: 'Show',
-    icon: Sparkles,
-    gradient: 'from-purple-500 to-purple-700',
-    description: 'Compare cards to win'
+    label: 'Request show', shortLabel: 'Show', icon: Sparkles,
+    description: 'Compare the remaining hands',
+    tone: 'border-[#E8B04A]/55 bg-[#1A2B24] text-[#F6ECD8]',
   },
   sideshow: {
-    label: 'Sideshow',
-    shortLabel: 'Side',
-    icon: Users,
-    gradient: 'from-pink-500 to-pink-700',
-    description: 'Private compare with previous player'
+    label: 'Request sideshow', shortLabel: 'Sideshow', icon: Users,
+    description: 'Compare privately with the previous player',
+    tone: 'border-[#E8B04A]/55 bg-[#1A2B24] text-[#F6ECD8]',
   },
   boot: {
-    label: 'Boot',
-    shortLabel: 'Boot',
-    icon: Coins,
-    gradient: 'from-gray-500 to-gray-700',
-    description: 'Initial bet'
+    label: 'Pay boot', shortLabel: 'Boot', icon: Coins,
+    description: 'Place the opening stake',
+    tone: 'border-[#E8B04A] bg-[#E8B04A] text-[#07110E]',
   },
   sideshow_accept: {
-    label: 'Accept Sideshow',
-    shortLabel: 'Accept',
-    icon: Eye,
-    gradient: 'from-green-500 to-green-700',
-    description: 'Accept the sideshow challenge'
+    label: 'Accept sideshow', shortLabel: 'Accept', icon: Eye,
+    description: 'Accept the private comparison',
+    tone: 'border-[#5E9B75]/70 bg-[#173B2A] text-[#DDF2E5]',
   },
   sideshow_reject: {
-    label: 'Reject Sideshow',
-    shortLabel: 'Reject',
-    icon: XCircle,
-    gradient: 'from-red-500 to-red-700',
-    description: 'Reject the sideshow challenge'
+    label: 'Reject sideshow', shortLabel: 'Reject', icon: XCircle,
+    description: 'Decline the private comparison',
+    tone: 'border-[#B74035]/65 bg-[#2A1714] text-[#F2B1A9]',
   },
   timeout: {
-    label: 'Timeout',
-    shortLabel: 'Timeout',
-    icon: Coins,
-    gradient: 'from-gray-500 to-gray-700',
-    description: 'Turn timed out'
-  }
+    label: 'Turn timed out', shortLabel: 'Timeout', icon: Coins,
+    description: 'This turn has timed out',
+    tone: 'border-white/15 bg-white/5 text-white/55',
+  },
 };
 
-// Quick bet buttons
 const QUICK_BET_MULTIPLIERS = [1, 2, 5, 10];
+const IMMEDIATE_ACTIONS: ActionType[] = [
+  'pack', 'show', 'sideshow', 'sideshow_accept', 'sideshow_reject', 'timeout',
+];
+const PRIMARY_ACTIONS: ActionType[] = ['chaal', 'blind', 'pack', 'boot'];
 
 export function BettingControls({
   availableActions,
@@ -110,197 +95,178 @@ export function BettingControls({
   playerChips,
   pot,
   onAction,
-  disabled
+  disabled,
 }: BettingControlsProps) {
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [customBet, setCustomBet] = useState(currentBet);
   const [showBetSlider, setShowBetSlider] = useState(false);
   const { onButtonPress } = useHaptics();
 
-  // Calculate bet amount for current action
   const baseBetAmount = isBlind ? currentBet : currentBet * 2;
+  const betCeiling = Math.max(minBet, Math.min(maxBet, playerChips));
+  const minimumRaise = Math.min(betCeiling, Math.max(baseBetAmount, minBet));
 
-  // Handle action selection
   const handleActionSelect = useCallback((action: ActionType) => {
     onButtonPress();
 
-    if (action === 'pack' || action === 'show' || action === 'sideshow') {
-      // These actions don't need bet amount
+    if (IMMEDIATE_ACTIONS.includes(action)) {
       onAction(action);
       return;
     }
 
     if (action === 'raise') {
       setSelectedAction(action);
+      setCustomBet(Math.min(betCeiling, Math.max(minimumRaise, baseBetAmount * 2)));
       setShowBetSlider(true);
-      setCustomBet(baseBetAmount * 2);
-    } else {
-      // Blind or Chaal with current bet
-      onAction(action, baseBetAmount);
+      return;
     }
-  }, [onAction, baseBetAmount, onButtonPress]);
 
-  // Handle bet confirmation
+    onAction(action, Math.min(baseBetAmount, playerChips));
+  }, [baseBetAmount, betCeiling, minimumRaise, onAction, onButtonPress, playerChips]);
+
   const handleBetConfirm = useCallback(() => {
-    if (selectedAction) {
-      onAction(selectedAction, customBet);
-      setSelectedAction(null);
-      setShowBetSlider(false);
-    }
+    if (!selectedAction) return;
+    onAction(selectedAction, customBet);
+    setSelectedAction(null);
+    setShowBetSlider(false);
   }, [selectedAction, customBet, onAction]);
 
-  // Adjust custom bet
   const adjustBet = useCallback((multiplier: number) => {
-    const newBet = Math.min(Math.max(baseBetAmount * multiplier, minBet), Math.min(maxBet, playerChips));
-    setCustomBet(newBet);
+    setCustomBet(Math.min(Math.max(baseBetAmount * multiplier, minimumRaise), betCeiling));
     onButtonPress();
-  }, [baseBetAmount, minBet, maxBet, playerChips, onButtonPress]);
+  }, [baseBetAmount, betCeiling, minimumRaise, onButtonPress]);
 
-  // Increment/decrement bet
   const incrementBet = useCallback((amount: number) => {
-    setCustomBet(prev => Math.min(Math.max(prev + amount, minBet), Math.min(maxBet, playerChips)));
+    setCustomBet((previous) => Math.min(Math.max(previous + amount, minimumRaise), betCeiling));
     onButtonPress();
-  }, [minBet, maxBet, playerChips, onButtonPress]);
+  }, [betCeiling, minimumRaise, onButtonPress]);
 
-  // Primary actions (always visible)
-  const primaryActions = useMemo(() => {
-    return availableActions.filter(a => ['chaal', 'blind', 'pack'].includes(a));
-  }, [availableActions]);
+  const primaryActions = useMemo(
+    () => availableActions.filter((action) => PRIMARY_ACTIONS.includes(action)),
+    [availableActions],
+  );
+  const secondaryActions = useMemo(
+    () => availableActions.filter((action) => !PRIMARY_ACTIONS.includes(action)),
+    [availableActions],
+  );
 
-  // Secondary actions (show, sideshow, raise)
-  const secondaryActions = useMemo(() => {
-    return availableActions.filter(a => ['raise', 'show', 'sideshow'].includes(a));
-  }, [availableActions]);
+  const closeRaiseSheet = () => {
+    setShowBetSlider(false);
+    setSelectedAction(null);
+  };
 
   return (
-    <motion.div
+    <motion.section
+      aria-label="Table actions"
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="fixed bottom-0 left-0 right-0 z-30"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E8B04A]/20 bg-[#07110E]/95 shadow-[0_-18px_45px_rgba(0,0,0,0.42)] backdrop-blur-xl"
     >
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-gray-900/98 to-transparent backdrop-blur-xl" />
-
-      {/* Content */}
-      <div className="relative px-4 pt-4 pb-8 max-w-lg mx-auto">
-        {/* Pot and chips info */}
-        <div className="flex items-center justify-between mb-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-white/50">Pot:</span>
-            <AnimatedChipCount value={pot} prefix="◉ " className="text-yellow-400 font-bold" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Coins className="w-4 h-4 text-yellow-400" />
-            <AnimatedChipCount value={playerChips} prefix="◉ " className="text-white font-medium" />
-          </div>
+      <div className="mx-auto max-w-2xl px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 sm:px-5">
+        <div className="mb-3 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm">
+          <p className="flex items-center gap-2">
+            <span className="text-[#A8B5AF]">Table pot</span>
+            <AnimatedChipCount value={pot} prefix="◉ " className="font-bold text-[#E8B04A]" />
+          </p>
+          <p className="flex items-center gap-2">
+            <Coins aria-hidden="true" className="h-4 w-4 text-[#E8B04A]" />
+            <span className="sr-only">Your stack:</span>
+            <AnimatedChipCount value={playerChips} prefix="◉ " className="font-semibold text-[#F6ECD8]" />
+          </p>
         </div>
 
-        {/* Bet slider (slide-up sheet when raising) */}
-        <SlideUpSheet
-          isOpen={showBetSlider}
-          onClose={() => { setShowBetSlider(false); setSelectedAction(null); }}
-          title="Raise Bet"
-          snapPoints={[0.45, 0.6]}
-        >
+        <SlideUpSheet isOpen={showBetSlider} onClose={closeRaiseSheet} title="Set your raise" snapPoints={[0.48, 0.68]}>
           <div className="space-y-5">
-            {/* Bet amount display */}
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-5">
               <PressableButton
                 onClick={() => incrementBet(-minBet)}
                 variant="secondary"
-                className="w-12 h-12 rounded-full flex items-center justify-center p-0"
+                disabled={customBet <= minimumRaise}
+                className="flex h-12 w-12 items-center justify-center rounded-full p-0"
+                ariaLabel={`Decrease raise by ${formatChips(minBet)}`}
               >
-                <Minus className="w-5 h-5 text-white" />
+                <Minus aria-hidden="true" className="h-5 w-5" />
               </PressableButton>
 
-              <div className="text-center">
-                <AnimatedChipCount value={customBet} prefix="◉ " className="text-3xl font-bold text-yellow-400" duration={200} />
-                <p className="text-xs text-white/50 mt-1">Raise Amount</p>
+              <div className="min-w-36 text-center">
+                <AnimatedChipCount value={customBet} prefix="◉ " className="text-3xl font-bold text-[#E8B04A]" duration={200} />
+                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-[#A8B5AF]">Raise amount</p>
               </div>
 
               <PressableButton
                 onClick={() => incrementBet(minBet)}
                 variant="secondary"
-                className="w-12 h-12 rounded-full flex items-center justify-center p-0"
+                disabled={customBet >= betCeiling}
+                className="flex h-12 w-12 items-center justify-center rounded-full p-0"
+                ariaLabel={`Increase raise by ${formatChips(minBet)}`}
               >
-                <Plus className="w-5 h-5 text-white" />
+                <Plus aria-hidden="true" className="h-5 w-5" />
               </PressableButton>
             </div>
 
-            {/* Slider */}
-            <input
-              type="range"
-              min={baseBetAmount}
-              max={Math.min(maxBet, playerChips)}
-              step={minBet}
-              value={customBet}
-              onChange={(e) => setCustomBet(Number(e.target.value))}
-              className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-yellow-500"
-            />
+            <label className="block">
+              <span className="sr-only">Raise amount</span>
+              <input
+                type="range"
+                min={minimumRaise}
+                max={betCeiling}
+                step={minBet}
+                value={customBet}
+                onChange={(event) => setCustomBet(Number(event.target.value))}
+                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-[#E8B04A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A] focus-visible:ring-offset-4 focus-visible:ring-offset-[#0E1B17]"
+              />
+            </label>
 
-            {/* Quick bet buttons */}
-            <div className="flex gap-2">
-              {QUICK_BET_MULTIPLIERS.map((mult) => (
+            <div className="grid grid-cols-5 gap-2" aria-label="Quick raise amounts">
+              {QUICK_BET_MULTIPLIERS.map((multiplier) => (
                 <PressableButton
-                  key={mult}
-                  onClick={() => adjustBet(mult)}
-                  variant={customBet === baseBetAmount * mult ? 'primary' : 'ghost'}
-                  className={cn(
-                    'flex-1 py-2.5 rounded-xl text-sm',
-                    customBet === baseBetAmount * mult
-                      ? 'bg-yellow-500 text-yellow-900 from-yellow-500 to-yellow-500'
-                      : 'bg-white/10 text-white/70'
-                  )}
+                  key={multiplier}
+                  onClick={() => adjustBet(multiplier)}
+                  variant={customBet === Math.min(baseBetAmount * multiplier, betCeiling) ? 'primary' : 'ghost'}
+                  className="rounded-lg px-2 py-2.5 text-sm"
+                  ariaLabel={`Set raise to ${multiplier} times the bet`}
                 >
-                  {mult}x
+                  {multiplier}×
                 </PressableButton>
               ))}
               <PressableButton
-                onClick={() => setCustomBet(Math.min(maxBet, playerChips))}
-                variant={customBet === Math.min(maxBet, playerChips) ? 'danger' : 'ghost'}
-                className={cn(
-                  'flex-1 py-2.5 rounded-xl text-sm',
-                  customBet === Math.min(maxBet, playerChips)
-                    ? ''
-                    : 'bg-white/10 text-white/70'
-                )}
+                onClick={() => setCustomBet(betCeiling)}
+                variant={customBet === betCeiling ? 'danger' : 'ghost'}
+                className="rounded-lg px-2 py-2.5 text-xs"
+                ariaLabel={`Set raise to all in, ${formatChips(betCeiling)}`}
               >
-                All In
+                All in
               </PressableButton>
             </div>
 
-            {/* Confirm */}
-            <PressableButton
-              onClick={handleBetConfirm}
-              variant="primary"
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-lg"
-            >
+            <PressableButton onClick={handleBetConfirm} variant="primary" className="w-full rounded-xl py-4 text-base">
               Raise <AnimatedChipCount value={customBet} prefix="◉ " className="font-bold" duration={200} />
             </PressableButton>
           </div>
         </SlideUpSheet>
 
-        {/* Secondary actions */}
         {!showBetSlider && secondaryActions.length > 0 && (
-          <div className="flex gap-2 mb-3">
+          <div className="mb-2 grid grid-cols-2 gap-2 sm:flex" aria-label="More table actions">
             {secondaryActions.map((action) => {
               const config = actionConfig[action];
               const Icon = config.icon;
               return (
                 <motion.button
+                  type="button"
                   key={action}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleActionSelect(action)}
-                  disabled={disabled}
+                  disabled={disabled || action === 'timeout'}
+                  aria-label={`${config.label}. ${config.description}`}
                   className={cn(
-                    'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl',
-                    'bg-white/10 text-white/80 font-medium text-sm',
-                    'hover:bg-white/15 transition-colors',
-                    disabled && 'opacity-50 cursor-not-allowed'
+                    'flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A] focus-visible:ring-offset-2 focus-visible:ring-offset-[#07110E]',
+                    config.tone,
+                    (disabled || action === 'timeout') && 'cursor-not-allowed opacity-45',
                   )}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon aria-hidden="true" className="h-4 w-4" />
                   {config.shortLabel}
                 </motion.button>
               );
@@ -308,70 +274,57 @@ export function BettingControls({
           </div>
         )}
 
-        {/* Primary actions */}
         {!showBetSlider && (
           <div className="flex gap-2">
             {primaryActions.map((action, index) => {
               const config = actionConfig[action];
               const Icon = config.icon;
-              const betAmount = action === 'pack' ? undefined : baseBetAmount;
+              const betAmount = action === 'pack' ? undefined : Math.min(baseBetAmount, playerChips);
 
               return (
                 <motion.button
+                  type="button"
                   key={action}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
+                  transition={{ delay: index * 0.04 }}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleActionSelect(action)}
                   disabled={disabled}
+                  aria-label={`${config.label}. ${config.description}${betAmount === undefined ? '' : `. Bet ${formatChips(betAmount)}`}`}
                   className={cn(
-                    'relative flex-1 flex flex-col items-center justify-center py-4 rounded-2xl',
-                    `bg-gradient-to-b ${config.gradient}`,
-                    'shadow-lg overflow-hidden',
-                    disabled && 'opacity-50 cursor-not-allowed'
+                    'flex min-h-[68px] flex-1 flex-col items-center justify-center rounded-xl border px-2 py-3 shadow-[0_8px_22px_rgba(0,0,0,0.2)] transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F6ECD8] focus-visible:ring-offset-2 focus-visible:ring-offset-[#07110E]',
+                    config.tone,
+                    disabled && 'cursor-not-allowed opacity-45',
                   )}
                 >
-                  {/* Shine effect */}
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent"
-                    initial={{ x: '-100%' }}
-                    whileHover={{ x: '100%' }}
-                    transition={{ duration: 0.5 }}
-                  />
-
-                  <Icon className="w-6 h-6 text-white mb-1" />
-                  <span className="text-white font-bold">{config.shortLabel}</span>
-                  {betAmount !== undefined && (
-                    <span className="text-white/70 text-xs">◉ {formatChips(betAmount)}</span>
-                  )}
+                  <Icon aria-hidden="true" className="mb-1 h-5 w-5" />
+                  <span className="font-bold">{config.shortLabel}</span>
+                  {betAmount !== undefined && <span className="text-xs opacity-75">◉ {formatChips(betAmount)}</span>}
                 </motion.button>
               );
             })}
           </div>
         )}
 
-        {/* Status info */}
-        <div className="flex items-center justify-center gap-2 mt-3 text-xs text-white/50">
-          <span>Current bet: <AnimatedChipCount value={currentBet} prefix="◉ " className="text-xs text-white/50" /></span>
-          <span>•</span>
-          <span className={isBlind ? 'text-blue-400' : 'text-green-400'}>
-            {isBlind ? 'Playing Blind' : 'Seen'}
-          </span>
-        </div>
+        <p aria-live="polite" className="mt-2.5 flex items-center justify-center gap-2 text-xs text-[#A8B5AF]">
+          <span>Current bet <AnimatedChipCount value={currentBet} prefix="◉ " className="text-xs text-[#C9D3CE]" /></span>
+          <span aria-hidden="true">·</span>
+          <span className={isBlind ? 'text-[#E8B04A]' : 'text-[#8FC7A5]'}>{isBlind ? 'Playing blind' : 'Cards seen'}</span>
+        </p>
       </div>
-    </motion.div>
+    </motion.section>
   );
 }
 
-// Compact action bar for smaller screens
 export function CompactActionBar({
   onChaal,
   onPack,
   onRaise,
   betAmount,
-  disabled
+  disabled,
 }: {
   onChaal: () => void;
   onPack: () => void;
@@ -380,32 +333,17 @@ export function CompactActionBar({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/60 backdrop-blur-sm">
-      <PressableButton
-        onClick={onPack}
-        disabled={disabled}
-        variant="danger"
-        className="p-2 rounded-lg"
-      >
-        <XCircle className="w-5 h-5" />
+    <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07110E]/90 p-2 backdrop-blur-sm">
+      <PressableButton onClick={onPack} disabled={disabled} variant="danger" className="rounded-lg p-2" ariaLabel="Pack hand">
+        <XCircle aria-hidden="true" className="h-5 w-5" />
       </PressableButton>
 
-      <PressableButton
-        onClick={onChaal}
-        disabled={disabled}
-        variant="primary"
-        className="flex-1 py-2 px-4 rounded-lg bg-gradient-to-r from-green-500 to-green-600"
-      >
-        Chaal <AnimatedChipCount value={betAmount} prefix="◉ " className="font-medium text-sm" duration={200} />
+      <PressableButton onClick={onChaal} disabled={disabled} variant="primary" className="flex-1 rounded-lg px-4 py-2" ariaLabel={`Play chaal for ${formatChips(betAmount)}`}>
+        Chaal <AnimatedChipCount value={betAmount} prefix="◉ " className="text-sm font-medium" duration={200} />
       </PressableButton>
 
-      <PressableButton
-        onClick={onRaise}
-        disabled={disabled}
-        variant="ghost"
-        className="p-2 rounded-lg bg-yellow-500/20 text-yellow-400"
-      >
-        <TrendingUp className="w-5 h-5" />
+      <PressableButton onClick={onRaise} disabled={disabled} variant="secondary" className="rounded-lg p-2 text-[#E8B04A]" ariaLabel="Raise bet">
+        <TrendingUp aria-hidden="true" className="h-5 w-5" />
       </PressableButton>
     </div>
   );

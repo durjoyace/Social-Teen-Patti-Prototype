@@ -171,8 +171,10 @@ class SocketService {
 
   // ─── Chat ────────────────────────────────────────────────────────────────
 
-  sendChatMessage(roomId: string, message: string, type = 'text') {
-    this.socket?.emit('chat:send', { roomId, message, type });
+  sendChatMessage(roomId: string, message: string, type = 'text'): boolean {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('chat:send', { roomId, message, type });
+    return true;
   }
 
   // ─── Gifts ───────────────────────────────────────────────────────────────

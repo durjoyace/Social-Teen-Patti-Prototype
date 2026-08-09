@@ -5,19 +5,26 @@ const SAFE_PROPERTY = /^[a-z][a-z0-9_]*$/;
 
 class AnalyticsManager {
   private enabled = import.meta.env.VITE_ANALYTICS_ENABLED === 'true';
+  private token = import.meta.env.VITE_MIXPANEL_TOKEN;
   private initialized = false;
+  private initializing = false;
   private client: MixpanelClient | null = null;
   private pendingUserId: string | null = null;
+  private pendingEvents: Array<{ event: string; properties: Props }> = [];
   private sessionId = '';
 
   init() {
-    if (this.initialized) return;
-    this.sessionId = sessionStorage.getItem('tp_analytics_session') || crypto.randomUUID();
-    sessionStorage.setItem('tp_analytics_session', this.sessionId);
-    const token = import.meta.env.VITE_MIXPANEL_TOKEN;
-    if (this.enabled && token) {
+    if (this.initialized || this.initializing) return;
+    try {
+      this.sessionId = sessionStorage.getItem('tp_analytics_session') || crypto.randomUUID();
+      sessionStorage.setItem('tp_analytics_session', this.sessionId);
+    } catch {
+      this.sessionId = crypto.randomUUID();
+    }
+    if (this.enabled && this.token) {
+      this.initializing = true;
       void import('mixpanel-browser').then(({ default: client }) => {
-        client.init(token, {
+        client.init(this.token!, {
           autocapture: false,
           track_pageview: false,
           persistence: 'localStorage',
@@ -28,7 +35,14 @@ class AnalyticsManager {
         this.client = client;
         this.initialized = true;
         if (this.pendingUserId) client.identify(this.pendingUserId);
-      }).catch(error => console.warn('[Analytics] Initialization failed', error));
+        this.pendingEvents.forEach(({ event, properties }) => client.track(event, properties));
+        this.pendingEvents = [];
+      }).catch(error => {
+        this.pendingEvents = [];
+        console.warn('[Analytics] Initialization failed', error);
+      }).finally(() => {
+        this.initializing = false;
+      });
     }
   }
 
@@ -38,24 +52,33 @@ class AnalyticsManager {
   }
 
   track(event: string, properties: Props = {}) {
-    if (!this.initialized || !/^[a-z][a-z0-9_]*$/.test(event)) return;
+    if (!/^[a-z][a-z0-9_]*$/.test(event)) return;
     const safeProperties = Object.fromEntries(
       Object.entries(properties).filter(([key, value]) => SAFE_PROPERTY.test(key) && value !== undefined),
     );
-    this.client?.track(event, {
+    const enrichedProperties = {
       ...safeProperties,
       occurred_at: new Date().toISOString(),
       platform: 'web',
       session_id: this.sessionId,
       schema_version: 1,
-    });
+    };
+    if (!this.initialized) {
+      if (this.enabled && this.token) this.pendingEvents.push({ event, properties: enrichedProperties });
+      return;
+    }
+    this.client?.track(event, enrichedProperties);
   }
 
   reset() {
     this.pendingUserId = null;
     if (this.initialized) this.client?.reset();
     this.sessionId = crypto.randomUUID();
-    sessionStorage.setItem('tp_analytics_session', this.sessionId);
+    try {
+      sessionStorage.setItem('tp_analytics_session', this.sessionId);
+    } catch {
+      // Analytics must never block gameplay when browser storage is unavailable.
+    }
   }
 
   gameStarted(variant: string, playerCount: number, isQuickPlay: boolean) {
@@ -84,6 +107,40 @@ class AnalyticsManager {
 
   screenViewed(screen: string) {
     this.track('screen_viewed', { screen });
+  }
+
+  welcomeViewed() {
+    this.track('welcome_viewed');
+  }
+
+  authStarted(method: 'guest' | 'login' | 'register') {
+    this.track('guest_or_account_started', { method });
+  }
+
+  friendTableCreated(variant: string, maxPlayers: number) {
+    try {
+      const now = Date.now();
+      const previousHostedAt = Number(localStorage.getItem('tp_last_hosted_at') || 0);
+      if (previousHostedAt > 0 && now - previousHostedAt >= 24 * 60 * 60 * 1000) {
+        this.track('host_returned_24h', { hours_since_host: Math.round((now - previousHostedAt) / 3_600_000) });
+      }
+      localStorage.setItem('tp_last_hosted_at', String(now));
+    } catch {
+      // Host-return measurement is best effort and cannot interrupt room creation.
+    }
+    this.track('friend_table_created', { variant, max_players: maxPlayers });
+  }
+
+  friendJoined(source: 'room_code' | 'invite_link' | 'host_table') {
+    this.track('friend_joined', { join_source: source });
+  }
+
+  firstHandStarted(variant: string, playerCount: number) {
+    this.track('first_hand_started', { variant, player_count: playerCount });
+  }
+
+  multiplayerGameCompleted(variant: string, playerCount: number) {
+    this.track('multiplayer_game_completed', { variant, player_count: playerCount });
   }
 
   referralLinkOpened(source: string, campaign: string) {

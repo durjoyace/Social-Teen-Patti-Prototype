@@ -9,16 +9,16 @@ export default {
       colors: {
         // Primary palette
         brand: {
-          red: '#8B0000',
-          gold: '#D4AF37',
-          coral: '#D4745E',
-          cream: '#FFF8DC'
+          red: '#B74035',
+          gold: '#E8B04A',
+          coral: '#F2B1A9',
+          cream: '#F6ECD8'
         },
         // Game colors
         felt: {
-          light: '#2d5a27',
-          DEFAULT: '#1a472a',
-          dark: '#0d2818'
+          light: '#245A42',
+          DEFAULT: '#163E2D',
+          dark: '#07110E'
         },
         // Card colors
         card: {
@@ -50,8 +50,8 @@ export default {
           '50%': { transform: 'translateY(-10px)' }
         },
         glow: {
-          '0%': { boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)' },
-          '100%': { boxShadow: '0 0 40px rgba(212, 175, 55, 0.6)' }
+          '0%': { boxShadow: '0 0 20px rgba(232, 176, 74, 0.25)' },
+          '100%': { boxShadow: '0 0 40px rgba(232, 176, 74, 0.5)' }
         },
         cardDeal: {
           '0%': { transform: 'translateY(-100px) rotateY(180deg)', opacity: '0' },
@@ -73,8 +73,8 @@ export default {
         'shimmer': 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)'
       },
       boxShadow: {
-        'premium': '0 10px 40px -10px rgba(212, 175, 55, 0.3)',
-        'premium-lg': '0 20px 60px -15px rgba(212, 175, 55, 0.4)',
+        'premium': '0 10px 40px -10px rgba(232, 176, 74, 0.25)',
+        'premium-lg': '0 20px 60px -15px rgba(232, 176, 74, 0.35)',
         'card': '0 4px 15px -3px rgba(0, 0, 0, 0.3)',
         'inner-glow': 'inset 0 0 20px rgba(255, 255, 255, 0.1)'
       },

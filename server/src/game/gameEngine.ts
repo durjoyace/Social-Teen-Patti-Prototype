@@ -520,6 +520,7 @@ function bigintMax(a: bigint, b: bigint): bigint {
 /** Get sanitized state for a specific player (hide other players' cards) */
 export function getPlayerView(state: GameState, playerId: string): Record<string, unknown> {
   return {
+    viewerPlayerId: playerId,
     sessionId: state.sessionId,
     roomId: state.roomId,
     variant: state.variant,

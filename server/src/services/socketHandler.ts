@@ -224,6 +224,7 @@ export function setupSocketHandlers(io: Server) {
 
       io.to(parsed.data.roomId).emit('chat:message', {
         id: crypto.randomUUID(),
+        roomId: parsed.data.roomId,
         userId: user.userId,
         username: user.username,
         message: parsed.data.message,

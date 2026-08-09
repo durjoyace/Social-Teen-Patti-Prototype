@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Crown, Sparkles, Zap, Flame, Lock, Globe, Coins, UserPlus } from 'lucide-react';
+import { KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, ChevronDown, ChevronUp, Copy, Crown, Flame, Lock, Share2, Sparkles, Users, X, Zap } from 'lucide-react';
 import { GameVariant } from '../types';
 import { cn } from '../utils/cn';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (config: RoomConfig) => void;
+  onCreate: (config: RoomConfig) => Promise<void>;
   createdRoomCode?: string | null;
   createdInviteUrl?: string | null;
   onInviteShared?: (platform: 'NATIVE' | 'COPY') => void;
@@ -23,419 +23,268 @@ interface RoomConfig {
   isPrivate: boolean;
 }
 
-const variants: { id: GameVariant; name: string; description: string; icon: typeof Crown; color: string }[] = [
-  { id: 'classic', name: 'Classic', description: 'Traditional Teen Patti rules', icon: Crown, color: 'from-red-600 to-red-800' },
-  { id: 'joker', name: 'Joker', description: 'Wild cards add excitement', icon: Sparkles, color: 'from-purple-600 to-purple-800' },
-  { id: 'muflis', name: 'Muflis', description: 'Lowest hand wins!', icon: Zap, color: 'from-green-600 to-green-800' },
-  { id: 'ak47', name: 'AK47', description: 'A, K, 4, 7 are jokers', icon: Flame, color: 'from-orange-600 to-orange-800' }
+const DEFAULT_FRIEND_TABLE: RoomConfig = {
+  name: 'Friends Game',
+  variant: 'classic',
+  minBuyIn: 500,
+  maxBuyIn: 5000,
+  bootAmount: 50,
+  maxPlayers: 6,
+  isPrivate: true,
+};
+
+const VARIANTS: { id: GameVariant; name: string; description: string; icon: typeof Crown }[] = [
+  { id: 'classic', name: 'Classic', description: 'The familiar three-card game', icon: Crown },
+  { id: 'joker', name: 'Joker', description: 'Wild cards change the read', icon: Sparkles },
+  { id: 'muflis', name: 'Muflis', description: 'The lowest hand wins', icon: Zap },
+  { id: 'ak47', name: 'AK47', description: 'A, K, 4, and 7 play wild', icon: Flame },
 ];
 
-const buyInPresets = [
-  { min: 100, max: 1000, boot: 10, label: 'Casual' },
-  { min: 500, max: 5000, boot: 50, label: 'Regular' },
-  { min: 1000, max: 10000, boot: 100, label: 'High Stakes' },
-  { min: 5000, max: 50000, boot: 500, label: 'VIP' }
+const STAKES = [
+  { min: 100, max: 1000, boot: 10, label: 'Easy' },
+  { min: 500, max: 5000, boot: 50, label: 'Game night' },
+  { min: 1000, max: 10000, boot: 100, label: 'Big table' },
 ];
 
 export function CreateRoomModal({ isOpen, onClose, onCreate, createdRoomCode, createdInviteUrl, onInviteShared }: CreateRoomModalProps) {
-  const [config, setConfig] = useState<RoomConfig>({
-    name: '',
-    variant: 'classic',
-    minBuyIn: 100,
-    maxBuyIn: 1000,
-    bootAmount: 10,
-    maxPlayers: 6,
-    isPrivate: false
-  });
+  const [config, setConfig] = useState<RoomConfig>(DEFAULT_FRIEND_TABLE);
+  const [showCustom, setShowCustom] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
 
-  const [step, setStep] = useState(1);
-
-  // Reset state when modal opens
   useEffect(() => {
-    if (isOpen) {
-      setStep(1);
-    }
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setConfig(DEFAULT_FRIEND_TABLE);
+    setShowCustom(false);
+    setCopied(false);
+    setIsCreating(false);
+    const frame = window.requestAnimationFrame(() => primaryActionRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frame);
+      previouslyFocused?.focus();
+    };
   }, [isOpen]);
 
-  const handleCreate = () => {
-    if (!config.name.trim()) {
-      setConfig({ ...config, name: `${variants.find(v => v.id === config.variant)?.name} Table` });
+  const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
     }
-    onCreate(config);
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])') || []);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
-  const handleQuickPrivate = () => {
-    // Quick create a private room with default settings
-    onCreate({
-      name: 'Friends Game',
-      variant: 'classic',
-      minBuyIn: 500,
-      maxBuyIn: 5000,
-      bootAmount: 50,
-      maxPlayers: 6,
-      isPrivate: true
-    });
+  const createTable = async (tableConfig: RoomConfig) => {
+    if (isCreating) return;
+    setIsCreating(true);
+    const variantName = VARIANTS.find(variant => variant.id === tableConfig.variant)?.name || 'Friend';
+    try {
+      await onCreate({ ...tableConfig, name: tableConfig.name.trim() || `${variantName} Table` });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const selectPreset = (preset: typeof buyInPresets[0]) => {
-    setConfig({
-      ...config,
-      minBuyIn: preset.min,
-      maxBuyIn: preset.max,
-      bootAmount: preset.boot
-    });
+  const copyInvite = async (inviteText: string) => {
+    try {
+      await navigator.clipboard.writeText(inviteText);
+      setCopied(true);
+      onInviteShared?.('COPY');
+    } catch {
+      setCopied(false);
+    }
   };
 
-  if (isOpen && createdRoomCode) {
-    const inviteText = createdInviteUrl
-      ? `Join my private Teen Patti table. Finish one real multiplayer game and we both unlock Beli extras. ${createdInviteUrl}`
-      : `Join my Teen Patti table with room code ${createdRoomCode}.`;
-    return (
-      <AnimatePresence>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
-          <motion.div initial={{ scale: 0.94, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-sm rounded-3xl border border-[#FFD66B]/25 bg-[#111B2E] p-6 text-center shadow-2xl">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#176B45] text-2xl">🃏</div>
-            <p className="mt-4 text-xs font-bold uppercase tracking-[0.2em] text-[#FFD66B]">Your table is ready</p>
-            <h2 className="mt-1 text-2xl font-bold text-white">Bring a friend in</h2>
-            <p className="mt-2 text-sm text-white/55">The game starts automatically when the second player joins.</p>
+  if (!isOpen) return null;
+
+  const inviteText = createdRoomCode
+    ? createdInviteUrl
+      ? `Join my private Teen Patti table: ${createdInviteUrl}`
+      : `Join my Teen Patti table with room code ${createdRoomCode}.`
+    : '';
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key="create-table-backdrop"
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+      />
+      <motion.div
+        key="create-table-dialog"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={createdRoomCode ? 'table-ready-title' : 'create-table-title'}
+        initial={{ opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 18, scale: 0.98 }}
+        onKeyDown={handleDialogKeyDown}
+        className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 mx-auto flex max-h-[calc(100dvh-24px)] w-auto max-w-xl flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#0E1B17] text-[#F6ECD8] shadow-[0_30px_90px_rgba(0,0,0,0.55)] sm:inset-x-6 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2"
+      >
+        {createdRoomCode ? (
+          <div className="overflow-y-auto p-6 text-center sm:p-8">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-[#E8B04A]/30 bg-[#2A1714] font-display text-3xl text-[#E8B04A]">♠</div>
+            <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#E8B04A]">Your table is open</p>
+            <h2 id="table-ready-title" className="mt-1 font-display text-3xl font-black text-[#FFF9ED]">Bring your circle in.</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#8E9C94]">The deal starts automatically when another player joins.</p>
+
             <button
-              onClick={() => void navigator.clipboard.writeText(createdRoomCode)}
-              className="mt-5 w-full rounded-2xl border border-[#FFD66B]/25 bg-black/25 px-4 py-4 font-mono text-2xl font-black tracking-[0.35em] text-[#FFD66B]"
-              aria-label={`Copy room code ${createdRoomCode}`}
+              ref={primaryActionRef}
+              type="button"
+              onClick={() => void copyInvite(inviteText)}
+              className="mt-6 w-full rounded-[22px] border border-[#E8B04A]/30 bg-[#07110E] px-4 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+              aria-label={`Copy invite for room ${createdRoomCode}`}
             >
-              {createdRoomCode}
+              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-[#66736D]">Room code</span>
+              <span className="mt-1 block font-mono text-3xl font-black tracking-[0.32em] text-[#E8B04A]">{createdRoomCode}</span>
             </button>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <button
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(inviteText);
-                    onInviteShared?.('COPY');
-                  } catch {
-                    // Clipboard permissions vary by browser; the room code remains visible.
-                  }
-                }}
-                className="min-h-12 rounded-xl bg-white/10 font-bold text-white"
-              >
-                Copy invite
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => void copyInvite(inviteText)} className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#14231E] font-bold text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                {copied ? <Check className="h-4 w-4 text-[#8ED4A5]" /> : <Copy className="h-4 w-4" />} {copied ? 'Copied' : 'Copy invite'}
               </button>
               <button
+                type="button"
                 onClick={async () => {
                   if (navigator.share) {
                     try {
                       await navigator.share({ title: 'Join my table', text: inviteText });
                       onInviteShared?.('NATIVE');
                     } catch {
-                      // A dismissed native share sheet is not a completed share.
+                      // Closing the native share sheet is not an error state.
                     }
                   } else {
                     window.open(`https://wa.me/?text=${encodeURIComponent(inviteText)}`, '_blank', 'noopener,noreferrer');
                     onInviteShared?.('NATIVE');
                   }
                 }}
-                className="min-h-12 rounded-xl bg-[#176B45] font-bold text-white"
+                className="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] font-bold text-[#171006] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]"
               >
-                Share
+                <Share2 className="h-4 w-4" /> Share
               </button>
             </div>
-            <div className="mt-5 flex items-center justify-center gap-2 text-sm text-white/45">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#FFD66B]" /> Waiting for a friend…
-            </div>
-            <button onClick={onClose} className="mt-5 text-sm font-semibold text-white/50">Keep waiting in lobby</button>
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>
-    );
-  }
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
-          />
-
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 50 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 50 }}
-            className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md z-50 flex flex-col max-h-[90vh]"
-          >
-            <div className="bg-gradient-to-b from-gray-900 to-black rounded-3xl border border-white/10 overflow-hidden flex flex-col">
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/10">
-                <h2 className="text-xl font-bold text-white">Create Table</h2>
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-full hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-5 h-5 text-white/60" />
-                </button>
+            <div className="mt-5 flex items-center justify-center gap-2 text-sm text-[#8E9C94]"><span className="h-2 w-2 animate-pulse rounded-full bg-[#E8B04A]" /> Waiting for a friend…</div>
+            <button type="button" onClick={onClose} className="mt-5 min-h-11 px-4 text-sm font-semibold text-[#8E9C94] hover:text-[#F6ECD8]">Keep waiting in the lobby</button>
+          </div>
+        ) : (
+          <>
+            <header className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6 sm:py-5">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">Private friend table</p>
+                <h2 id="create-table-title" className="mt-1 font-display text-2xl font-black text-[#FFF9ED]">Open the table.</h2>
+                <p className="mt-1 text-sm text-[#7E8D85]">Classic rules, six seats, ready to share.</p>
               </div>
+              <button type="button" aria-label="Close create table dialog" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 text-[#8E9C94] hover:bg-white/5 hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                <X className="h-5 w-5" />
+              </button>
+            </header>
 
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {/* Step indicator */}
-                <div className="flex items-center justify-center gap-2">
-                  {[1, 2, 3].map((s) => (
-                    <div
-                      key={s}
-                      className={cn(
-                        'w-2 h-2 rounded-full transition-all',
-                        step >= s ? 'bg-yellow-500 w-4' : 'bg-white/20'
-                      )}
-                    />
-                  ))}
-                </div>
+            <div className="overflow-y-auto px-5 py-5 sm:px-6">
+              <button
+                ref={primaryActionRef}
+                type="button"
+                onClick={() => void createTable(DEFAULT_FRIEND_TABLE)}
+                disabled={isCreating}
+                aria-busy={isCreating}
+                className="w-full rounded-[24px] border border-[#E8B04A]/35 bg-[#163E2D] p-5 text-left transition-colors hover:border-[#E8B04A]/60 disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
+              >
+                <span className="flex items-start gap-4">
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#E8B04A] text-[#171006]"><Users className="h-5 w-5" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-display text-xl font-bold text-[#FFF9ED]">Start a classic friend table</span>
+                    <span className="mt-1 block text-sm leading-6 text-[#B8C7BF]">Private · 6 seats · 500–5,000 Beli · 50 boot</span>
+                    <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#E8B04A] px-4 py-2 text-xs font-black text-[#171006]">{isCreating ? 'Opening table…' : 'Create and get code'}</span>
+                  </span>
+                </span>
+              </button>
 
-                {step === 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-4"
-                  >
-                    {/* Quick Private Room Button */}
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleQuickPrivate}
-                      className="w-full p-4 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-800 border border-purple-400/30 flex items-center gap-3"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                        <UserPlus className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="text-left flex-1">
-                        <p className="text-white font-semibold">Quick Private Room</p>
-                        <p className="text-white/70 text-sm">Create & get room code instantly</p>
-                      </div>
-                    </motion.button>
+              <button type="button" aria-expanded={showCustom} onClick={() => setShowCustom(value => !value)} className="mt-4 flex min-h-12 w-full items-center justify-between rounded-2xl border border-white/10 bg-[#07110E] px-4 text-sm font-semibold text-[#C7D3CC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+                Customize the table
+                {showCustom ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
 
-                    <div className="flex items-center gap-3 my-4">
-                      <div className="flex-1 h-px bg-white/10" />
-                      <span className="text-white/40 text-xs">or customize</span>
-                      <div className="flex-1 h-px bg-white/10" />
-                    </div>
-
-                    <h3 className="text-white/80 text-sm font-medium">Choose Game Variant</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {variants.map((variant) => {
-                        const Icon = variant.icon;
-                        const isSelected = config.variant === variant.id;
-                        return (
-                          <motion.button
-                            key={variant.id}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setConfig({ ...config, variant: variant.id })}
-                            className={cn(
-                              'relative p-4 rounded-2xl text-left transition-all overflow-hidden',
-                              isSelected
-                                ? `bg-gradient-to-br ${variant.color} ring-2 ring-yellow-500`
-                                : 'bg-white/10 hover:bg-white/15'
-                            )}
-                          >
-                            <Icon className={cn('w-6 h-6 mb-2', isSelected ? 'text-white' : 'text-white/60')} />
-                            <p className={cn('font-semibold', isSelected ? 'text-white' : 'text-white/80')}>
-                              {variant.name}
-                            </p>
-                            <p className={cn('text-xs mt-0.5', isSelected ? 'text-white/80' : 'text-white/50')}>
-                              {variant.description}
-                            </p>
-                            {isSelected && (
-                              <motion.div
-                                layoutId="variantIndicator"
-                                className="absolute top-2 right-2 w-3 h-3 bg-yellow-400 rounded-full"
-                              />
-                            )}
-                          </motion.button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-
-                {step === 2 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-4"
-                  >
-                    <h3 className="text-white/80 text-sm font-medium">Set Buy-in & Boot</h3>
-
-                    {/* Presets */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {buyInPresets.map((preset) => (
-                        <button
-                          key={preset.label}
-                          onClick={() => selectPreset(preset)}
-                          className={cn(
-                            'p-3 rounded-xl text-left transition-all',
-                            config.minBuyIn === preset.min
-                              ? 'bg-yellow-500 text-yellow-900'
-                              : 'bg-white/10 text-white/80 hover:bg-white/15'
-                          )}
-                        >
-                          <p className="font-semibold text-sm">{preset.label}</p>
-                          <p className="text-xs opacity-80">{preset.min}–{preset.max} chips</p>
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Custom inputs */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-xs text-white/50 block mb-1">Min Buy-in</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">◉</span>
-                          <input
-                            type="number"
-                            value={config.minBuyIn}
-                            onChange={(e) => setConfig({ ...config, minBuyIn: Number(e.target.value) })}
-                            className="w-full bg-white/10 rounded-xl pl-8 pr-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                          />
+              <AnimatePresence initial={false}>
+                {showCustom && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                    <div className="space-y-6 pt-6">
+                      <fieldset>
+                        <legend className="text-xs font-bold uppercase tracking-[0.16em] text-[#8E9C94]">Game</legend>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          {VARIANTS.map(variant => {
+                            const Icon = variant.icon;
+                            const selected = config.variant === variant.id;
+                            return (
+                              <button key={variant.id} type="button" aria-pressed={selected} onClick={() => setConfig(current => ({ ...current, variant: variant.id }))} className={cn('rounded-2xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', selected ? 'border-[#E8B04A] bg-[#2A1714]' : 'border-white/10 bg-[#07110E] hover:border-white/20')}>
+                                <Icon className={cn('h-5 w-5', selected ? 'text-[#E8B04A]' : 'text-[#66736D]')} />
+                                <span className="mt-2 block text-sm font-bold text-[#F6ECD8]">{variant.name}</span>
+                                <span className="mt-0.5 block text-[11px] leading-4 text-[#7E8D85]">{variant.description}</span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-white/50 block mb-1">Max Buy-in</label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40">◉</span>
-                          <input
-                            type="number"
-                            value={config.maxBuyIn}
-                            onChange={(e) => setConfig({ ...config, maxBuyIn: Number(e.target.value) })}
-                            className="w-full bg-white/10 rounded-xl pl-8 pr-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                          />
+                      </fieldset>
+
+                      <fieldset>
+                        <legend className="text-xs font-bold uppercase tracking-[0.16em] text-[#8E9C94]">Table pace</legend>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          {STAKES.map(stake => {
+                            const selected = config.minBuyIn === stake.min;
+                            return (
+                              <button key={stake.label} type="button" aria-pressed={selected} onClick={() => setConfig(current => ({ ...current, minBuyIn: stake.min, maxBuyIn: stake.max, bootAmount: stake.boot }))} className={cn('rounded-2xl border px-2 py-3 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', selected ? 'border-[#E8B04A] bg-[#E8B04A] text-[#171006]' : 'border-white/10 bg-[#07110E] text-[#C7D3CC]')}>
+                                <span className="block text-xs font-black">{stake.label}</span>
+                                <span className="mt-0.5 block text-[9px] opacity-70">{stake.min}–{stake.max}</span>
+                              </button>
+                            );
+                          })}
                         </div>
-                      </div>
-                    </div>
+                      </fieldset>
 
-                    <div>
-                      <label className="text-xs text-white/50 block mb-1">Boot Amount</label>
-                      <div className="relative">
-                        <Coins className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                        <input
-                          type="number"
-                          value={config.bootAmount}
-                          onChange={(e) => setConfig({ ...config, bootAmount: Number(e.target.value) })}
-                          className="w-full bg-white/10 rounded-xl pl-10 pr-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                        />
+                      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+                        <label className="text-xs font-bold uppercase tracking-[0.14em] text-[#8E9C94]">
+                          Table name
+                          <input value={config.name} onChange={event => setConfig(current => ({ ...current, name: event.target.value }))} maxLength={32} className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-[#07110E] px-4 text-base font-normal normal-case tracking-normal text-[#F6ECD8] outline-none focus:border-[#E8B04A]/60 focus:ring-2 focus:ring-[#E8B04A]/20" />
+                        </label>
+                        <fieldset>
+                          <legend className="text-xs font-bold uppercase tracking-[0.14em] text-[#8E9C94]">Seats</legend>
+                          <div className="mt-2 flex gap-2">
+                            {[2, 4, 6].map(seats => <button key={seats} type="button" aria-pressed={config.maxPlayers === seats} onClick={() => setConfig(current => ({ ...current, maxPlayers: seats }))} className={cn('h-12 flex-1 rounded-xl border text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', config.maxPlayers === seats ? 'border-[#E8B04A] bg-[#E8B04A] text-[#171006]' : 'border-white/10 bg-[#07110E] text-[#C7D3CC]')}>{seats}</button>)}
+                          </div>
+                        </fieldset>
                       </div>
+
+                      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#07110E] p-4 text-sm text-[#A9B9B0]">
+                        <Lock className="h-5 w-5 shrink-0 text-[#E8B04A]" />
+                        Custom tables are private and require the six-character code.
+                      </div>
+
+                      <button type="button" onClick={() => void createTable(config)} disabled={isCreating} aria-busy={isCreating} className="min-h-[52px] w-full rounded-2xl bg-[#E8B04A] px-5 font-bold text-[#171006] transition-colors hover:bg-[#F0C268] disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]">{isCreating ? 'Opening table…' : 'Create custom table'}</button>
                     </div>
                   </motion.div>
                 )}
-
-                {step === 3 && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="space-y-4"
-                  >
-                    <h3 className="text-white/80 text-sm font-medium">Table Settings</h3>
-
-                    {/* Table name */}
-                    <div>
-                      <label className="text-xs text-white/50 block mb-1">Table Name</label>
-                      <input
-                        type="text"
-                        value={config.name}
-                        onChange={(e) => setConfig({ ...config, name: e.target.value })}
-                        placeholder={`${variants.find(v => v.id === config.variant)?.name} Table`}
-                        className="w-full bg-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-                      />
-                    </div>
-
-                    {/* Max players */}
-                    <div>
-                      <label className="text-xs text-white/50 block mb-2">Max Players</label>
-                      <div className="flex gap-2">
-                        {[2, 3, 4, 5, 6].map((num) => (
-                          <button
-                            key={num}
-                            onClick={() => setConfig({ ...config, maxPlayers: num })}
-                            className={cn(
-                              'flex-1 py-2 rounded-xl font-medium transition-all',
-                              config.maxPlayers === num
-                                ? 'bg-yellow-500 text-yellow-900'
-                                : 'bg-white/10 text-white/60 hover:bg-white/15'
-                            )}
-                          >
-                            {num}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Privacy */}
-                    <div>
-                      <label className="text-xs text-white/50 block mb-2">Privacy</label>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setConfig({ ...config, isPrivate: false })}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all',
-                            !config.isPrivate
-                              ? 'bg-green-600 text-white'
-                              : 'bg-white/10 text-white/60 hover:bg-white/15'
-                          )}
-                        >
-                          <Globe className="w-4 h-4" />
-                          Public
-                        </button>
-                        <button
-                          onClick={() => setConfig({ ...config, isPrivate: true })}
-                          className={cn(
-                            'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium transition-all',
-                            config.isPrivate
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-white/10 text-white/60 hover:bg-white/15'
-                          )}
-                        >
-                          <Lock className="w-4 h-4" />
-                          Private
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="p-4 border-t border-white/10 flex gap-3">
-                {step > 1 && (
-                  <button
-                    onClick={() => setStep(step - 1)}
-                    className="px-6 py-3 rounded-xl bg-white/10 text-white font-medium hover:bg-white/15 transition-colors"
-                  >
-                    Back
-                  </button>
-                )}
-                {step < 3 ? (
-                  <button
-                    onClick={() => setStep(step + 1)}
-                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 transition-all"
-                  >
-                    Continue
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleCreate}
-                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 text-white font-bold shadow-lg shadow-green-500/30 hover:shadow-green-500/50 transition-all"
-                  >
-                    Create Table
-                  </button>
-                )}
-              </div>
+              </AnimatePresence>
             </div>
-          </motion.div>
-        </>
-      )}
+          </>
+        )}
+      </motion.div>
     </AnimatePresence>
   );
 }

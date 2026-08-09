@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MessageCircle, LogOut, Volume2, VolumeX, Eye, EyeOff,
-  Crown, Clock, MoreHorizontal, Mic
+  MessageCircle, LogOut, Volume2, VolumeX, Eye, EyeOff, Clock
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -11,14 +10,13 @@ import { useSound } from '../hooks/useSound';
 import { useHaptics } from '../hooks/useHaptics';
 import { BettingControls } from './BettingControls';
 import { ChatPanel } from './ChatPanel';
-import { WinnerCelebration, ChipsFlying } from './Celebrations';
+import { WinnerCelebration } from './Celebrations';
 import { PremiumCard, PremiumCardFan } from './PremiumCard';
 import { CharacterAvatar } from './AvatarSystem';
-import { PotGlow, TurnPulse, ActionFeedback } from './GameJuice';
+import { PotGlow, TurnPulse } from './GameJuice';
 import { cn } from '../utils/cn';
-import { ActionType, GamePlayer, Card } from '../types';
+import { ActionType, GamePlayer } from '../types';
 import { evaluateHand, getHandRankName } from '../game/handRanking';
-import { formatChips } from '../game/gameEngine';
 import { premiumSounds } from '../services/premiumSounds';
 import { AnimatedChipCount, ParallaxBackground } from './PolishTouches';
 
@@ -33,16 +31,6 @@ const AI_NAMES: Record<string, string> = {
   'ai-vikram': 'Vikram',
   'ai-deepa': 'Deepa',
 };
-
-// Player avatar config (color + emoji for personality)
-const SEAT_AVATARS = [
-  { gradient: 'from-yellow-500 to-amber-700', emoji: '' },     // You (seat 0) — no emoji, shows initial
-  { gradient: 'from-blue-500 to-blue-800', emoji: '🎯' },
-  { gradient: 'from-emerald-500 to-emerald-800', emoji: '🔥' },
-  { gradient: 'from-purple-500 to-purple-800', emoji: '👑' },
-  { gradient: 'from-pink-500 to-pink-800', emoji: '💫' },
-  { gradient: 'from-cyan-500 to-cyan-800', emoji: '🎲' },
-];
 
 // Map AI player IDs to CharacterAvatar IDs
 const AI_AVATAR_IDS: Record<string, string> = {
@@ -123,17 +111,16 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
   const {
     gameState, myCards, isMyTurn, availableActions, showCards,
     toggleShowCards, performOnlineAction, chatMessages, isChatOpen,
-    toggleChat, gameMessage, currentRoom
+    toggleChat, gameMessage, currentRoom, myPlayerId
   } = useGameStore();
 
   const { user } = useAuthStore();
   const { soundEnabled, toggleSound } = useUIStore();
-  const { play, playChipSound } = useSound();
+  const { play } = useSound();
   const { onTurn, onWin, onButtonPress } = useHaptics();
 
   const [timeLeft, setTimeLeft] = useState(30);
   const [showWinCelebration, setShowWinCelebration] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [winner, setWinner] = useState<{ name: string; amount: number; handRank: any } | null>(null);
 
   const submitAction = useCallback((action: ActionType, amount?: number) => {
@@ -144,12 +131,11 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
   useEffect(() => {
     if (gameState && !gameState.isGameOver) {
       premiumSounds.init();
-      // Staggered dealing sounds
-      session.players.forEach((_, i) => {
-        setTimeout(() => premiumSounds.play('card_deal'), 200 + i * 150);
-      });
+      const dealTimers = session.players.map((_, i) => window.setTimeout(() => premiumSounds.play('card_deal'), 200 + i * 150));
       premiumSounds.play('game_start');
+      return () => dealTimers.forEach(timer => window.clearTimeout(timer));
     }
+    return undefined;
   }, [gameState?.session.id]);
 
   // Timer
@@ -188,12 +174,15 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
           premiumSounds.play('lose');
         }
         // Reveal all cards with staggered card flip sounds
-        gameState.session.players.forEach((_, i) => {
-          setTimeout(() => premiumSounds.play('card_flip'), i * 200);
-        });
-        setTimeout(() => setShowWinCelebration(true), 800);
+        const revealTimers = gameState.session.players.map((_, i) => window.setTimeout(() => premiumSounds.play('card_flip'), i * 200));
+        const celebrationTimer = window.setTimeout(() => setShowWinCelebration(true), 800);
+        return () => {
+          revealTimers.forEach(timer => window.clearTimeout(timer));
+          window.clearTimeout(celebrationTimer);
+        };
       }
     }
+    return undefined;
   }, [gameState?.isGameOver]);
 
   const handleAction = useCallback((action: ActionType, amount?: number) => {
@@ -209,38 +198,38 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
     submitAction(action, amount);
   }, [submitAction, onButtonPress]);
 
-  const seatPositions = useMemo(() =>
-    getSeatPositions(gameState?.session.players.length || 4),
-    [gameState?.session.players.length]
+  const orderedPlayers = useMemo(() => {
+    const players = gameState?.session.players ?? [];
+    const myIndex = players.findIndex((player) => player.id === myPlayerId || player.userId === user?.id);
+    if (myIndex <= 0) return players;
+    return [...players.slice(myIndex), ...players.slice(0, myIndex)];
+  }, [gameState?.session.players, myPlayerId, user?.id]);
+
+  const seatPositions = useMemo(
+    () => getSeatPositions(orderedPlayers.length || 4),
+    [orderedPlayers.length],
   );
 
   if (!gameState) {
     return (
-      <div className="flex items-center justify-center h-full bg-[#0a1628]">
+      <div className="flex h-full items-center justify-center bg-[#07110E]">
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full" />
+          className="h-12 w-12 rounded-full border-4 border-[#E8B04A]/20 border-t-[#E8B04A]" />
       </div>
     );
   }
 
   const { session } = gameState;
+  const myPlayer = orderedPlayers.find((player) => player.id === myPlayerId || player.userId === user?.id);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#0a1628]" role="main" aria-label="Teen Patti game table">
+    <div className="relative h-full w-full overflow-hidden bg-[#07110E] text-[#F6ECD8]" role="main" aria-label="Teen Patti game table">
       {/* Parallax particle background */}
       <ParallaxBackground intensity={0.6} className="z-0" />
 
       {/* Ambient lighting — overhead lamp effect */}
       <div className="absolute inset-0 pointer-events-none z-[1]">
-        {/* Green table glow */}
-        <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#1a5a2a] rounded-full blur-[180px] opacity-25" />
-        {/* Overhead warm spotlight */}
-        <div className="absolute top-[15%] left-1/2 -translate-x-1/2 w-60 h-60 bg-yellow-600/8 rounded-full blur-[80px]" />
-        {/* Edge vignette */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.4)_100%)]" />
-        {/* Top lamp beam */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-[15%] bg-gradient-to-b from-yellow-400/20 to-transparent" />
-        <div className="absolute top-[14%] left-1/2 -translate-x-1/2 w-32 h-8 bg-yellow-500/5 rounded-full blur-xl" />
+        <div className="absolute left-1/2 top-[40%] h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#163E2D] opacity-20 blur-[180px]" />
       </div>
 
       {/* ─── Header (minimal, clean) ──────────────────────────────────── */}
@@ -249,23 +238,23 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
         animate={{ y: 0, opacity: 1 }}
         className="relative z-30 flex items-center justify-between px-4 py-2 pt-3"
       >
-        <button onClick={onLeave}
-          className="p-2.5 rounded-full bg-white/5 text-white/60 active:bg-white/10">
-          <LogOut className="w-4.5 h-4.5" />
+        <button type="button" aria-label="Leave table" onClick={onLeave}
+          className="rounded-full border border-white/10 bg-[#0E1B17] p-2.5 text-[#8E9C94] active:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+          <LogOut className="h-4 w-4" />
         </button>
 
         <div className="flex items-center gap-1">
-          <div className="px-3 py-1 rounded-full bg-white/5 text-white/70 text-xs font-medium">
+          <div className="rounded-full border border-white/10 bg-[#0E1B17] px-3 py-1 text-xs font-medium text-[#C7D3CC]">
             {currentRoom?.name || 'Table'}
           </div>
         </div>
 
         <div className="flex items-center gap-1">
-          <button onClick={toggleSound} className="p-2.5 rounded-full bg-white/5 text-white/60">
+          <button type="button" aria-label={soundEnabled ? 'Mute sound' : 'Turn on sound'} onClick={toggleSound} className="rounded-full border border-white/10 bg-[#0E1B17] p-2.5 text-[#8E9C94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
-          <button onClick={toggleChat}
-            className="relative p-2.5 rounded-full bg-white/5 text-white/60">
+          <button type="button" aria-label="Open table chat" onClick={toggleChat}
+            className="relative rounded-full border border-white/10 bg-[#0E1B17] p-2.5 text-[#8E9C94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
             <MessageCircle className="w-4 h-4" />
             {chatMessages.length > 0 && (
               <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full text-[8px] flex items-center justify-center text-white font-bold">
@@ -279,15 +268,15 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       {/* ─── Game Table ───────────────────────────────────────────────── */}
       <div className="relative z-10 flex-1" style={{ height: 'calc(100dvh - 180px)', minHeight: '400px' }}>
         {/* Table felt (oval) */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[52%] w-[88%] max-w-[360px] sm:max-w-[400px]" style={{ aspectRatio: '1 / 1.12' }}>
+        <div className="absolute left-1/2 top-1/2 w-[88%] max-w-[360px] -translate-x-1/2 -translate-y-[52%] sm:max-w-[440px] lg:max-w-[560px] xl:max-w-[620px]" style={{ aspectRatio: '1 / 1.12' }}>
           {/* Outer rim */}
-          <div className="absolute inset-0 rounded-[50%] bg-gradient-to-b from-[#5a3825] via-[#4a2e1c] to-[#3a2415] shadow-[0_8px_40px_rgba(0,0,0,0.6)]" />
+          <div className="absolute inset-0 rounded-[50%] bg-[#4A2E1C] shadow-[0_8px_40px_rgba(0,0,0,0.6)]" />
 
           {/* Gold trim */}
-          <div className="absolute inset-[6px] rounded-[50%] border-[2px] border-[#D4AF37]/40" />
+          <div className="absolute inset-[6px] rounded-[50%] border-[2px] border-[#E8B04A]/40" />
 
           {/* Felt surface */}
-          <div className="absolute inset-[10px] rounded-[50%] bg-gradient-to-br from-[#1a5c32] via-[#145228] to-[#0e3d1e] shadow-[inset_0_0_60px_rgba(0,0,0,0.5)]">
+          <div className="absolute inset-[10px] rounded-[50%] bg-[#163E2D] shadow-[inset_0_0_60px_rgba(0,0,0,0.5)]">
             {/* Felt texture */}
             <div className="absolute inset-0 rounded-[50%] opacity-[0.08]" style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
@@ -295,10 +284,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             }} />
 
             {/* Inner line decoration */}
-            <div className="absolute inset-[16px] rounded-[50%] border border-[#D4AF37]/10" />
+            <div className="absolute inset-[16px] rounded-[50%] border border-[#E8B04A]/10" />
 
-            {/* Center glow */}
-            <div className="absolute inset-0 rounded-[50%] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.06)_0%,transparent_60%)]" />
           </div>
 
           {/* Pot glow effect */}
@@ -321,7 +308,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   transition={{ delay: 0.4 + i * 0.08 }}
                   className="w-7 h-7 rounded-full border-2 border-dashed relative"
                   style={{
-                    background: `linear-gradient(135deg, ${['#ef4444','#3b82f6','#22c55e','#a855f7','#eab308'][i % 5]} 0%, ${['#dc2626','#2563eb','#16a34a','#9333ea','#ca8a04'][i % 5]} 100%)`,
+                    backgroundColor: ['#B74035', '#245A7A', '#3F7655', '#76517F', '#E8B04A'][i % 5],
                     borderColor: 'rgba(255,255,255,0.3)',
                     zIndex: 5 - i,
                   }}
@@ -333,7 +320,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             <AnimatedChipCount
               value={session.pot}
               prefix="◉ "
-              className="text-[#D4AF37] font-bold text-lg drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]"
+              className="text-lg font-bold text-[#E8B04A] drop-shadow-[0_0_12px_rgba(232,176,74,0.35)]"
             />
             <span className="text-white/30 text-[9px] uppercase tracking-[0.2em] mt-0.5">Pot</span>
           </motion.div>
@@ -348,17 +335,17 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                 className="absolute top-[62%] left-1/2 -translate-x-1/2 z-20"
               >
                 <div className="px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
-                  <span className="text-[#D4AF37] text-xs font-medium">{gameMessage}</span>
+                  <span className="text-xs font-medium text-[#E8B04A]">{gameMessage}</span>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* ─── Players Around Table ────────────────────────────────── */}
-          {session.players.map((player, index) => {
+          {orderedPlayers.map((player, index) => {
             const seat = seatPositions[index];
             if (!seat) return null;
-            const isMe = index === 0;
+            const isMe = player.id === myPlayer?.id;
             const displayName = getPlayerDisplayName(player, isMe);
             const isActive = player.status === 'playing' || player.status === 'show';
             const isFolded = player.status === 'folded';
@@ -407,12 +394,12 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute z-5"
+                    className="absolute z-[5]"
                     style={{ top: seat.betOffset.top, left: seat.betOffset.left }}
                   >
                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 border border-white/10">
-                      <div className="w-3 h-3 rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600 border border-white/30" />
-                      <AnimatedChipCount value={player.currentBet} prefix="◉ " className="text-yellow-300 text-[10px] font-bold" />
+                      <div className="h-3 w-3 rounded-full border border-white/30 bg-[#E8B04A]" />
+                      <AnimatedChipCount value={player.currentBet} prefix="◉ " className="text-[10px] font-bold text-[#E8B04A]" />
                     </div>
                   </motion.div>
                 )}
@@ -458,8 +445,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                       ) : (
                         <div className={cn(
                           'rounded-full flex items-center justify-center font-bold text-white border-2',
-                          isMe ? 'w-14 h-14 border-yellow-500/60 bg-gradient-to-br from-yellow-500 to-amber-700 text-lg'
-                            : 'w-11 h-11 border-white/20 bg-gradient-to-br from-blue-500 to-blue-800 text-sm'
+                          isMe ? 'w-14 h-14 border-[#E8B04A]/60 bg-[#B74035] text-lg'
+                            : 'w-11 h-11 border-white/20 bg-[#245A7A] text-sm'
                         )}>
                           {displayName[0].toUpperCase()}
                         </div>
@@ -469,8 +456,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                     {/* Dealer chip */}
                     {player.isDealer && (
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
-                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-b from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border border-yellow-300/50">
-                        <span className="text-[8px] font-black text-yellow-900">D</span>
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[#F6ECD8]/40 bg-[#E8B04A] shadow-lg">
+                        <span className="text-[8px] font-black text-[#171006]">D</span>
                       </motion.div>
                     )}
 
@@ -487,7 +474,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   <div className="flex flex-col items-center mt-1 px-2 py-0.5 rounded-lg bg-black/40 backdrop-blur-sm">
                     <span className={cn(
                       'text-[10px] font-semibold leading-tight truncate max-w-[64px]',
-                      isMe ? 'text-yellow-400' : 'text-white'
+                      isMe ? 'text-[#E8B04A]' : 'text-white'
                     )}>
                       {displayName}
                     </span>
@@ -516,7 +503,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       </div>
 
       {/* ─── My Cards (floating, prominent) ───────────────────────────── */}
-      {myCards.length > 0 && session.players[0]?.status !== 'folded' && (
+      {myCards.length > 0 && myPlayer?.status !== 'folded' && (
         <motion.div
           initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -540,13 +527,14 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
           {/* See/Hide button */}
           <motion.button
+            type="button"
             whileTap={{ scale: 0.95 }}
             onClick={toggleShowCards}
             className={cn(
               'mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-semibold',
-              'bg-black/70 backdrop-blur-md border',
+              'bg-black/70 backdrop-blur-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]',
               showCards
-                ? 'text-yellow-400 border-yellow-500/30'
+                ? 'text-[#E8B04A] border-[#E8B04A]/30'
                 : 'text-white/50 border-white/10'
             )}
           >
@@ -560,9 +548,9 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                 initial={{ opacity: 0, scale: 0.8, y: 4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="mt-1.5 px-4 py-1 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30"
+                className="mt-1.5 rounded-full border border-[#E8B04A]/30 bg-[#2A1714] px-4 py-1"
               >
-                <span className="text-yellow-400 text-[11px] font-bold tracking-wide">
+                <span className="text-[11px] font-bold tracking-wide text-[#E8B04A]">
                   {getHandRankName(evaluateHand(myCards).rank)}
                 </span>
               </motion.div>
@@ -578,8 +566,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
           currentBet={session.currentBet}
           minBet={session.bootAmount}
           maxBet={user?.chips || 10000}
-          isBlind={session.players[0]?.isBlind ?? true}
-          playerChips={session.players[0]?.chipsInPlay || 0}
+          isBlind={myPlayer?.isBlind ?? true}
+          playerChips={myPlayer?.chipsInPlay || 0}
           pot={session.pot}
           onAction={handleAction}
         />
@@ -588,9 +576,9 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       {/* Waiting indicator — shows whose turn it is */}
       {!isMyTurn && !gameState.isGameOver && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-10">
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] left-1/2 z-10 -translate-x-1/2">
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
-            <motion.div className="w-1.5 h-1.5 bg-yellow-400 rounded-full"
+            <motion.div className="h-1.5 w-1.5 rounded-full bg-[#E8B04A]"
               animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
               transition={{ repeat: Infinity, duration: 1.2 }} />
             <span className="text-white/60 text-xs">
@@ -630,10 +618,10 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       {/* Game Over */}
       {gameState.isGameOver && !showWinCelebration && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-2">
-          <button onClick={onLeave}
-            className="px-8 py-3 rounded-2xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30">
-            Play Again
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+2rem)] left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2">
+          <button type="button" onClick={onLeave}
+            className="rounded-2xl bg-[#E8B04A] px-8 py-3 font-bold text-[#171006] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED]">
+            Return to lobby
           </button>
         </motion.div>
       )}
@@ -652,102 +640,5 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       <TurnPulse isMyTurn={isMyTurn && !gameState.isGameOver} />
 
     </div>
-  );
-}
-
-// ─── Card Components ───────────────────────────────────────────────────────
-
-const SUIT_SYMBOLS: Record<string, { symbol: string; color: string }> = {
-  hearts: { symbol: '♥', color: 'text-red-500' },
-  diamonds: { symbol: '♦', color: 'text-red-500' },
-  clubs: { symbol: '♣', color: 'text-gray-900' },
-  spades: { symbol: '♠', color: 'text-gray-900' },
-};
-
-function GameCard({ card, hidden, size = 'md' }: { card: Card; hidden: boolean; size?: 'sm' | 'md' | 'lg' }) {
-  const dims = size === 'lg' ? { w: 'w-[62px]', h: 'h-[86px]', r: 'rounded-xl' }
-    : size === 'md' ? { w: 'w-[46px]', h: 'h-[64px]', r: 'rounded-lg' }
-    : { w: 'w-[34px]', h: 'h-[47px]', r: 'rounded-md' };
-  const fontSize = size === 'lg' ? 'text-[17px]' : size === 'md' ? 'text-sm' : 'text-[10px]';
-  const suitSize = size === 'lg' ? 'text-[28px]' : size === 'md' ? 'text-lg' : 'text-xs';
-  const suitSmall = size === 'lg' ? 'text-[11px]' : size === 'md' ? 'text-[9px]' : 'text-[7px]';
-  const suit = SUIT_SYMBOLS[card.suit];
-
-  return (
-    <div className={cn(dims.w, dims.h, dims.r, 'relative select-none')}
-      style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4)) drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }}>
-      {hidden ? (
-        // Card back — rich ornate design
-        <div className={cn('w-full h-full', dims.r, 'bg-gradient-to-br from-[#8B0000] via-[#7a0000] to-[#520000] border border-[#D4AF37]/50 overflow-hidden')}>
-          {/* Outer gold border inset */}
-          <div className={cn('absolute inset-[2px]', dims.r, 'border border-[#D4AF37]/25 overflow-hidden')}>
-            {/* Diamond lattice pattern */}
-            <div className="absolute inset-0" style={{
-              backgroundImage: `
-                linear-gradient(45deg, rgba(212,175,55,0.08) 25%, transparent 25%),
-                linear-gradient(-45deg, rgba(212,175,55,0.08) 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, rgba(212,175,55,0.08) 75%),
-                linear-gradient(-45deg, transparent 75%, rgba(212,175,55,0.08) 75%)
-              `,
-              backgroundSize: size === 'lg' ? '12px 12px' : '8px 8px',
-              backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px',
-            }} />
-            {/* Inner oval frame */}
-            <div className="absolute inset-[15%] rounded-[50%] border border-[#D4AF37]/20" />
-          </div>
-          {/* Center emblem */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className={cn(
-              'rounded-full bg-gradient-to-br from-[#D4AF37]/40 to-[#8B6914]/30 border border-[#D4AF37]/50 flex items-center justify-center',
-              size === 'lg' ? 'w-7 h-7' : size === 'md' ? 'w-5 h-5' : 'w-4 h-4'
-            )}>
-              <span className={cn('text-[#D4AF37] font-black', size === 'lg' ? 'text-[8px]' : 'text-[6px]')}>TP</span>
-            </div>
-          </div>
-          {/* Top-left shine */}
-          <div className={cn('absolute inset-0', dims.r, 'bg-gradient-to-br from-white/10 via-transparent to-transparent')} />
-        </div>
-      ) : (
-        // Card face — clean, crisp, readable
-        <div className={cn('w-full h-full', dims.r, 'bg-white border border-gray-300/80 overflow-hidden')}>
-          {/* Subtle linen texture */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-50 via-white to-gray-50" />
-
-          {/* Top-left rank + suit */}
-          <div className={cn('absolute top-[3px] left-[4px] flex flex-col items-center leading-none', suit.color)}>
-            <span className={cn(fontSize, 'font-extrabold')} style={{ lineHeight: 1 }}>{card.rank}</span>
-            <span className={suitSmall} style={{ lineHeight: 1, marginTop: '-1px' }}>{suit.symbol}</span>
-          </div>
-
-          {/* Center suit — the hero */}
-          <div className={cn('absolute inset-0 flex items-center justify-center', suit.color)}>
-            <span className={cn(suitSize, 'opacity-90')} style={{ filter: suit.color.includes('red') ? 'drop-shadow(0 1px 2px rgba(220,38,38,0.3))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.2))' }}>
-              {suit.symbol}
-            </span>
-          </div>
-
-          {/* Bottom-right rank + suit (inverted) */}
-          <div className={cn('absolute bottom-[3px] right-[4px] flex flex-col items-center leading-none rotate-180', suit.color)}>
-            <span className={cn(fontSize, 'font-extrabold')} style={{ lineHeight: 1 }}>{card.rank}</span>
-            <span className={suitSmall} style={{ lineHeight: 1, marginTop: '-1px' }}>{suit.symbol}</span>
-          </div>
-
-          {/* Premium sheen — diagonal light reflection */}
-          <div className={cn('absolute inset-0', dims.r, 'bg-gradient-to-br from-white/60 via-transparent to-transparent opacity-50 pointer-events-none')} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MiniCard({ card, hidden, delay = 0 }: { card: Card; hidden: boolean; delay?: number }) {
-  return (
-    <motion.div
-      initial={{ y: -15, opacity: 0, rotateY: 180 }}
-      animate={{ y: 0, opacity: 1, rotateY: hidden ? 180 : 0 }}
-      transition={{ delay, type: 'spring', damping: 20 }}
-    >
-      <GameCard card={card} hidden={hidden} size="sm" />
-    </motion.div>
   );
 }
