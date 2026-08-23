@@ -58,6 +58,15 @@ function mapApiUser(apiUser: any): User {
   };
 }
 
+function authErrorMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message.trim() : '';
+  if (!message) return fallback;
+  if (/load failed|failed to fetch|networkerror|network request failed/i.test(message)) {
+    return 'The clubhouse server could not be reached. Check your connection and try again.';
+  }
+  return message;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -91,7 +100,7 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : 'Could not connect',
+            error: authErrorMessage(error, 'Could not open a guest seat. Please try again.'),
             isLoading: false,
             isOnline: false,
           });
@@ -102,7 +111,11 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const { user, token } = await api.login(usernameOrEmail, password);
-          await socketService.connect();
+          try {
+            await socketService.connect();
+          } catch (socketError) {
+            console.warn('Socket connection failed after sign in:', socketError);
+          }
 
           set({
             user: mapApiUser(user),
@@ -112,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : 'Login failed',
+            error: authErrorMessage(error, 'Could not sign in. Check your details and try again.'),
             isLoading: false,
           });
         }
@@ -124,7 +137,11 @@ export const useAuthStore = create<AuthState>()(
           const pendingReferral = referral ?? getPendingReferralAttribution();
           const { user, token } = await api.register(username, email, password, pendingReferral);
           if (pendingReferral) clearReferralAttribution();
-          await socketService.connect();
+          try {
+            await socketService.connect();
+          } catch (socketError) {
+            console.warn('Socket connection failed after registration:', socketError);
+          }
 
           set({
             user: mapApiUser(user),
@@ -134,7 +151,7 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : 'Registration failed',
+            error: authErrorMessage(error, 'Could not create the account. Review the form and try again.'),
             isLoading: false,
           });
         }
@@ -151,7 +168,7 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : 'Upgrade failed',
+            error: authErrorMessage(error, 'Could not save the account changes. Please try again.'),
             isLoading: false,
           });
         }

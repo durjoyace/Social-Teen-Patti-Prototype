@@ -29,7 +29,7 @@ export function ConnectionStatus({ className, compact }: ConnectionStatusProps) 
       <div className={cn('flex items-center gap-1', config.color, className)}>
         <Icon className="w-3.5 h-3.5" />
         {quality === '2g' && (
-          <span className="text-[10px] font-medium">Slow</span>
+          <span className="text-xs font-medium">Slow</span>
         )}
       </div>
     );
@@ -59,7 +59,7 @@ export function ConnectionStatus({ className, compact }: ConnectionStatusProps) 
           {!settings.enableAnimations && (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10">
               <Zap className="w-3 h-3 text-yellow-400" />
-              <span className="text-[10px] text-white/60">Lite Mode</span>
+              <span className="text-xs text-white/70">Lite Mode</span>
             </div>
           )}
         </motion.div>

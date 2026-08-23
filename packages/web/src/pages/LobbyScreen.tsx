@@ -1,154 +1,177 @@
-import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import {
-  ArrowUpRight,
-  ChevronRight,
+  Check,
+  ChevronDown,
   CircleUserRound,
-  Crown,
-  Flame,
-  Gift,
+  Coins,
+  Copy,
+  DoorOpen,
   Hash,
+  HelpCircle,
+  Link2,
+  LockKeyhole,
   Play,
   Plus,
-  Search,
+  RefreshCw,
   Settings,
   ShieldCheck,
-  Sparkles,
+  UserRound,
   Users,
-  Zap,
+  Wifi,
+  WifiOff,
+  X,
 } from 'lucide-react';
+import { Layout } from '../components/Layout';
 import { useAuthStore } from '../stores/authStore';
 import { useGameStore } from '../stores/gameStore';
-import { Layout } from '../components/Layout';
-import { NavigationBar } from '../components/NavigationBar';
-import { AnimatedChipCount, PullToRefresh, SkeletonLoader } from '../components/PolishTouches';
+import { useUIStore } from '../stores/uiStore';
+import { analytics } from '../services/analytics';
+import { api } from '../services/api';
+import { socketService, type SocketConnectionState } from '../services/socket';
+import type { GameRoom, GameVariant } from '../types';
 import { cn } from '../utils/cn';
-import { formatChips } from '../game/gameEngine';
-import { GameRoom, GameVariant } from '../types';
-import { socketService } from '../services/socket';
-
-const variantConfig: Record<GameVariant, { accent: string; icon: typeof Sparkles; label: string }> = {
-  classic: { accent: 'text-[#E8B04A]', icon: Crown, label: 'Classic' },
-  joker: { accent: 'text-[#D9B8FF]', icon: Sparkles, label: 'Joker' },
-  muflis: { accent: 'text-[#8ED4A5]', icon: Zap, label: 'Muflis' },
-  ak47: { accent: 'text-[#F19B79]', icon: Flame, label: 'AK47' },
-  hukam: { accent: 'text-[#9AC2FF]', icon: Crown, label: 'Hukam' },
-  lowball: { accent: 'text-[#79D6CE]', icon: Zap, label: 'Lowball' },
-  best_of_four: { accent: 'text-[#F1D375]', icon: Sparkles, label: 'Best of 4' },
-  dealers_choice: { accent: 'text-[#F0A7C4]', icon: Flame, label: "Dealer's" },
-};
 
 interface LobbyScreenProps {
   onJoinGame: (room: GameRoom) => Promise<void>;
   onCreateGame: () => void;
   onQuickPlay: () => Promise<void>;
   onJoinByCode: () => void;
+  onLeaveTable: () => void;
   onNavigate: (screen: string) => void;
 }
 
-interface LobbyActionProps {
-  onCreateGame: () => void;
-  onQuickPlay: () => Promise<void>;
-  onJoinByCode: () => void;
-  onNavigate: (screen: string) => void;
+type ShareState = 'idle' | 'sharing' | 'shared' | 'error';
+type RoomsState = 'idle' | 'loading' | 'ready' | 'error';
+
+const seatPositions = [
+  'club-seat--host',
+  'club-seat--upper-right',
+  'club-seat--lower-right',
+  'club-seat--lower-center',
+  'club-seat--lower-left',
+  'club-seat--upper-left',
+];
+
+function makeInviteUrl(roomCode: string) {
+  const inviteUrl = new URL(window.location.origin);
+  inviteUrl.searchParams.set('room', roomCode);
+  return inviteUrl.toString();
 }
 
-function CardFan() {
-  return (
-    <div className="relative mx-auto h-32 w-44" aria-hidden="true">
-      <div className="absolute bottom-1 left-6 h-28 w-20 -rotate-12 rounded-[18px] border border-[#D6CAB3] bg-[#F6ECD8] p-2 text-[#B74035] shadow-[0_14px_32px_rgba(0,0,0,0.28)]">
-        <span className="font-display text-2xl font-black">A</span>
-        <span className="block text-xl leading-none">♥</span>
-      </div>
-      <div className="absolute bottom-0 left-[62px] z-10 h-[120px] w-20 rounded-[18px] border border-[#D6CAB3] bg-[#FFF9ED] p-2 text-[#17130E] shadow-[0_16px_34px_rgba(0,0,0,0.34)]">
-        <span className="font-display text-2xl font-black">A</span>
-        <span className="block text-xl leading-none">♠</span>
-      </div>
-      <div className="absolute bottom-1 right-4 h-28 w-20 rotate-12 rounded-[18px] border border-[#D6CAB3] bg-[#F6ECD8] p-2 text-[#B74035] shadow-[0_14px_32px_rgba(0,0,0,0.28)]">
-        <span className="font-display text-2xl font-black">A</span>
-        <span className="block text-xl leading-none">♦</span>
-      </div>
-    </div>
-  );
-}
-
-function QuickPlayCard({ onQuickPlay, isPending }: Pick<LobbyActionProps, 'onQuickPlay'> & { isPending: boolean }) {
-  return (
-    <motion.button
-      type="button"
-      whileTap={{ scale: 0.98 }}
-      onClick={() => void onQuickPlay()}
-      disabled={isPending}
-      aria-busy={isPending}
-      className="group flex w-full items-center gap-3 rounded-[22px] border border-white/10 bg-[#0E1B17] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.16)] transition-colors hover:border-[#E8B04A]/35 disabled:cursor-wait disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
-    >
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#F6ECD8] text-[#163E2D]">
-        <Play className="h-5 w-5 fill-current" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-semibold text-[#F6ECD8]">{isPending ? 'Finding a seat…' : 'Quick Play'}</span>
-        <span className="mt-0.5 block text-xs leading-relaxed text-[#B9C4BE]">Warm up instantly with AI opponents</span>
-      </span>
-      <ChevronRight className="h-5 w-5 text-[#66736D] transition-transform group-hover:translate-x-0.5" />
-    </motion.button>
-  );
-}
-
-function ReferralCard({ onNavigate }: Pick<LobbyActionProps, 'onNavigate'>) {
-  return (
-    <button
-      type="button"
-      onClick={() => onNavigate('referrals')}
-      className="group w-full rounded-[22px] border border-[#E8B04A]/25 bg-[#2A1714] p-4 text-left shadow-[0_14px_30px_rgba(0,0,0,0.16)] transition-colors hover:border-[#E8B04A]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
-    >
-      <span className="flex items-start justify-between gap-4">
-        <span>
-          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#E8B04A]">
-            <Gift className="h-4 w-4" /> Table circle
-          </span>
-          <span className="mt-2 block font-display text-xl font-bold text-[#F6ECD8]">Bring a friend. You both earn 100 Club Points.</span>
-          <span className="mt-1 block text-xs leading-relaxed text-[#C9B9AF]">After their first completed multiplayer game. Club Points unlock cosmetic extras and have no cash value.</span>
-        </span>
-        <ArrowUpRight className="mt-1 h-5 w-5 shrink-0 text-[#E8B04A] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-      </span>
-    </button>
-  );
-}
-
-export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCode, onNavigate }: LobbyScreenProps) {
+export function LobbyScreen({
+  onJoinGame,
+  onCreateGame,
+  onQuickPlay,
+  onJoinByCode,
+  onLeaveTable,
+  onNavigate,
+}: LobbyScreenProps) {
   const { user } = useAuthStore();
-  const { availableRooms, setRooms } = useGameStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedVariant, setSelectedVariant] = useState<GameVariant | 'all'>('all');
-  const [isLoading, setIsLoading] = useState(true);
+  const { addToast } = useUIStore();
+  const { currentRoom, availableRooms, setRooms } = useGameStore();
+  const [shareState, setShareState] = useState<ShareState>('idle');
+  const [shareMessage, setShareMessage] = useState('');
+  const [roomsState, setRoomsState] = useState<RoomsState>('idle');
+  const [practiceOpen, setPracticeOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [connectionState, setConnectionState] = useState<SocketConnectionState>(() => socketService.connectionState);
 
-  const startQuickPlay = useCallback(async () => {
-    if (pendingAction) return;
-    setPendingAction('quick-play');
+  useEffect(() => socketService.on('connection:state', (nextState: SocketConnectionState) => {
+    setConnectionState(nextState);
+  }), []);
+
+  const roomCode = currentRoom?.roomCode || null;
+  const isActiveTable = Boolean(currentRoom && roomCode);
+  const maxSeats = Math.min(Math.max(currentRoom?.maxPlayers || 6, 2), 6);
+  const occupiedSeats = currentRoom ? Math.min(Math.max(currentRoom.currentPlayers, 1), maxSeats) : 0;
+  const connectionView = {
+    connected: { label: currentRoom ? 'Table connected' : 'Clubhouse ready', Icon: Wifi },
+    connecting: { label: currentRoom ? 'Connecting table…' : 'Connecting clubhouse…', Icon: RefreshCw },
+    reconnecting: { label: currentRoom ? 'Reconnecting table…' : 'Reconnecting clubhouse…', Icon: RefreshCw },
+    offline: { label: currentRoom ? 'Table offline' : 'Clubhouse offline', Icon: WifiOff },
+  }[connectionState];
+
+  const seatLabels = useMemo(() => {
+    return Array.from({ length: maxSeats }, (_, index) => {
+      const player = currentRoom?.players?.[index];
+      if (player?.user?.username) return player.user.username;
+      if (index === 0 && currentRoom) return user?.username || 'You';
+      if (index < occupiedSeats) return 'Friend seated';
+      return 'Invite a friend';
+    });
+  }, [currentRoom, maxSeats, occupiedSeats, user?.username]);
+
+  const recordShare = useCallback((platform: 'NATIVE' | 'COPY') => {
+    analytics.inviteShared(platform.toLowerCase());
+    void api.recordReferralShare(platform).catch(() => undefined);
+  }, []);
+
+  const copyInvite = useCallback(async () => {
+    if (!roomCode) return false;
     try {
-      await onQuickPlay();
-    } finally {
-      setPendingAction(null);
+      await navigator.clipboard.writeText(makeInviteUrl(roomCode));
+      recordShare('COPY');
+      setShareState('shared');
+      setShareMessage('Invite copied. Send it to your friends.');
+      addToast({ message: 'Invite link copied', type: 'success', duration: 3000 });
+      return true;
+    } catch {
+      setShareState('error');
+      setShareMessage('Could not copy the invite. Copy the room code instead.');
+      return false;
     }
-  }, [onQuickPlay, pendingAction]);
+  }, [addToast, recordShare, roomCode]);
 
-  const joinOpenTable = useCallback(async (room: GameRoom) => {
-    if (pendingAction) return;
-    setPendingAction(room.id);
+  const shareInvite = useCallback(async () => {
+    if (!roomCode || shareState === 'sharing') return;
+    setShareState('sharing');
+    setShareMessage('Opening sharing options…');
+    const url = makeInviteUrl(roomCode);
     try {
-      await onJoinGame(room);
-    } finally {
-      setPendingAction(null);
+      if (navigator.share) {
+        await navigator.share({
+          title: currentRoom?.name || 'My private Teen Patti table',
+          text: `Join my private Teen Patti table with code ${roomCode}. Adults 18+; social play only.`,
+          url,
+        });
+        recordShare('NATIVE');
+        setShareState('shared');
+        setShareMessage('Invite ready. Waiting for your friends.');
+        return;
+      }
+      await copyInvite();
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setShareState('idle');
+        setShareMessage('');
+        return;
+      }
+      await copyInvite();
     }
-  }, [onJoinGame, pendingAction]);
+  }, [copyInvite, currentRoom?.name, recordShare, roomCode, shareState]);
 
-  const loadRooms = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true);
+  const copyRoomCode = useCallback(async () => {
+    if (!roomCode) return;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setShareState('shared');
+      setShareMessage('Room code copied.');
+      addToast({ message: 'Room code copied', type: 'success', duration: 2500 });
+    } catch {
+      setShareState('error');
+      setShareMessage(`Copy failed. Select this code manually: ${roomCode}`);
+    }
+  }, [addToast, roomCode]);
+
+  const loadPracticeRooms = useCallback(async () => {
+    if (roomsState === 'loading') return;
+    setRoomsState('loading');
     try {
       if (!socketService.isConnected) await socketService.connect();
       const result = await socketService.listRooms();
-      setRooms(result.rooms.map(room => ({
+      setRooms(result.rooms.map((room) => ({
         id: room.id,
         name: room.name,
         variant: String(room.variant).toLowerCase() as GameVariant,
@@ -161,245 +184,264 @@ export function LobbyScreen({ onJoinGame, onCreateGame, onQuickPlay, onJoinByCod
         isPrivate: false,
         createdBy: '',
       })));
+      setRoomsState('ready');
     } catch {
-      if (!silent) setRooms([]);
-    } finally {
-      if (!silent) setIsLoading(false);
+      setRoomsState('error');
     }
-  }, [setRooms]);
+  }, [roomsState, setRooms]);
 
-  useEffect(() => {
-    void loadRooms();
-    const timer = window.setInterval(() => void loadRooms(true), 10_000);
-    return () => window.clearInterval(timer);
-  }, [loadRooms]);
+  const startPractice = useCallback(async () => {
+    if (pendingAction) return;
+    setPendingAction('practice');
+    try {
+      await onQuickPlay();
+    } finally {
+      setPendingAction(null);
+    }
+  }, [onQuickPlay, pendingAction]);
 
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredRooms = availableRooms.filter((room) => {
-    const matchesSearch = room.name.toLowerCase().includes(normalizedQuery);
-    const matchesVariant = selectedVariant === 'all' || room.variant === selectedVariant;
-    return matchesSearch && matchesVariant;
-  });
+  const joinPracticeRoom = useCallback(async (room: GameRoom) => {
+    if (pendingAction) return;
+    setPendingAction(room.id);
+    try {
+      await onJoinGame(room);
+    } finally {
+      setPendingAction(null);
+    }
+  }, [onJoinGame, pendingAction]);
+
+  const openPractice = useCallback(() => {
+    setPracticeOpen(true);
+    window.requestAnimationFrame(() => {
+      document.getElementById('practice-and-rules')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  const closeActiveTable = () => {
+    onLeaveTable();
+    setConfirmLeave(false);
+    setShareState('idle');
+    setShareMessage('');
+    addToast({ message: 'You left the table. The invite is no longer active for you.', type: 'info', duration: 4000 });
+  };
 
   return (
     <Layout wide>
-      <div className="h-full overflow-y-auto bg-[#07110E] pb-24 lg:pb-8">
-        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-          <header className="flex items-center justify-between gap-4 py-4 sm:py-5 lg:py-6">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 rotate-[-3deg] place-items-center rounded-xl border border-[#E8B04A]/45 bg-[#2A1714] font-display text-sm font-black text-[#E8B04A] shadow-[0_8px_20px_rgba(0,0,0,0.25)]">TP</div>
-              <div>
-                <p className="font-display text-lg font-bold leading-tight text-[#F6ECD8]">Teen Patti Social</p>
-                <p className="hidden text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7E8D85] sm:block">Private tables for friends</p>
+      <div className="clubhouse-page h-full overflow-y-auto text-[#FFFBEA]">
+        <div className="mx-auto w-full max-w-[1505px] px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] sm:px-6 lg:px-8">
+          <header className="clubhouse-header">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="brand-mark" aria-hidden="true">TP</div>
+              <div className="min-w-0">
+                <p className="truncate font-display text-lg font-bold leading-tight text-[#FFFBEA] sm:text-xl">Teen Patti Social</p>
+                <p className="hidden text-xs font-medium text-[#AFC2B8] sm:block">Private tables for friends</p>
               </div>
             </div>
 
-            <div className="hidden items-center gap-2 lg:flex">
-              <button type="button" onClick={() => onNavigate('referrals')} className="rounded-full px-4 py-2 text-sm font-semibold text-[#B9C4BE] transition-colors hover:bg-white/5 hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">Invite</button>
-              <button type="button" onClick={() => onNavigate('profile')} className="flex items-center gap-3 rounded-full border border-white/10 bg-[#0E1B17] py-1.5 pl-2 pr-4 text-left transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#B74035] font-bold text-[#FFF9ED]">{user?.username?.[0]?.toUpperCase() || 'G'}</span>
-                <span>
-                  <span className="block text-xs font-semibold text-[#F6ECD8]">{user?.username || 'Guest'}</span>
-                  <AnimatedChipCount value={user?.chips || 0} prefix="● " className="block text-[11px] font-bold text-[#E8B04A]" />
+            <nav aria-label="Clubhouse navigation" className="hidden items-center gap-1 lg:flex">
+              <span aria-current="page" className="clubhouse-nav-link clubhouse-nav-link--active">Clubhouse</span>
+              <button type="button" onClick={openPractice} className="clubhouse-nav-link">How to play</button>
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => onNavigate('profile')} className="profile-control" aria-label={`Open ${user?.username || 'guest'} profile`}>
+                <span className="profile-control__avatar">{user?.username?.[0]?.toUpperCase() || 'G'}</span>
+                <span className="hidden text-left sm:block">
+                  <span className="block max-w-28 truncate text-sm font-semibold text-[#FFFBEA]">{user?.username || 'Guest'}</span>
+                  <span className="flex items-center gap-1 text-xs text-[#E0BD76]"><Coins className="h-3 w-3" aria-hidden="true" /> {user?.chips || 0} play chips</span>
                 </span>
               </button>
-              <button type="button" aria-label="Open settings" onClick={() => onNavigate('settings')} className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[#0E1B17] text-[#B9C4BE] transition-colors hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
-                <Settings className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 lg:hidden">
-              <button type="button" aria-label="Open profile" onClick={() => onNavigate('profile')} className="grid h-10 w-10 place-items-center rounded-full bg-[#B74035] font-bold text-[#FFF9ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">{user?.username?.[0]?.toUpperCase() || 'G'}</button>
-              <button type="button" aria-label="Open settings" onClick={() => onNavigate('settings')} className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-[#0E1B17] text-[#B9C4BE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+              <button type="button" aria-label="Open settings" onClick={() => onNavigate('settings')} className="icon-control">
                 <Settings className="h-5 w-5" />
               </button>
             </div>
           </header>
 
-          <main className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
-            <div className="min-w-0">
+          <main>
+            <div className="clubhouse-grid">
               <motion.section
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative overflow-hidden rounded-[30px] border border-[#D5B86A]/25 bg-[#163E2D] px-5 py-6 shadow-[0_24px_60px_rgba(0,0,0,0.28)] sm:px-8 sm:py-8 lg:min-h-[342px] lg:px-10 lg:py-9"
+                aria-labelledby="friend-table-title"
+                initial={{ opacity: 0.85, y: 14, clipPath: 'inset(0 0 7% 0 round 42px)' }}
+                animate={{ opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0 round 42px)' }}
+                transition={{ duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
+                className="club-table-shell"
               >
-                <div className="relative z-10 grid items-center gap-6 sm:grid-cols-[minmax(0,1fr)_190px] lg:grid-cols-[minmax(0,1fr)_220px]">
-                  <div>
-                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#E8B04A]/30 bg-[#0C2C20] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Adults 18+ · Social play only
-                    </div>
-                    <h1 className="max-w-2xl font-display text-[2.35rem] font-black leading-[0.98] tracking-[-0.035em] text-[#FFF9ED] sm:text-5xl lg:text-[3.5rem]">
-                      Deal the night.<br />Keep it in the circle.
-                    </h1>
-                    <p className="mt-4 max-w-xl text-sm leading-6 text-[#C7D3CC] sm:text-base">
-                      Open a private Teen Patti table, send one code, and play with people you actually know.
-                    </p>
-                    <div className="mt-6 grid gap-3 sm:flex">
-                      <motion.button type="button" whileTap={{ scale: 0.98 }} onClick={onCreateGame} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] px-5 font-bold text-[#171006] shadow-[0_10px_24px_rgba(232,176,74,0.2)] transition-colors hover:bg-[#F0C268] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF9ED] focus-visible:ring-offset-2 focus-visible:ring-offset-[#163E2D]">
-                        <Plus className="h-5 w-5" /> Create a friend table
-                      </motion.button>
-                      <motion.button type="button" whileTap={{ scale: 0.98 }} onClick={onJoinByCode} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-[#F6ECD8]/25 bg-[#0C2C20] px-5 font-bold text-[#F6ECD8] transition-colors hover:border-[#F6ECD8]/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
-                        <Hash className="h-5 w-5" /> Join with code
-                      </motion.button>
-                    </div>
+                <div className="club-table-felt">
+                  <div className="club-table-topline">
+                    <span className="privacy-status"><LockKeyhole className="h-4 w-4" /> Private · friends only</span>
+                    <span role="status" aria-live="polite" className={cn('connection-status', `connection-status--${connectionState}`)}>
+                      <connectionView.Icon className={cn('h-4 w-4', (connectionState === 'connecting' || connectionState === 'reconnecting') && 'animate-spin')} />
+                      {connectionView.label}
+                    </span>
                   </div>
-                  <div className="hidden sm:block">
-                    <CardFan />
-                    <p className="mt-4 text-center font-display text-sm italic text-[#D8CDAF]">Your table. Your people.</p>
+
+                  {Array.from({ length: maxSeats }, (_, index) => {
+                    const occupied = index < occupiedSeats;
+                    return (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.86 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.12 + index * 0.045, duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                        className={cn('club-seat', seatPositions[index], occupied && 'club-seat--occupied', index === 0 && occupied && 'club-seat--you')}
+                      >
+                        <span className="club-seat__medallion">
+                          {occupied && index === 0 ? <UserRound className="h-6 w-6" /> : <CircleUserRound className="h-6 w-6" />}
+                        </span>
+                        <span className="club-seat__label">{seatLabels[index]}</span>
+                      </motion.div>
+                    );
+                  })}
+
+                  <div className="club-table-center">
+                    {currentRoom ? (
+                      <>
+                        <h1 id="friend-table-title" className="club-table-title">{currentRoom.name || 'Your friend table'}</h1>
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-[#C7D8CF]">
+                          <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-[#E0BD76]" /> {occupiedSeats} of {maxSeats} seated</span>
+                          <span aria-hidden="true" className="hidden h-1 w-1 rounded-full bg-[#6F877B] sm:block" />
+                          <span>Waiting for your people</span>
+                        </div>
+                        {roomCode && (
+                          <button type="button" onClick={() => void copyRoomCode()} className="room-code-control" aria-label={`Copy room code ${roomCode}`}>
+                            <span>Room code</span>
+                            <strong>{roomCode}</strong>
+                            <Copy className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <h1 id="friend-table-title" className="club-table-title">Ready for your people.</h1>
+                        <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#C7D8CF] sm:text-base">Start one private table, then share one link with the friends you already know.</p>
+                        <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#E0BD76]"><ShieldCheck className="h-4 w-4" /> Adults 18+ · social play only</div>
+                      </>
+                    )}
                   </div>
+
+                  {isActiveTable ? (
+                    <button type="button" onClick={() => void shareInvite()} disabled={shareState === 'sharing'} className="table-rail-action" aria-describedby="share-status" aria-busy={shareState === 'sharing'}>
+                      {shareState === 'shared' ? <Check className="h-5 w-5" /> : <Link2 className="h-5 w-5" />}
+                      {shareState === 'sharing' ? 'Opening share…' : shareState === 'shared' ? 'Invite ready' : 'Share invite'}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={onCreateGame} className="table-rail-action">
+                      <Plus className="h-5 w-5" /> Create a friend table
+                    </button>
+                  )}
                 </div>
               </motion.section>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:hidden">
-                <QuickPlayCard onQuickPlay={startQuickPlay} isPending={pendingAction === 'quick-play'} />
-                <ReferralCard onNavigate={onNavigate} />
-              </div>
+              <aside className="table-utility-rail" aria-label="Table actions">
+                {currentRoom ? (
+                  <>
+                    <div>
+                      <h2 className="font-display text-2xl font-bold text-[#FFFBEA]">Your table is open.</h2>
+                      <p className="mt-2 text-sm leading-6 text-[#B7C9C0]">Keep this page open while friends join. The table starts from live server state.</p>
+                    </div>
 
-              <section className="mt-7" aria-labelledby="tables-heading">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#E8B04A]">Table room</p>
-                    <h2 id="tables-heading" className="mt-1 font-display text-2xl font-bold text-[#F6ECD8]">Open tables</h2>
-                  </div>
-                  <p className="text-xs font-medium text-[#7E8D85]">{availableRooms.length} live</p>
-                </div>
+                    <div className="utility-status" aria-live="polite">
+                      <span className="utility-status__icon">{shareState === 'shared' ? <Check className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}</span>
+                      <span id="share-status">{shareMessage || 'Invite not shared yet. Your code remains available here.'}</span>
+                    </div>
 
-                <label className="relative mt-4 block">
-                  <span className="sr-only">Search tables</span>
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#66736D]" />
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search by table name"
-                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0E1B17] pl-11 pr-4 text-sm text-[#F6ECD8] placeholder:text-[#66736D] focus:border-[#E8B04A]/50 focus:outline-none focus:ring-2 focus:ring-[#E8B04A]/25"
-                  />
-                </label>
-
-                <div className="variant-scroll -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0" aria-label="Filter tables by game variant">
-                  <button type="button" aria-pressed={selectedVariant === 'all'} onClick={() => setSelectedVariant('all')} className={cn('whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', selectedVariant === 'all' ? 'border-[#E8B04A] bg-[#E8B04A] text-[#171006]' : 'border-white/10 bg-[#0E1B17] text-[#94A098] hover:border-white/20')}>All games</button>
-                  {(Object.keys(variantConfig) as GameVariant[]).map((variant) => {
-                    const config = variantConfig[variant];
-                    const Icon = config.icon;
-                    const selected = selectedVariant === variant;
-                    return (
-                      <button key={variant} type="button" aria-pressed={selected} onClick={() => setSelectedVariant(variant)} className={cn('flex items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]', selected ? 'border-[#E8B04A] bg-[#E8B04A] text-[#171006]' : 'border-white/10 bg-[#0E1B17] text-[#94A098] hover:border-white/20')}>
-                        <Icon className="h-3.5 w-3.5" /> {config.label}
+                    {roomCode && (
+                      <button type="button" onClick={() => void copyRoomCode()} className="utility-button utility-button--secondary">
+                        <Copy className="h-4 w-4" /> Copy room code
                       </button>
-                    );
-                  })}
-                </div>
+                    )}
 
-                <PullToRefresh onRefresh={loadRooms} className="mt-2 min-h-[250px]">
-                  <div className="space-y-3 pb-2">
-                    {isLoading ? (
-                      Array.from({ length: 3 }).map((_, index) => (
-                        <div key={index} className="rounded-[22px] border border-white/10 bg-[#0E1B17] p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-2">
-                              <SkeletonLoader variant="text" width="150px" height="16px" />
-                              <SkeletonLoader variant="text" width="220px" height="12px" />
-                            </div>
-                            <SkeletonLoader variant="avatar" width="36px" height="36px" />
+                    <div className="mt-auto border-t border-[#395044] pt-5">
+                      {confirmLeave ? (
+                        <div role="group" aria-label="Confirm leaving table">
+                          <p className="text-sm leading-6 text-[#E9C8BE]">Leave this waiting table? You will lose quick access to its invite.</p>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <button type="button" onClick={() => setConfirmLeave(false)} className="utility-button utility-button--secondary"><X className="h-4 w-4" /> Stay</button>
+                            <button type="button" onClick={closeActiveTable} className="utility-button utility-button--danger"><DoorOpen className="h-4 w-4" /> Leave</button>
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <AnimatePresence mode="popLayout">
-                        {filteredRooms.map((room, index) => {
-                          const config = variantConfig[room.variant] || variantConfig.classic;
-                          const Icon = config.icon;
-                          const isFull = room.currentPlayers >= room.maxPlayers;
-                          const isPlaying = room.status === 'playing';
-                          const unavailable = isFull || isPlaying;
-                          return (
-                            <motion.button
-                              type="button"
-                              key={room.id}
-                              layout
-                              initial={{ opacity: 0, y: 12 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -8 }}
-                              transition={{ delay: index * 0.04 }}
-                              disabled={unavailable || pendingAction !== null}
-                              aria-busy={pendingAction === room.id}
-                              onClick={() => void joinOpenTable(room)}
-                              className="group relative w-full overflow-hidden rounded-[22px] border border-white/10 bg-[#0E1B17] p-4 text-left transition-colors hover:border-[#E8B04A]/30 disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]"
-                            >
-                              <span className="flex items-start justify-between gap-4">
-                                <span className="min-w-0">
-                                  <span className="flex items-center gap-2">
-                                    <Icon className={cn('h-4 w-4', config.accent)} />
-                                    <span className="truncate font-semibold text-[#F6ECD8]">{room.name}</span>
-                                  </span>
-                                  <span className="mt-2 block text-xs text-[#8C9A92]">{formatChips(room.minBuyIn)}–{formatChips(room.maxBuyIn)} play chips · {formatChips(room.minBet)}-chip boot</span>
-                                  <span className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#B9C4BE]">
-                                    <Users className="h-3.5 w-3.5" /> {room.currentPlayers}/{room.maxPlayers} seated
-                                    <span className="text-[#58645E]">·</span> {config.label}
-                                  </span>
-                                </span>
-                                <span className="flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-[#07110E] px-3 py-2 text-xs font-semibold text-[#B9C4BE]">
-                                  {isPlaying ? 'In play' : isFull ? 'Full' : pendingAction === room.id ? 'Joining…' : 'Join'}
-                                  {!unavailable && <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />}
-                                </span>
-                              </span>
-                            </motion.button>
-                          );
-                        })}
-
-                        {filteredRooms.length === 0 && (
-                          <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-[26px] border border-dashed border-white/15 bg-[#0A1612] px-6 py-10 text-center">
-                            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-[#E8B04A]/25 bg-[#2A1714] font-display text-2xl text-[#E8B04A]">♠</div>
-                            <h3 className="mt-4 font-display text-xl font-bold text-[#F6ECD8]">No open tables yet</h3>
-                            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#7E8D85]">Be the host tonight—open a private table and share the code with your circle.</p>
-                            <button type="button" onClick={onCreateGame} className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-[#E8B04A] px-5 text-sm font-bold text-[#171006] transition-colors hover:bg-[#F0C268] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F6ECD8]">
-                              <Plus className="h-4 w-4" /> Start a table
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    )}
-                  </div>
-                </PullToRefresh>
-              </section>
+                      ) : (
+                        <button type="button" onClick={() => setConfirmLeave(true)} className="text-button"><DoorOpen className="h-4 w-4" /> Leave this table</button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <h2 className="font-display text-2xl font-bold text-[#FFFBEA]">Join your friends.</h2>
+                      <p className="mt-2 text-sm leading-6 text-[#B7C9C0]">Enter the six-character code from the person hosting your table.</p>
+                      <button type="button" onClick={onJoinByCode} className="utility-button utility-button--primary mt-5"><Hash className="h-4 w-4" /> Join with a code</button>
+                    </div>
+                    <div className="utility-divider"><span>or</span></div>
+                    <div>
+                      <h2 className="text-base font-semibold text-[#FFFBEA]">Host the table</h2>
+                      <p className="mt-2 text-sm leading-6 text-[#B7C9C0]">Choose the recommended setup now; change the rules only if your group needs to.</p>
+                      <button type="button" onClick={onCreateGame} className="utility-button utility-button--secondary mt-5"><Plus className="h-4 w-4" /> Create a table</button>
+                    </div>
+                  </>
+                )}
+              </aside>
             </div>
 
-            <aside className="hidden space-y-4 lg:block" aria-label="Player and invite tools">
-              <section className="rounded-[26px] border border-white/10 bg-[#0E1B17] p-5 shadow-[0_18px_42px_rgba(0,0,0,0.18)]">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-12 w-12 place-items-center rounded-full bg-[#B74035] text-lg font-bold text-[#FFF9ED]">{user?.username?.[0]?.toUpperCase() || 'G'}</span>
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-[#F6ECD8]">{user?.username || 'Guest'}</p>
-                    <p className="mt-0.5 text-xs text-[#7E8D85]">Level {user?.level || 1} · Ready to deal</p>
-                  </div>
-                  <CircleUserRound className="ml-auto h-5 w-5 text-[#58645E]" />
-                </div>
-                <div className="mt-4 flex items-end justify-between rounded-2xl border border-white/10 bg-[#07110E] px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#66736D]">Club Points balance</p>
-                    <AnimatedChipCount value={user?.beliBalance || 0} prefix="✦ " className="mt-1 block text-lg font-bold text-[#E8B04A]" />
-                  </div>
-                  <span className="text-[10px] text-[#66736D]">No cash value</span>
-                </div>
-              </section>
+            <div className="table-trust-strip" aria-label="Table trust and value information">
+              <span><ShieldCheck className="h-4 w-4" /> Server dealt</span>
+              <span><Check className="h-4 w-4" /> Table state verified</span>
+              <span><Coins className="h-4 w-4" /> Play chips have no cash value</span>
+            </div>
 
-              <QuickPlayCard onQuickPlay={startQuickPlay} isPending={pendingAction === 'quick-play'} />
-              <ReferralCard onNavigate={onNavigate} />
+            <details
+              id="practice-and-rules"
+              open={practiceOpen}
+              onToggle={(event) => {
+                const open = event.currentTarget.open;
+                setPracticeOpen(open);
+                if (open && roomsState === 'idle') void loadPracticeRooms();
+              }}
+              className="practice-disclosure"
+            >
+              <summary>
+                <span className="practice-disclosure__icon"><HelpCircle className="h-5 w-5" /></span>
+                <span>
+                  <strong>Practice &amp; learn the table</strong>
+                  <small>Optional AI practice, rules, and public practice tables</small>
+                </span>
+                <ChevronDown className="practice-disclosure__chevron h-5 w-5" />
+              </summary>
 
-              <section className="rounded-[26px] border border-white/10 bg-[#0A1612] p-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">Tonight's table</p>
-                <h2 className="mt-2 font-display text-2xl font-bold text-[#F6ECD8]">Three moves to game night.</h2>
-                <ol className="mt-5 space-y-4 text-sm text-[#AAB6AF]">
-                  <li className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#E8B04A] text-xs font-black text-[#171006]">1</span><span>Create a private friend table.</span></li>
-                  <li className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[#E8B04A]/35 text-xs font-black text-[#E8B04A]">2</span><span>Share the six-character code.</span></li>
-                  <li className="flex gap-3"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-[#E8B04A]/35 text-xs font-black text-[#E8B04A]">3</span><span>The deal begins when friends join.</span></li>
-                </ol>
-              </section>
-            </aside>
+              <div className="practice-disclosure__body">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-[#FFFBEA]">Learn without holding up your friends.</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-[#B7C9C0]">Practice is clearly separate from your private table. A turn lasts 30 seconds; if time runs out, the server packs that hand automatically.</p>
+                  <button type="button" disabled={pendingAction !== null} onClick={() => void startPractice()} className="utility-button utility-button--secondary mt-5 max-w-xs">
+                    <Play className="h-4 w-4" /> {pendingAction === 'practice' ? 'Opening practice…' : 'Practice with AI'}
+                  </button>
+                </div>
+
+                <div className="practice-room-list" aria-live="polite">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-semibold text-[#FFFBEA]">Public practice tables</h2>
+                    {roomsState === 'error' && <button type="button" onClick={() => void loadPracticeRooms()} className="text-button">Try again</button>}
+                  </div>
+                  {roomsState === 'loading' && <p className="mt-3 text-sm text-[#B7C9C0]">Checking for practice tables…</p>}
+                  {roomsState === 'error' && <p role="alert" className="mt-3 text-sm leading-6 text-[#E9C8BE]">Practice tables could not be loaded. Your private-table controls still work.</p>}
+                  {roomsState === 'ready' && availableRooms.length === 0 && <p className="mt-3 text-sm text-[#B7C9C0]">No public practice tables are open right now.</p>}
+                  {roomsState === 'ready' && availableRooms.slice(0, 3).map((room) => (
+                    <button
+                      type="button"
+                      key={room.id}
+                      disabled={pendingAction !== null || room.status !== 'waiting' || room.currentPlayers >= room.maxPlayers}
+                      onClick={() => void joinPracticeRoom(room)}
+                      className="practice-room-row"
+                    >
+                      <span><strong>{room.name}</strong><small>{room.currentPlayers} of {room.maxPlayers} seated · {room.variant.replace(/_/g, ' ')}</small></span>
+                      <span>{pendingAction === room.id ? 'Joining…' : 'Join'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
           </main>
         </div>
-
-        <NavigationBar currentScreen="home" onNavigate={onNavigate} />
       </div>
     </Layout>
   );

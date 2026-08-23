@@ -69,7 +69,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
             <div className="grid h-11 w-11 rotate-[-3deg] place-items-center rounded-xl border border-[#E8B04A]/45 bg-[#2A1714] font-display text-sm font-black text-[#E8B04A]">TP</div>
             <div>
               <p className="font-display text-xl font-bold">Teen Patti Social</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A9B9B0]">Private tables for friends</p>
+              <p className="text-xs font-medium text-[#A9B9B0]">Private tables for friends</p>
             </div>
           </div>
 
@@ -95,7 +95,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               <div className="grid h-10 w-10 rotate-[-3deg] place-items-center rounded-xl border border-[#E8B04A]/45 bg-[#2A1714] font-display text-xs font-black text-[#E8B04A]">TP</div>
               <p className="font-display text-lg font-bold">Teen Patti Social</p>
             </div>
-            <span className="rounded-full border border-[#E8B04A]/25 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.16em] text-[#E8B04A]">18+ only</span>
+            <span className="rounded-full border border-[#E8B04A]/25 px-3 py-1.5 text-xs font-bold text-[#E8B04A]">Adults 18+ only</span>
           </div>
 
           <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-8 sm:py-12">
@@ -103,14 +103,12 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
               {mode === 'welcome' ? (
                 <motion.div key="welcome" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                   <div className="lg:hidden">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">Your table is one invite away</p>
-                    <h1 className="mt-2 font-display text-[2.6rem] font-black leading-[0.98] tracking-[-0.035em] text-[#FFF9ED]">Deal with your people.</h1>
+                    <h1 className="font-display text-[2.6rem] font-black leading-[0.98] tracking-[-0.035em] text-[#FFF9ED]">Deal with your people.</h1>
                     <p className="mt-3 text-sm leading-6 text-[#8E9C94]">Private friend tables, built for the group chat.</p>
                   </div>
 
                   <div className="mt-8 rounded-[28px] border border-white/10 bg-[#0E1B17] p-5 shadow-[0_24px_55px_rgba(0,0,0,0.24)] sm:p-6 lg:mt-0">
-                    <p className="hidden text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A] lg:block">Enter the clubhouse</p>
-                    <h2 className="mt-1 hidden font-display text-3xl font-bold text-[#FFF9ED] lg:block">Ready when your friends are.</h2>
+                    <h2 className="hidden font-display text-3xl font-bold text-[#FFF9ED] lg:block">Ready when your friends are.</h2>
 
                     <label className="mt-1 flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-[#07110E] px-4 py-4 text-sm leading-5 text-[#C7D3CC] lg:mt-6">
                       <input
@@ -150,8 +148,7 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
                   <button type="button" onClick={() => changeMode('welcome')} className="inline-flex min-h-11 items-center gap-2 rounded-full px-2 text-sm font-semibold text-[#A9B9B0] hover:text-[#F6ECD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
                     <ArrowLeft className="h-4 w-4" /> Back
                   </button>
-                  <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.2em] text-[#E8B04A]">{mode === 'login' ? 'Welcome back' : 'Save your seat'}</p>
-                  <h1 className="mt-1 font-display text-4xl font-black tracking-[-0.03em] text-[#FFF9ED]">{mode === 'login' ? 'Return to your table.' : 'Create your account.'}</h1>
+                  <h1 className="mt-6 font-display text-4xl font-black tracking-[-0.03em] text-[#FFF9ED]">{mode === 'login' ? 'Return to your table.' : 'Create your account.'}</h1>
                   <p className="mt-2 text-sm leading-6 text-[#7E8D85]">{mode === 'login' ? 'Use your email or username.' : 'Keep your profile and progress across devices.'}</p>
 
                   <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="mt-7 space-y-4">
@@ -190,8 +187,8 @@ export function LoginScreen({ onComplete, onGuestPlay }: LoginScreenProps) {
             </AnimatePresence>
           </div>
 
-          <footer className="mx-auto w-full max-w-md border-t border-white/10 pt-4 text-center text-[10px] leading-5 text-[#66736D]">
-            By continuing, you agree to our <a href="/legal.html#terms" target="_blank" rel="noreferrer" className="underline hover:text-[#A9B9B0]">Terms</a> and <a href="/legal.html#privacy" target="_blank" rel="noreferrer" className="underline hover:text-[#A9B9B0]">Privacy Notice</a>.
+          <footer className="mx-auto w-full max-w-md border-t border-white/10 pt-4 text-center text-xs leading-5 text-[#95A89E]">
+            By continuing, you agree to our <a href="/legal.html#terms" target="_blank" rel="noreferrer" className="underline text-[#C9D6CF] hover:text-[#FFF9ED]">Terms</a> and <a href="/legal.html#privacy" target="_blank" rel="noreferrer" className="underline text-[#C9D6CF] hover:text-[#FFF9ED]">Privacy Notice</a>.
           </footer>
         </section>
       </div>

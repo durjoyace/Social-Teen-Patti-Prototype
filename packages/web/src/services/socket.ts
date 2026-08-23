@@ -9,33 +9,50 @@ const SOCKET_URL = configuredSocketUrl && (!import.meta.env.PROD || configuredSo
 type GameStateCallback = (state: any) => void;
 type RoomStateCallback = (room: any) => void;
 type MessageCallback = (data: any) => void;
+export type SocketConnectionState = 'connected' | 'connecting' | 'reconnecting' | 'offline';
 
 class SocketService {
   private socket: Socket | null = null;
   private listeners: Map<string, Set<Function>> = new Map();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
+  private state: SocketConnectionState = 'offline';
 
   get isConnected(): boolean {
     return this.socket?.connected ?? false;
   }
 
+  get connectionState(): SocketConnectionState {
+    return this.state;
+  }
+
+  private updateConnectionState(state: SocketConnectionState) {
+    if (this.state === state) return;
+    this.state = state;
+    this.emit('connection:state', state);
+  }
+
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!SOCKET_URL) {
+        this.updateConnectionState('offline');
         reject(new Error('The production game server is not configured'));
         return;
       }
       const token = api.getToken();
       if (!token) {
+        this.updateConnectionState('offline');
         reject(new Error('No auth token'));
         return;
       }
 
       if (this.socket?.connected) {
+        this.updateConnectionState('connected');
         resolve();
         return;
       }
+
+      this.updateConnectionState(this.socket ? 'reconnecting' : 'connecting');
 
       this.socket = io(SOCKET_URL, {
         auth: { token },
@@ -50,12 +67,14 @@ class SocketService {
       this.socket.on('connect', () => {
         console.log('[Socket] Connected:', this.socket?.id);
         this.reconnectAttempts = 0;
+        this.updateConnectionState('connected');
         this.emit('connected');
         resolve();
       });
 
       this.socket.on('disconnect', (reason) => {
         console.log('[Socket] Disconnected:', reason);
+        this.updateConnectionState(reason === 'io client disconnect' ? 'offline' : 'reconnecting');
         this.emit('disconnected', reason);
       });
 
@@ -63,10 +82,16 @@ class SocketService {
         console.error('[Socket] Connection error:', error.message);
         this.reconnectAttempts++;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this.updateConnectionState('offline');
           reject(new Error('Max reconnection attempts reached'));
+        } else {
+          this.updateConnectionState('reconnecting');
         }
         this.emit('error', error.message);
       });
+
+      this.socket.io.on('reconnect_attempt', () => this.updateConnectionState('reconnecting'));
+      this.socket.io.on('reconnect_failed', () => this.updateConnectionState('offline'));
 
       // ─── Game Events ─────────────────────────────────────────────────
 
@@ -126,6 +151,7 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.updateConnectionState('offline');
   }
 
   // ─── Room Operations ─────────────────────────────────────────────────────

@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MessageCircle, LogOut, Volume2, VolumeX, Eye, EyeOff, Clock
+  MessageCircle, LogOut, Volume2, VolumeX, Eye, EyeOff, Clock, ShieldCheck
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
-import { useSound } from '../hooks/useSound';
 import { useHaptics } from '../hooks/useHaptics';
 import { BettingControls } from './BettingControls';
 import { ChatPanel } from './ChatPanel';
@@ -116,12 +115,14 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   const { user } = useAuthStore();
   const { soundEnabled, toggleSound } = useUIStore();
-  const { play } = useSound();
   const { onTurn, onWin, onButtonPress } = useHaptics();
 
   const [timeLeft, setTimeLeft] = useState(30);
+  const [turnAnnouncement, setTurnAnnouncement] = useState('');
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const [showWinCelebration, setShowWinCelebration] = useState(false);
   const [winner, setWinner] = useState<{ name: string; amount: number; handRank: any } | null>(null);
+  const timeoutSubmittedRef = useRef(false);
 
   const submitAction = useCallback((action: ActionType, amount?: number) => {
     void performOnlineAction(action, amount);
@@ -140,18 +141,34 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   // Timer
   useEffect(() => {
-    if (!isMyTurn) { setTimeLeft(30); return; }
+    if (!isMyTurn) {
+      setTimeLeft(30);
+      setTurnAnnouncement('');
+      timeoutSubmittedRef.current = false;
+      return;
+    }
+    timeoutSubmittedRef.current = false;
+    setTurnAnnouncement('Your turn. You have 30 seconds. If time runs out, the server will pack this hand.');
     onTurn(); premiumSounds.play('turn_alert');
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 5) premiumSounds.play('countdown_urgent');
         else if (prev <= 10) premiumSounds.play('countdown_tick');
-        if (prev <= 1) { submitAction('pack'); return 30; }
+        if (prev === 11) setTurnAnnouncement('10 seconds remaining. The server will pack this hand at zero.');
+        if (prev === 6) setTurnAnnouncement('5 seconds remaining. Choose an action now or the server will pack this hand.');
+        if (prev <= 1) {
+          if (!timeoutSubmittedRef.current) {
+            timeoutSubmittedRef.current = true;
+            setTurnAnnouncement('Time expired. The server is packing this hand automatically.');
+            submitAction('pack');
+          }
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [isMyTurn, submitAction, onTurn, play]);
+  }, [isMyTurn, submitAction, onTurn]);
 
   // Win detection
   useEffect(() => {
@@ -186,6 +203,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
   }, [gameState?.isGameOver]);
 
   const handleAction = useCallback((action: ActionType, amount?: number) => {
+    timeoutSubmittedRef.current = true;
+    setTurnAnnouncement(`${action === 'pack' ? 'Pack' : action} submitted. Waiting for the server to confirm.`);
     onButtonPress();
     // Premium sounds
     if (['chaal', 'blind', 'raise'].includes(action)) {
@@ -212,9 +231,10 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   if (!gameState) {
     return (
-      <div className="flex h-full items-center justify-center bg-[#07110E]">
+      <div className="flex h-full items-center justify-center bg-[#07110E]" role="status" aria-live="polite">
         <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          className="h-12 w-12 rounded-full border-4 border-[#E8B04A]/20 border-t-[#E8B04A]" />
+          className="h-12 w-12 rounded-full border-4 border-[#E8B04A]/20 border-t-[#E8B04A]" aria-hidden="true" />
+        <span className="ml-4 text-sm font-medium text-[#C7D3CC]">Waiting for verified table state…</span>
       </div>
     );
   }
@@ -224,6 +244,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#07110E] text-[#F6ECD8]" role="main" aria-label="Teen Patti game table">
+      <div className="sr-only" aria-live="assertive" aria-atomic="true">{turnAnnouncement}</div>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">{gameMessage}</div>
       {/* Parallax particle background */}
       <ParallaxBackground intensity={0.6} className="z-0" />
 
@@ -238,15 +260,34 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
         animate={{ y: 0, opacity: 1 }}
         className="relative z-30 flex items-center justify-between px-4 py-2 pt-3"
       >
-        <button type="button" aria-label="Leave table" onClick={onLeave}
-          className="rounded-full border border-white/10 bg-[#0E1B17] p-2.5 text-[#8E9C94] active:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
-          <LogOut className="h-4 w-4" />
-        </button>
+        <div className="relative">
+          <button type="button" aria-label="Leave table" aria-expanded={confirmLeave} onClick={() => setConfirmLeave((value) => !value)}
+            className="rounded-full border border-white/10 bg-[#0E1B17] p-2.5 text-[#8E9C94] active:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+            <LogOut className="h-4 w-4" />
+          </button>
+          {confirmLeave && (
+            <div role="group" aria-label="Confirm leaving the table" className="absolute left-0 top-12 w-64 rounded-[14px] bg-[#101B17] p-3 shadow-[0_18px_45px_rgba(0,0,0,0.42),inset_0_0_0_1px_#654339]">
+              <p className="text-xs leading-5 text-[#E9C8BE]">Leave this table? Your current hand will be packed and your seat released.</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setConfirmLeave(false)} className="min-h-10 rounded-[10px] bg-[#193126] px-3 text-xs font-semibold text-[#FFFBEA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">Stay</button>
+                <button type="button" onClick={onLeave} className="min-h-10 rounded-[10px] bg-[#3A1D18] px-3 text-xs font-semibold text-[#F4D1C8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">Leave</button>
+              </div>
+            </div>
+          )}
+        </div>
 
-        <div className="flex items-center gap-1">
-          <div className="rounded-full border border-white/10 bg-[#0E1B17] px-3 py-1 text-xs font-medium text-[#C7D3CC]">
+        <div className="flex items-center gap-2">
+          <div className="hidden rounded-full border border-white/10 bg-[#0E1B17] px-3 py-1.5 text-xs font-medium text-[#C7D3CC] sm:block">
             {currentRoom?.name || 'Table'}
           </div>
+          <details className="group relative">
+            <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 rounded-full border border-[#E8B04A]/25 bg-[#10231B] px-3 text-xs font-semibold text-[#D8C69D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
+              <ShieldCheck className="h-4 w-4 text-[#E8B04A]" /> Server dealt · verified
+            </summary>
+            <div className="absolute left-1/2 top-12 w-64 -translate-x-1/2 rounded-[14px] bg-[#101B17] p-3 text-xs leading-5 text-[#C7D3CC] shadow-[0_18px_45px_rgba(0,0,0,0.42),inset_0_0_0_1px_#3A5145]">
+              The server shuffles, deals, validates each action, and keeps every player on the same table state.
+            </div>
+          </details>
         </div>
 
         <div className="flex items-center gap-1">
@@ -257,7 +298,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             className="relative rounded-full border border-white/10 bg-[#0E1B17] p-2.5 text-[#8E9C94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]">
             <MessageCircle className="w-4 h-4" />
             {chatMessages.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full text-[8px] flex items-center justify-center text-white font-bold">
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white">
                 {chatMessages.length}
               </span>
             )}
@@ -322,7 +363,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
               prefix="◉ "
               className="text-lg font-bold text-[#E8B04A] drop-shadow-[0_0_12px_rgba(232,176,74,0.35)]"
             />
-            <span className="text-white/30 text-[9px] uppercase tracking-[0.2em] mt-0.5">Pot</span>
+            <span className="mt-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/55">Pot</span>
           </motion.div>
 
           {/* ─── Game Status Messages ────────────────────────────────── */}
@@ -399,7 +440,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   >
                     <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/50 border border-white/10">
                       <div className="h-3 w-3 rounded-full border border-white/30 bg-[#E8B04A]" />
-                      <AnimatedChipCount value={player.currentBet} prefix="◉ " className="text-[10px] font-bold text-[#E8B04A]" />
+                      <AnimatedChipCount value={player.currentBet} prefix="◉ " className="text-xs font-bold text-[#E8B04A]" />
                     </div>
                   </motion.div>
                 )}
@@ -457,7 +498,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                     {player.isDealer && (
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
                         className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-[#F6ECD8]/40 bg-[#E8B04A] shadow-lg">
-                        <span className="text-[8px] font-black text-[#171006]">D</span>
+                        <span className="text-xs font-black text-[#171006]">D</span>
                       </motion.div>
                     )}
 
@@ -473,16 +514,16 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   {/* Name + chips */}
                   <div className="flex flex-col items-center mt-1 px-2 py-0.5 rounded-lg bg-black/40 backdrop-blur-sm">
                     <span className={cn(
-                      'text-[10px] font-semibold leading-tight truncate max-w-[64px]',
+                      'max-w-[72px] truncate text-xs font-semibold leading-tight',
                       isMe ? 'text-[#E8B04A]' : 'text-white'
                     )}>
                       {displayName}
                     </span>
                     <span className={cn(
-                      'text-[9px] font-bold leading-tight',
+                      'text-xs font-bold leading-tight',
                       isFolded ? 'text-red-400' : 'text-green-400'
                     )}>
-                      {isFolded ? 'PACKED' : <AnimatedChipCount value={player.chipsInPlay} prefix="◉ " className="text-[9px] font-bold leading-tight" />}
+                      {isFolded ? 'PACKED' : <AnimatedChipCount value={player.chipsInPlay} prefix="◉ " className="text-xs font-bold leading-tight" />}
                     </span>
                   </div>
 
@@ -490,7 +531,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                   {player.isTurn && !isMe && (
                     <div className="flex items-center gap-0.5 mt-0.5">
                       <Clock className="w-2.5 h-2.5 text-yellow-400" />
-                      <span className={cn('text-[9px] font-bold',
+                      <span className={cn('text-xs font-bold',
                         timeLeft > 15 ? 'text-green-400' : timeLeft > 5 ? 'text-yellow-400' : 'text-red-400'
                       )}>{timeLeft}s</span>
                     </div>
@@ -531,7 +572,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             whileTap={{ scale: 0.95 }}
             onClick={toggleShowCards}
             className={cn(
-              'mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-semibold',
+              'mt-2 flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold',
               'bg-black/70 backdrop-blur-md border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E8B04A]',
               showCards
                 ? 'text-[#E8B04A] border-[#E8B04A]/30'
@@ -550,7 +591,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="mt-1.5 rounded-full border border-[#E8B04A]/30 bg-[#2A1714] px-4 py-1"
               >
-                <span className="text-[11px] font-bold tracking-wide text-[#E8B04A]">
+                <span className="text-xs font-bold tracking-wide text-[#E8B04A]">
                   {getHandRankName(evaluateHand(myCards).rank)}
                 </span>
               </motion.div>
@@ -598,20 +639,19 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed bottom-[200px] right-4 z-20"
+          className="fixed bottom-[200px] right-4 z-20 flex items-center gap-2 rounded-[14px] bg-[#101B17] p-2 shadow-[0_14px_32px_rgba(0,0,0,0.32),inset_0_0_0_1px_#3A5145]"
         >
           <div className="relative w-12 h-12">
             <svg className="w-full h-full -rotate-90">
               <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
               <motion.circle cx="24" cy="24" r="20" fill="none"
-                stroke={timeLeft > 15 ? '#22c55e' : timeLeft > 5 ? '#eab308' : '#ef4444'}
+                stroke={timeLeft > 5 ? '#E0BD76' : '#D37A68'}
                 strokeWidth="3" strokeLinecap="round"
                 strokeDasharray={`${(timeLeft / 30) * 126} 126`} />
             </svg>
-            <span className={cn('absolute inset-0 flex items-center justify-center text-sm font-bold',
-              timeLeft > 15 ? 'text-green-400' : timeLeft > 5 ? 'text-yellow-400' : 'text-red-400'
-            )}>{timeLeft}</span>
+            <span className={cn('absolute inset-0 flex items-center justify-center text-sm font-bold', timeLeft > 5 ? 'text-[#E0BD76]' : 'text-[#E9A596]')}>{timeLeft}</span>
           </div>
+          <span className="hidden pr-1 text-xs leading-5 text-[#C7D3CC] sm:block"><strong className="block text-[#FFFBEA]">Your turn</strong>Packs automatically at 0</span>
         </motion.div>
       )}
 

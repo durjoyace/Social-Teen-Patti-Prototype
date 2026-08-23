@@ -253,6 +253,12 @@ export function App() {
     setShowJoinByCode(false);
   };
 
+  const handleLeaveTable = useCallback(() => {
+    leaveRoom();
+    setCreatedRoomCode(null);
+    setCreatedInviteUrl(null);
+  }, [leaveRoom]);
+
   const handleCreateRoom = async (config: {
     name: string;
     variant: GameVariant;
@@ -337,6 +343,7 @@ export function App() {
             onCreateGame={() => setShowCreateRoom(true)}
             onQuickPlay={handleQuickPlay}
             onJoinByCode={() => setShowJoinByCode(true)}
+            onLeaveTable={handleLeaveTable}
             onNavigate={navigateTo}
           />
         );
@@ -344,7 +351,7 @@ export function App() {
       case 'game':
         return (
           <EnhancedGameTable
-            onLeave={() => { leaveRoom(); setCurrentScreen('home'); }}
+            onLeave={() => { handleLeaveTable(); setCurrentScreen('home'); }}
           />
         );
 
@@ -363,6 +370,7 @@ export function App() {
             onCreateGame={() => setShowCreateRoom(true)}
             onQuickPlay={handleQuickPlay}
             onJoinByCode={() => setShowJoinByCode(true)}
+            onLeaveTable={handleLeaveTable}
             onNavigate={navigateTo}
           />
         );
@@ -390,7 +398,7 @@ export function App() {
       {/* Create Room Modal */}
       <CreateRoomModal
         isOpen={showCreateRoom}
-        onClose={() => { setShowCreateRoom(false); setCreatedRoomCode(null); setCreatedInviteUrl(null); }}
+        onClose={() => setShowCreateRoom(false)}
         onCreate={handleCreateRoom}
         createdRoomCode={createdRoomCode}
         createdInviteUrl={createdInviteUrl}
