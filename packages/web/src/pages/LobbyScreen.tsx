@@ -6,8 +6,10 @@ import {
   CircleUserRound,
   Coins,
   Copy,
+  Diamond,
   DoorOpen,
   Hash,
+  Heart,
   HelpCircle,
   Link2,
   LockKeyhole,
@@ -16,6 +18,7 @@ import {
   RefreshCw,
   Settings,
   ShieldCheck,
+  Spade,
   UserRound,
   Users,
   Wifi,
@@ -87,10 +90,10 @@ export function LobbyScreen({
   const maxSeats = Math.min(Math.max(currentRoom?.maxPlayers || 6, 2), 6);
   const occupiedSeats = currentRoom ? Math.min(Math.max(currentRoom.currentPlayers, 1), maxSeats) : 0;
   const connectionView = {
-    connected: { label: currentRoom ? 'Table connected' : 'Clubhouse ready', Icon: Wifi },
-    connecting: { label: currentRoom ? 'Connecting table…' : 'Connecting clubhouse…', Icon: RefreshCw },
-    reconnecting: { label: currentRoom ? 'Reconnecting table…' : 'Reconnecting clubhouse…', Icon: RefreshCw },
-    offline: { label: currentRoom ? 'Table offline' : 'Clubhouse offline', Icon: WifiOff },
+    connected: { label: currentRoom ? 'Table connected' : 'Clubhouse ready', mobileLabel: 'Ready', Icon: Wifi },
+    connecting: { label: currentRoom ? 'Connecting table…' : 'Connecting clubhouse…', mobileLabel: 'Connecting…', Icon: RefreshCw },
+    reconnecting: { label: currentRoom ? 'Reconnecting table…' : 'Reconnecting clubhouse…', mobileLabel: 'Reconnecting…', Icon: RefreshCw },
+    offline: { label: currentRoom ? 'Table offline' : 'Clubhouse offline', mobileLabel: 'Offline', Icon: WifiOff },
   }[connectionState];
 
   const seatLabels = useMemo(() => {
@@ -248,7 +251,7 @@ export function LobbyScreen({
                 <span className="profile-control__avatar">{user?.username?.[0]?.toUpperCase() || 'G'}</span>
                 <span className="hidden text-left sm:block">
                   <span className="block max-w-28 truncate text-sm font-semibold text-[#FFFBEA]">{user?.username || 'Guest'}</span>
-                  <span className="flex items-center gap-1 text-xs text-[#E0BD76]"><Coins className="h-3 w-3" aria-hidden="true" /> {user?.chips || 0} play chips</span>
+                  <span className="flex items-center gap-1 text-xs text-[#E0BD76]"><Coins className="h-3 w-3" aria-hidden="true" /> {Number(user?.chips || 0).toLocaleString()} play chips</span>
                 </span>
               </button>
               <button type="button" aria-label="Open settings" onClick={() => onNavigate('settings')} className="icon-control">
@@ -268,10 +271,15 @@ export function LobbyScreen({
               >
                 <div className="club-table-felt">
                   <div className="club-table-topline">
-                    <span className="privacy-status"><LockKeyhole className="h-4 w-4" /> Private · friends only</span>
+                    <span className="privacy-status">
+                      <LockKeyhole className="h-4 w-4" />
+                      <span className="status-label--wide">Private · friends only</span>
+                      <span className="status-label--compact">Friends only</span>
+                    </span>
                     <span role="status" aria-live="polite" className={cn('connection-status', `connection-status--${connectionState}`)}>
                       <connectionView.Icon className={cn('h-4 w-4', (connectionState === 'connecting' || connectionState === 'reconnecting') && 'animate-spin')} />
-                      {connectionView.label}
+                      <span className="status-label--wide">{connectionView.label}</span>
+                      <span className="status-label--compact">{connectionView.mobileLabel}</span>
                     </span>
                   </div>
 
@@ -312,9 +320,14 @@ export function LobbyScreen({
                       </>
                     ) : (
                       <>
+                        <div className="table-card-fan" aria-hidden="true">
+                          <span className="table-card table-card--left"><strong>A</strong><Spade /></span>
+                          <span className="table-card table-card--center"><strong>A</strong><Heart /></span>
+                          <span className="table-card table-card--right"><strong>A</strong><Diamond /></span>
+                        </div>
                         <h1 id="friend-table-title" className="club-table-title">Ready for your people.</h1>
-                        <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#C7D8CF] sm:text-base">Start one private table, then share one link with the friends you already know.</p>
-                        <div className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#E0BD76]"><ShieldCheck className="h-4 w-4" /> Adults 18+ · social play only</div>
+                        <p className="club-table-subtitle">Start one private table, then share one link with the friends you already know.</p>
+                        <div className="club-table-assurance"><ShieldCheck className="h-4 w-4" /> Adults 18+ · social play only</div>
                       </>
                     )}
                   </div>
@@ -373,7 +386,7 @@ export function LobbyScreen({
                       <button type="button" onClick={onJoinByCode} className="utility-button utility-button--primary mt-5"><Hash className="h-4 w-4" /> Join with a code</button>
                     </div>
                     <div className="utility-divider"><span>or</span></div>
-                    <div>
+                    <div className="utility-rail-host">
                       <h2 className="text-base font-semibold text-[#FFFBEA]">Host the table</h2>
                       <p className="mt-2 text-sm leading-6 text-[#B7C9C0]">Choose the recommended setup now; change the rules only if your group needs to.</p>
                       <button type="button" onClick={onCreateGame} className="utility-button utility-button--secondary mt-5"><Plus className="h-4 w-4" /> Create a table</button>

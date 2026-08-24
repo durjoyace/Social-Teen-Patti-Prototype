@@ -123,6 +123,7 @@ The table carries live room state directly on its surface and rail. Invitation, 
 - Warm ivory editorial headings paired with a practical geometric operating face.
 - Invitation gold reserved for the action or state that brings friends together.
 - Brass seat hardware, an inset rail edge, and a HOST plate make topology tangible.
+- A restrained three-ace deal mark gives the empty table a physical focal point, then yields to live room state.
 - Server-backed room, seat, and connection state always outrank public inventory.
 
 ## Colors
@@ -181,7 +182,7 @@ The palette is warm, dark, and material: black-green ground, woven felt, oxblood
 
 ## Layout
 
-The clubhouse uses a fluid container capped at 1505px. On desktop, a quiet 84px header sits above a two-column stage: the table takes the flexible dominant column and a 320px state-aware utility rail sits alongside it with a 20px gap. The table shell holds a minimum height between 600px and 720px, keeping the six-seat topology, live room state, code, and rail-integrated share action inside the first operational view.
+The clubhouse uses a fluid container capped at 1505px. On desktop, a quiet 84px header sits above a two-column stage: the table takes the flexible dominant column and a 320px state-aware utility rail sits alongside it with a 20px gap. The visible table stage stays roughly 616–736px tall, tuned so the rail-integrated invitation remains fully visible in a 720px first viewport while preserving the six-seat topology, live room state, and code.
 
 Below 1024px, the utility rail moves beneath the table; it may use two columns on tablet but becomes a single vertical flow on mobile. Below 640px, the header tightens to 72px, the table becomes a tall 680px stage, outer/inner corners reduce to 42px/30px, side seats move inward, and the invitation action remains anchored to the near rail. Secondary practice stays in one collapsed disclosure after the trust strip. Layout padding respects bottom safe areas, and every interactive target is at least 44px.
 
@@ -223,7 +224,7 @@ Seats are circular brass-mounted medallions arranged as one host plus five frien
 
 ### Chips
 
-Privacy and connection statuses are dark translucent felt pills with a quiet green edge. Connecting and reconnecting move to warm brass-gold; offline uses the muted danger ramp. Status copy remains at 12px minimum, and connection text is announced through a polite live region.
+Privacy and connection statuses are dark translucent felt pills with a quiet green edge. Connecting and reconnecting move to warm brass-gold; offline uses the muted danger ramp. Status copy remains at 12px minimum, uses truthful compact labels below 640px, and connection text is announced through a polite live region.
 
 ### Cards / Containers
 
@@ -239,7 +240,7 @@ Desktop navigation is a quiet row of 44px targets. The active destination uses a
 
 ### Persistent Table Stage
 
-The system’s signature component is a six-seat woven-felt field inside a thick lacquer rail. Live table name, occupied count, room code, privacy, and socket connection state sit on the felt. Brass-mounted seat medallions ring the topology, the occupied first seat receives the HOST plate, and the invitation action is physically built into the near rail. The stage exists in both empty and active states and survives dialog dismissal.
+The system’s signature component is a six-seat woven-felt field inside a thick lacquer rail. Live table name, occupied count, room code, privacy, and socket connection state sit on the felt. In the empty state, a small three-ace fan marks the deal without competing with the thesis; in the active state, room code and occupancy replace it. Brass-mounted seat medallions ring the topology, repeated side-seat labels recede so the center remains legible, the occupied first seat receives the HOST plate, and the invitation action is physically built into the near rail. The stage survives dialog dismissal.
 
 ### Connection State
 

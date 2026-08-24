@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-23T12:58:17Z",
+  "generatedAt": "2026-08-24T00:28:06Z",
   "title": "Design System: Social Teen Patti Clubhouse",
   "extensions": {
     "colorMeta": {
@@ -238,7 +238,7 @@
     {
       "name": "Connection Status",
       "kind": "chip",
-      "description": "A socket-backed status pill with connected, transitional, and offline treatments.",
+      "description": "A socket-backed status pill with connected, transitional, and offline treatments plus truthful compact labels below 640px.",
       "html": "<span class=\"ds-connection\" data-state=\"offline\" role=\"status\" aria-live=\"polite\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\"><path d=\"m2 2 20 20\"/><path d=\"M8.5 8.5A9.7 9.7 0 0 1 12 8c3.8 0 7.2 2.2 8.8 5.5\"/><path d=\"M5 5a15.1 15.1 0 0 1 19 3\"/><path d=\"M2 8.8A14.7 14.7 0 0 1 5.2 6.2\"/><path d=\"M12 18h.01\"/><path d=\"M8.2 13.2a5.5 5.5 0 0 1 7.6 0\"/></svg>Table offline</span>",
       "css": ".ds-connection{display:inline-flex;min-height:34px;align-items:center;gap:.45rem;border-radius:999px;background:rgba(3,15,10,.78);box-shadow:inset 0 0 0 1px #365247;padding:.45rem .75rem;color:#D1DED7;font:600 12px/1.2 Poppins,system-ui,sans-serif;white-space:nowrap}.ds-connection svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.ds-connection[data-state=connecting],.ds-connection[data-state=reconnecting]{box-shadow:inset 0 0 0 1px #826B3D;color:#F0C66F}.ds-connection[data-state=offline]{box-shadow:inset 0 0 0 1px #744137;color:#F2B1A9}.ds-connection:focus-visible{outline:2px solid var(--club-gold-light,#E8B85B);outline-offset:3px}"
     },
@@ -259,7 +259,7 @@
     {
       "name": "Persistent Table Stage",
       "kind": "custom",
-      "description": "The signature six-seat private table with woven felt, lacquer rail, brass hardware, live state, and rail-integrated invitation.",
+      "description": "The signature six-seat private table with woven felt, lacquer rail, brass hardware, an empty-state three-ace deal mark, live state, and rail-integrated invitation.",
       "html": "<section class=\"ds-table-shell\"><div class=\"ds-table-felt\"><span class=\"ds-table-private\">Private · friends only</span><div class=\"ds-table-host\"><span>HOST</span><b>YOU</b></div><div class=\"ds-table-copy\"><h3>Sunday Circle</h3><p>1 of 6 seated · Waiting for your people</p><button class=\"ds-table-code\">ROOM CODE <strong>ACE482</strong></button></div><i class=\"ds-seat ds-seat-a\">Invite</i><i class=\"ds-seat ds-seat-b\">Invite</i><i class=\"ds-seat ds-seat-c\">Invite</i><i class=\"ds-seat ds-seat-d\">Invite</i><i class=\"ds-seat ds-seat-e\">Invite</i><button class=\"ds-table-share\">Share invite</button></div></section>",
       "css": ".ds-table-shell{position:relative;min-height:520px;border-radius:62px;background:var(--club-lacquer,#2F1B14) url('/materials/lacquer-rail.webp') center/720px 180px;box-shadow:0 32px 74px rgba(0,0,0,.48),inset 0 0 0 1px rgba(232,176,74,.34),inset 0 -24px 44px rgba(10,4,2,.62),inset 0 10px 18px rgba(126,76,44,.22);padding:28px;font-family:Poppins,system-ui,sans-serif}.ds-table-felt{position:relative;min-height:520px;border:2px solid #081B13;border-radius:40px;background:var(--club-felt,#102C21) url('/materials/felt-clubhouse.webp') center/560px 560px;box-shadow:0 0 0 1px rgba(222,190,121,.18),inset 0 20px 70px rgba(1,9,6,.32),inset 0 -42px 90px rgba(1,8,5,.42),inset 0 0 0 8px rgba(4,18,12,.22);color:var(--club-ivory,#FFFBEA)}.ds-table-private{position:absolute;top:24px;left:26px;border-radius:999px;background:rgba(3,15,10,.78);box-shadow:inset 0 0 0 1px #365247;padding:8px 12px;color:#F0C66F;font-size:12px;font-weight:600}.ds-table-host{position:absolute;top:58px;left:50%;display:grid;place-items:center;transform:translateX(-50%);width:66px;height:66px;border:4px solid #25150F;border-radius:50%;background:#183A2C;box-shadow:0 11px 24px rgba(0,0,0,.3),inset 0 0 0 2px var(--club-gold-light,#E8B85B),0 0 0 1px #806B45;color:var(--club-gold-light,#E8B85B)}.ds-table-host span{position:absolute;top:-22px;border:1px solid #8B7041;border-radius:999px;background:var(--club-lacquer,#2F1B14);padding:3px 8px;font-size:12px;font-weight:800;letter-spacing:.1em}.ds-table-host b{font-size:12px}.ds-table-copy{position:absolute;top:46%;left:50%;width:64%;transform:translate(-50%,-50%);text-align:center}.ds-table-copy h3{margin:0;color:var(--club-ivory,#FFFBEA);font:800 clamp(42px,5vw,74px)/.98 'Playfair Display',Georgia,serif;letter-spacing:-.035em;text-shadow:0 5px 24px rgba(0,0,0,.28)}.ds-table-copy p{margin:14px 0;color:#C7D8CF;font-size:14px}.ds-table-code{min-height:76px;border:0;border-radius:14px;background:rgba(3,15,10,.72);box-shadow:0 12px 28px rgba(0,0,0,.22),inset 0 0 0 1px #3D5D4D;padding:12px 18px;color:#B6C8BE;font-size:12px;font-weight:600;letter-spacing:.08em}.ds-table-code strong{margin-left:10px;color:var(--club-ivory,#FFFBEA);font-size:24px;font-variant-numeric:tabular-nums}.ds-seat{position:absolute;display:grid;width:58px;height:58px;place-items:center;border:4px solid #25150F;border-radius:50%;background:rgba(3,15,10,.72);box-shadow:0 9px 18px rgba(0,0,0,.34),inset 0 0 0 1px #3B594A,0 0 0 1px #806B45;color:#8AA096;font-style:normal;font-size:10px}.ds-seat-a{top:30%;left:10%}.ds-seat-b{top:30%;right:10%}.ds-seat-c{bottom:18%;left:14%}.ds-seat-d{bottom:18%;right:14%}.ds-seat-e{bottom:8%;left:50%;transform:translateX(-50%)}.ds-table-share{position:absolute;bottom:-32px;left:50%;min-height:64px;min-width:270px;transform:translateX(-50%);border:0;border-radius:14px;background:var(--club-gold,#D59F3E);box-shadow:0 15px 34px rgba(0,0,0,.38),inset 0 0 0 1px #F2CA75,inset 0 -5px 12px rgba(80,40,2,.2);color:#160E06;font-size:16px;font-weight:800}.ds-table-share:hover{background:var(--club-gold-light,#E8B85B);transform:translateX(-50%) translateY(-2px)}.ds-table-code:focus-visible,.ds-table-share:focus-visible{outline:2px solid var(--club-gold-light,#E8B85B);outline-offset:3px}.ds-table-share:active{transform:translateX(-50%)}"
     }
@@ -272,6 +272,7 @@
       "Warm ivory editorial headings paired with a practical geometric operating face.",
       "Invitation gold reserved for the action or state that brings friends together.",
       "Brass seat hardware, an inset rail edge, and a HOST plate make topology tangible.",
+      "A restrained three-ace deal mark gives the empty table a physical focal point, then yields to live room state.",
       "Server-backed room, seat, and connection state always outrank public inventory."
     ],
     "rules": [

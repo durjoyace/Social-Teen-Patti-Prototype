@@ -196,13 +196,13 @@
   .clubhouse-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 320px;
-    align-items: stretch;
+    align-items: start;
     gap: 1.25rem;
   }
 
   .club-table-shell {
     position: relative;
-    min-height: clamp(600px, calc(100dvh - 250px), 720px);
+    min-height: clamp(560px, calc(100dvh - 160px), 680px);
     isolation: isolate;
     border-radius: 62px;
     background-color: var(--club-lacquer);
@@ -284,6 +284,10 @@
     color: #f0c66f;
   }
 
+  .status-label--compact {
+    display: none;
+  }
+
   .connection-status--connecting,
   .connection-status--reconnecting {
     border-color: #826b3d;
@@ -297,7 +301,7 @@
 
   .club-table-center {
     position: absolute;
-    top: 46%;
+    top: 48%;
     left: 50%;
     z-index: 4;
     width: min(64%, 680px);
@@ -314,6 +318,82 @@
     letter-spacing: -0.035em;
     text-wrap: balance;
     text-shadow: 0 5px 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .table-card-fan {
+    position: relative;
+    display: flex;
+    height: 70px;
+    align-items: flex-end;
+    justify-content: center;
+    margin: 0 auto 1.15rem;
+  }
+
+  .table-card {
+    position: relative;
+    display: grid;
+    height: 68px;
+    width: 48px;
+    grid-template-rows: auto 1fr;
+    border-radius: 8px;
+    background-color: #f6ecd8;
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.35), inset 0 0 0 1px rgba(96, 55, 29, 0.22);
+    padding: 0.4rem;
+    color: #17100b;
+    transform-origin: 50% 110%;
+  }
+
+  .table-card strong {
+    justify-self: start;
+    font-family: 'Playfair Display', serif;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
+  .table-card svg {
+    height: 18px;
+    width: 18px;
+    align-self: center;
+    justify-self: center;
+    fill: currentColor;
+    stroke-width: 1.6;
+  }
+
+  .table-card--left {
+    translate: 9px 7px;
+    rotate: -13deg;
+  }
+
+  .table-card--center {
+    z-index: 2;
+    color: #a3312c;
+    translate: 0 -2px;
+  }
+
+  .table-card--right {
+    translate: -9px 7px;
+    rotate: 13deg;
+  }
+
+  .club-table-subtitle {
+    max-width: 36rem;
+    margin: 1rem auto 0;
+    color: #c7d8cf;
+    font-size: 1rem;
+    line-height: 1.55;
+    text-wrap: balance;
+  }
+
+  .club-table-assurance {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.15rem;
+    color: #e0bd76;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
   }
 
   .room-code-control {
@@ -409,6 +489,13 @@
     font-weight: 600;
   }
 
+  .club-seat--upper-right .club-seat__label,
+  .club-seat--lower-right .club-seat__label,
+  .club-seat--lower-left .club-seat__label,
+  .club-seat--upper-left .club-seat__label {
+    display: none;
+  }
+
   .club-seat--occupied {
     color: #deeee5;
   }
@@ -442,7 +529,7 @@
     letter-spacing: 0.1em;
   }
 
-  .club-seat--host { top: 15%; left: 50%; }
+  .club-seat--host { top: 10%; left: 50%; }
   .club-seat--upper-right { top: 31%; left: 87%; }
   .club-seat--lower-right { top: 70%; left: 87%; }
   .club-seat--lower-center { top: 85%; left: 50%; }
@@ -484,13 +571,17 @@
 
   .table-utility-rail {
     display: flex;
-    min-height: 100%;
+    min-height: clamp(560px, calc(100dvh - 160px), 680px);
     flex-direction: column;
     gap: 1.5rem;
     border-radius: 16px;
     background-color: #111a16;
     box-shadow: 0 26px 60px rgba(0, 0, 0, 0.34), inset 0 0 0 1px #34473d;
     padding: 1.5rem;
+  }
+
+  .utility-rail-host {
+    margin-top: auto;
   }
 
   .utility-button {
@@ -920,6 +1011,10 @@
     align-items: start;
   }
 
+  .utility-rail-host {
+    margin-top: 0;
+  }
+
   .table-utility-rail .utility-divider {
     display: none;
   }
@@ -945,7 +1040,7 @@
   }
 
   .club-table-shell {
-    min-height: 680px;
+    min-height: clamp(620px, calc(100dvh - 130px), 680px);
     border-radius: 42px;
     padding: 18px;
   }
@@ -969,20 +1064,67 @@
     top: 16px;
     left: 14px;
     right: 14px;
+    gap: 0.5rem;
   }
 
+  .privacy-status,
   .connection-status {
     min-height: 32px;
-    padding: 0.4rem 0.6rem;
+    padding: 0.4rem 0.55rem;
+  }
+
+  .status-label--wide {
+    display: none;
+  }
+
+  .status-label--compact {
+    display: inline;
   }
 
   .club-table-center {
-    top: 42%;
-    width: 76%;
+    top: 43%;
+    width: 88%;
   }
 
   .club-table-title {
-    font-size: clamp(2.25rem, 12vw, 3.1rem);
+    max-width: 19rem;
+    margin-inline: auto;
+    font-size: clamp(2.25rem, 10.5vw, 2.75rem);
+    line-height: 0.96;
+  }
+
+  .table-card-fan {
+    height: 52px;
+    margin-bottom: 0.8rem;
+  }
+
+  .table-card {
+    height: 52px;
+    width: 37px;
+    border-radius: 6px;
+    padding: 0.3rem;
+  }
+
+  .table-card strong {
+    font-size: 0.75rem;
+  }
+
+  .table-card svg {
+    height: 14px;
+    width: 14px;
+  }
+
+  .club-table-subtitle {
+    max-width: 17rem;
+    margin-top: 0.8rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .club-table-assurance {
+    max-width: 15rem;
+    margin-top: 0.9rem;
+    font-size: 0.75rem;
   }
 
   .club-seat {
@@ -999,7 +1141,7 @@
     overflow: visible;
     line-height: 1.2;
     white-space: normal;
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
   }
 
   .club-seat--host { top: 17%; left: 50%; }
