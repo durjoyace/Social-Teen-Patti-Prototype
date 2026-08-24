@@ -88,7 +88,14 @@ export function App() {
 
     setSessionReady(false);
     void refreshProfile().finally(() => {
-      if (active) setSessionReady(true);
+      if (!active) return;
+      setSessionReady(true);
+
+      if (useAuthStore.getState().isAuthenticated && !socketService.isConnected) {
+        void socketService.connect().catch(() => {
+          if (active) useAuthStore.getState().setOnline(false);
+        });
+      }
     });
     return () => {
       active = false;

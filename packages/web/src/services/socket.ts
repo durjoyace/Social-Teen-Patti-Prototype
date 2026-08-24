@@ -17,6 +17,7 @@ class SocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private state: SocketConnectionState = 'offline';
+  private connectPromise: Promise<void> | null = null;
 
   get isConnected(): boolean {
     return this.socket?.connected ?? false;
@@ -33,24 +34,36 @@ class SocketService {
   }
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!SOCKET_URL) {
-        this.updateConnectionState('offline');
-        reject(new Error('The production game server is not configured'));
-        return;
-      }
-      const token = api.getToken();
-      if (!token) {
-        this.updateConnectionState('offline');
-        reject(new Error('No auth token'));
-        return;
-      }
+    if (!SOCKET_URL) {
+      this.updateConnectionState('offline');
+      return Promise.reject(new Error('The production game server is not configured'));
+    }
+    const token = api.getToken();
+    if (!token) {
+      this.updateConnectionState('offline');
+      return Promise.reject(new Error('No auth token'));
+    }
 
-      if (this.socket?.connected) {
-        this.updateConnectionState('connected');
+    if (this.socket?.connected) {
+      this.updateConnectionState('connected');
+      return Promise.resolve();
+    }
+    if (this.connectPromise) return this.connectPromise;
+
+    this.connectPromise = new Promise((resolve, reject) => {
+      let settled = false;
+      const resolveConnection = () => {
+        if (settled) return;
+        settled = true;
+        this.connectPromise = null;
         resolve();
-        return;
-      }
+      };
+      const rejectConnection = (error: Error) => {
+        if (settled) return;
+        settled = true;
+        this.connectPromise = null;
+        reject(error);
+      };
 
       this.updateConnectionState(this.socket ? 'reconnecting' : 'connecting');
 
@@ -69,7 +82,7 @@ class SocketService {
         this.reconnectAttempts = 0;
         this.updateConnectionState('connected');
         this.emit('connected');
-        resolve();
+        resolveConnection();
       });
 
       this.socket.on('disconnect', (reason) => {
@@ -83,7 +96,7 @@ class SocketService {
         this.reconnectAttempts++;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
           this.updateConnectionState('offline');
-          reject(new Error('Max reconnection attempts reached'));
+          rejectConnection(new Error('Max reconnection attempts reached'));
         } else {
           this.updateConnectionState('reconnecting');
         }
@@ -91,7 +104,10 @@ class SocketService {
       });
 
       this.socket.io.on('reconnect_attempt', () => this.updateConnectionState('reconnecting'));
-      this.socket.io.on('reconnect_failed', () => this.updateConnectionState('offline'));
+      this.socket.io.on('reconnect_failed', () => {
+        this.updateConnectionState('offline');
+        rejectConnection(new Error('Could not reconnect to the clubhouse'));
+      });
 
       // ─── Game Events ─────────────────────────────────────────────────
 
@@ -144,6 +160,8 @@ class SocketService {
         this.emit('error', data.message || 'Server error');
       });
     });
+
+    return this.connectPromise;
   }
 
   disconnect() {
@@ -151,6 +169,7 @@ class SocketService {
       this.socket.disconnect();
       this.socket = null;
     }
+    this.connectPromise = null;
     this.updateConnectionState('offline');
   }
 
