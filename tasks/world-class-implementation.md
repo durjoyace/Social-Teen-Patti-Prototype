@@ -14,5 +14,6 @@ Release gates remain separate from implemented code:
 
 - [ ] Physical iOS/Android, screen-reader, large-text and full-language review.
 - [ ] Production log dashboards, alert delivery, backup restore rehearsal and regional capacity measurements.
-- [ ] Successful current workspace dependency audit; the local pnpm audit timed out. Standalone server production audit is clean. Resolve the existing mobile dependency hold before store release.
+- [x] Blocking web/shared/server dependency audit passed from a clean checkout after fixing pnpm action-path parsing.
+- [ ] Resolve seven current mobile-only advisory sets before store release.
 - [ ] Coordinated database migration and single-coordinator rollout with matching clients.

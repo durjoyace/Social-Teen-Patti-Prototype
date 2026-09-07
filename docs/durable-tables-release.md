@@ -83,3 +83,9 @@ Physical-device sound/haptics, VoiceOver/TalkBack, native store builds, full-lan
 Earlier load runs exposed the default five-second interactive-transaction deadline; the implementation now uses an explicit 15-second limit. A later run under severe shared-machine contention exceeded that too; the final complete suite passed without weakening assertions. Runtime storage failure still rejects the command and preserves the previous committed state. Production latency and resource sizing need their own controlled measurements.
 
 The final production Docker image built successfully after a registry timeout retry. Its server engine and shared rules loaded successfully with networking disabled. The final workspace dependency gate still timed out and exited with failure status 2; it is **unverified**, not a clean audit. No deployment was performed. Temporary local web/API servers and the isolated audit database were stopped.
+
+## Deployment preparation update — 7 September 2026
+
+The blocking web/shared/server audit subsequently passed from a clean checkout. pnpm 9 places dependency paths in `actions[].resolves` when dependencies are not installed; the gate now combines those paths with `findings[].paths` and still fails closed on missing or non-mobile paths. Two additional parser tests passed. Seven advisory sets are confined to the held mobile graph; the standalone server audit reports zero vulnerabilities.
+
+The implementation and audit fix are pushed to `codex/impeccable-10`. Vercel built deployment `dpl_BNVtvixjjCvv8bh2xwn94HvxQZWX` successfully with production configuration and no live-domain assignment. Its page was verified through authenticated Vercel access. The live API remains version `3843ef6` at `teen-patti-server-production-8150.up.railway.app`. Railway CLI authentication has expired; backend migration/deployment and web promotion await sign-in. Do not promote the new client independently of that backend upgrade.
