@@ -1,3 +1,4 @@
+import { requestAck, commandId } from "../../packages/shared/src/rules/protocol.js";
 import { io } from 'socket.io-client';
 
 const baseUrl = process.env.SMOKE_BASE_URL?.replace(/\/$/, '');
@@ -34,6 +35,7 @@ async function createGuest(label, referralCode) {
   });
 }
 
+const states = new Map();
 function connectSocket(token) {
   return new Promise((resolve, reject) => {
     const socket = io(baseUrl, {
@@ -43,6 +45,7 @@ function connectSocket(token) {
       reconnection: false,
       timeout: 10_000,
     });
+    socket.on("game:state", state => states.set(socket, state));
     const timer = setTimeout(() => {
       socket.disconnect();
       reject(new Error('WebSocket connection timed out'));
@@ -59,14 +62,18 @@ function connectSocket(token) {
   });
 }
 
-function emitAck(socket, event, payload) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${event} acknowledgment timed out`)), 10_000);
-    socket.emit(event, payload, response => {
-      clearTimeout(timer);
-      resolve(response);
-    });
-  });
+const emitAck = requestAck;
+async function waitFor(predicate, description) {
+  const deadline = Date.now() + 15000;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error(`Timed out waiting for ${description}`);
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+}
+async function accepted(socket, event, payload) {
+  const response = await emitAck(socket, event, payload);
+  if (!response?.success) throw new Error(response?.error || `${event} failed`);
+  return response;
 }
 
 async function deleteGuest(guest) {
@@ -78,7 +85,7 @@ async function deleteGuest(guest) {
   });
 }
 
-const result = { health: false, ready: false, web: !webUrl, auth: !mutating, socket: !mutating, referral: !mutating, cleanup: !mutating };
+const result = { health: false, ready: false, web: !webUrl, auth: !mutating, socket: !mutating, game: !mutating, replay: !mutating, balances: !mutating, referral: !mutating, cleanup: !mutating };
 const health = await request('/health');
 if (health.status !== 'ok') throw new Error('Health response is not ok');
 result.health = true;
@@ -132,7 +139,40 @@ if (mutating) {
     const joined = await emitAck(inviteeSocket, 'room:join_by_code', { code: created.room.roomCode, buyIn: 5000 });
     if (!joined?.success) throw new Error(joined?.error || 'Friend could not join private room');
     result.socket = true;
+    const clients = [inviterSocket, inviteeSocket];
+    let previousHand;
+    for (let hand = 0; hand < 2; hand++) {
+      for (const client of clients) await accepted(client, 'room:ready', { ready: true });
+      await waitFor(() => clients.every(client => {
+        const state = states.get(client);
+        return state?.status === 'playing' && state.sessionId !== previousHand;
+      }), 'both players to receive the new hand');
+      const initial = states.get(inviterSocket);
+      previousHand = initial.sessionId;
+      for (const client of clients) {
+        const state = states.get(client);
+        if (state.players.some(player => player.cards?.length)) throw new Error('Blind cards leaked');
+      }
+      const currentId = initial.players[initial.currentPlayerIndex].id;
+      const actor = clients.find(client => states.get(client).viewerPlayerId === currentId);
+      const see = { action: 'see_cards', sessionId: previousHand, expectedVersion: initial.version, commandId: commandId() };
+      await accepted(actor, 'game:action', see);
+      await waitFor(() => clients.every(client => states.get(client)?.version > initial.version), 'accepted card reveal');
+      const revealed = states.get(actor);
+      if (revealed.players.find(player => player.id === currentId)?.cards?.length !== 3) throw new Error('See Cards did not reveal the hand');
+      const pack = { action: 'pack', sessionId: previousHand, expectedVersion: revealed.version, commandId: commandId() };
+      await accepted(actor, 'game:action', pack);
+      await accepted(actor, 'game:action', pack);
+      await waitFor(() => clients.every(client => states.get(client)?.status === 'finished'), 'settled hand');
+      if (hand === 0) result.game = true;
+      else result.replay = true;
+    }
+    for (const client of clients) await accepted(client, 'room:leave');
+    const profiles = await Promise.all([inviter, invitee].map(guest => request('/api/auth/me', { headers: { Authorization: `Bearer ${guest.token}` } })));
+    if (profiles.reduce((sum, profile) => sum + BigInt(profile.user.chips), 0n) !== BigInt(inviter.user.chips) + BigInt(invitee.user.chips)) throw new Error('Play-chip conservation failed');
+    result.balances = true;
   } finally {
+    await Promise.allSettled([inviterSocket, inviteeSocket].filter(socket => socket?.connected).map(socket => accepted(socket, "room:leave")));
     inviterSocket?.disconnect();
     inviteeSocket?.disconnect();
     const cleanupResults = await Promise.allSettled([deleteGuest(invitee), deleteGuest(inviter)]);
