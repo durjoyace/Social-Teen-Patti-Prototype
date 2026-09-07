@@ -1,3 +1,4 @@
+import { auditPaths, isMobilePath } from "./audit-paths.mjs";
 import { spawnSync } from "node:child_process";
 
 const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -39,20 +40,12 @@ if (
   process.exit(2);
 }
 
-const mobilePathPattern = /^packages\/mobile(?:\s*>|$)/;
 const blocked = [];
 let mobileOnlyCount = 0;
 
 for (const advisory of Object.values(report.advisories)) {
-  const paths = Array.isArray(advisory.findings)
-    ? advisory.findings.flatMap((finding) =>
-        Array.isArray(finding.paths) ? finding.paths : [],
-      )
-    : [];
-
-  const nonMobilePaths = paths.filter(
-    (path) => typeof path !== "string" || !mobilePathPattern.test(path.trim()),
-  );
+  const paths = auditPaths(report, advisory);
+  const nonMobilePaths = paths.filter((path) => !isMobilePath(path));
 
   if (paths.length === 0 || nonMobilePaths.length > 0) {
     blocked.push({

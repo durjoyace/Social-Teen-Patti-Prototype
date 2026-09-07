@@ -16,7 +16,7 @@
     "generate": "pnpm --filter teen-patti-server db:generate",
     "audit:web-beta": "node scripts/audit-web-beta.mjs && npm --prefix server audit --omit=dev",
     "audit:prod": "pnpm audit --prod",
-    "test": "pnpm --filter @teen-patti/brace-expansion-compat test && pnpm --filter @teen-patti/shared test && pnpm --filter teen-patti-server test",
+    "test": "node --test scripts/audit-paths.test.mjs && pnpm --filter @teen-patti/brace-expansion-compat test && pnpm --filter @teen-patti/shared test && pnpm --filter teen-patti-server test",
     "typecheck": "pnpm -r typecheck",
     "verify": "pnpm generate && pnpm test && pnpm typecheck && pnpm build"
   },
