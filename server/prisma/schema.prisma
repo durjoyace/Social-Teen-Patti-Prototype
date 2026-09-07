@@ -20,6 +20,8 @@ model User {
   isGuest       Boolean   @default(false)
   adultConfirmedAt DateTime?
 
+  equippedItems Json @default("{}")
+
   // Economy
   chips         BigInt    @default(10000)
   diamonds      Int       @default(0) // Premium currency
@@ -431,7 +433,9 @@ model DailyReward {
   amount      BigInt
   bonusAmount BigInt   @default(0) // VIP bonus
   claimedAt   DateTime @default(now())
+  rewardDay   DateTime? @db.Date
 
+  @@unique([userId, rewardDay])
   @@index([userId])
   @@unique([userId, claimedAt]) // Prevent double claim
 }
@@ -771,4 +775,34 @@ enum LeaderboardPeriod {
   WEEKLY
   MONTHLY
   ALL_TIME
+}
+
+// Private room snapshots are encrypted before storage. One replica owns commands.
+model RuntimeRoom {
+  id String @id
+  snapshot String
+  updatedAt DateTime @updatedAt
+}
+model TableReservation {
+  userId String @id
+  roomId String
+  chips BigInt
+  @@index([roomId])
+}
+model HandSettlement {
+  result String?
+  id String @id
+  roomId String
+  participants Json
+  qualified Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@index([qualified, createdAt])
+}
+model AuthSession {
+  id String @id
+  userId String
+  refreshHash String
+  expiresAt DateTime
+  revokedAt DateTime?
+  @@index([userId])
 }

@@ -1,9 +1,12 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { ReferralAttribution, User } from '../types';
-import { api } from '../services/api';
-import { socketService } from '../services/socket';
-import { clearReferralAttribution, getPendingReferralAttribution } from '../services/referralAttribution';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { ReferralAttribution, User } from "../types";
+import { api } from "../services/api";
+import { socketService } from "../services/socket";
+import {
+  clearReferralAttribution,
+  getPendingReferralAttribution,
+} from "../services/referralAttribution";
 
 interface AuthState {
   user: User | null;
@@ -15,9 +18,21 @@ interface AuthState {
 
   // Actions
   loginAsGuest: (referral?: ReferralAttribution | null) => Promise<void>;
-  loginWithCredentials: (usernameOrEmail: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string, referral?: ReferralAttribution | null) => Promise<void>;
-  upgradeAccount: (data: { username?: string; email: string; password: string }) => Promise<void>;
+  loginWithCredentials: (
+    usernameOrEmail: string,
+    password: string,
+  ) => Promise<void>;
+  register: (
+    username: string,
+    email: string,
+    password: string,
+    referral?: ReferralAttribution | null,
+  ) => Promise<void>;
+  upgradeAccount: (data: {
+    username?: string;
+    email: string;
+    password: string;
+  }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -36,10 +51,10 @@ function mapApiUser(apiUser: any): User {
     username: apiUser.username,
     email: apiUser.email,
     avatarUrl: apiUser.avatarUrl,
-    chips: parseInt(apiUser.chips || '10000'),
+    chips: parseInt(apiUser.chips || "10000"),
     totalGames: apiUser.totalGames || 0,
     gamesWon: apiUser.gamesWon || 0,
-    biggestWin: parseInt(apiUser.biggestWin || '0'),
+    biggestWin: parseInt(apiUser.biggestWin || "0"),
     currentStreak: apiUser.currentStreak || 0,
     bestStreak: apiUser.bestStreak || 0,
     level: apiUser.level || 1,
@@ -51,18 +66,23 @@ function mapApiUser(apiUser: any): User {
     diamonds: apiUser.diamonds || 0,
     beliBalance: apiUser.beliBalance || 0,
     referralCode: apiUser.referralCode || undefined,
-    vipTier: apiUser.vipTier || 'BRONZE',
+    vipTier: apiUser.vipTier || "BRONZE",
     vipPoints: apiUser.vipPoints || 0,
-    totalWinnings: parseInt(apiUser.totalWinnings || '0'),
+    totalWinnings: parseInt(apiUser.totalWinnings || "0"),
     isGuest: apiUser.isGuest ?? true,
+    equippedItems: apiUser.equippedItems ?? {},
   };
 }
 
 function authErrorMessage(error: unknown, fallback: string): string {
-  const message = error instanceof Error ? error.message.trim() : '';
+  const message = error instanceof Error ? error.message.trim() : "";
   if (!message) return fallback;
-  if (/load failed|failed to fetch|networkerror|network request failed/i.test(message)) {
-    return 'The clubhouse server could not be reached. Check your connection and try again.';
+  if (
+    /load failed|failed to fetch|networkerror|network request failed/i.test(
+      message,
+    )
+  ) {
+    return "The clubhouse server could not be reached. Check your connection and try again.";
   }
   return message;
 }
@@ -81,7 +101,10 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const pendingReferral = referral ?? getPendingReferralAttribution();
-          const { user, token } = await api.guestLogin(undefined, pendingReferral);
+          const { user, token } = await api.guestLogin(
+            undefined,
+            pendingReferral,
+          );
           const mappedUser = mapApiUser(user);
           if (pendingReferral) clearReferralAttribution();
 
@@ -89,7 +112,10 @@ export const useAuthStore = create<AuthState>()(
           try {
             await socketService.connect();
           } catch (e) {
-            console.warn('Socket connection failed, continuing in offline mode:', e);
+            console.warn(
+              "Socket connection failed, continuing in offline mode:",
+              e,
+            );
           }
 
           set({
@@ -100,7 +126,10 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: authErrorMessage(error, 'Could not open a guest seat. Please try again.'),
+            error: authErrorMessage(
+              error,
+              "Could not open a guest seat. Please try again.",
+            ),
             isLoading: false,
             isOnline: false,
           });
@@ -114,7 +143,10 @@ export const useAuthStore = create<AuthState>()(
           try {
             await socketService.connect();
           } catch (socketError) {
-            console.warn('Socket connection failed after sign in:', socketError);
+            console.warn(
+              "Socket connection failed after sign in:",
+              socketError,
+            );
           }
 
           set({
@@ -125,7 +157,10 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: authErrorMessage(error, 'Could not sign in. Check your details and try again.'),
+            error: authErrorMessage(
+              error,
+              "Could not sign in. Check your details and try again.",
+            ),
             isLoading: false,
           });
         }
@@ -135,12 +170,20 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         try {
           const pendingReferral = referral ?? getPendingReferralAttribution();
-          const { user, token } = await api.register(username, email, password, pendingReferral);
+          const { user, token } = await api.register(
+            username,
+            email,
+            password,
+            pendingReferral,
+          );
           if (pendingReferral) clearReferralAttribution();
           try {
             await socketService.connect();
           } catch (socketError) {
-            console.warn('Socket connection failed after registration:', socketError);
+            console.warn(
+              "Socket connection failed after registration:",
+              socketError,
+            );
           }
 
           set({
@@ -151,7 +194,10 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: authErrorMessage(error, 'Could not create the account. Review the form and try again.'),
+            error: authErrorMessage(
+              error,
+              "Could not create the account. Review the form and try again.",
+            ),
             isLoading: false,
           });
         }
@@ -168,13 +214,17 @@ export const useAuthStore = create<AuthState>()(
           });
         } catch (error) {
           set({
-            error: authErrorMessage(error, 'Could not save the account changes. Please try again.'),
+            error: authErrorMessage(
+              error,
+              "Could not save the account changes. Please try again.",
+            ),
             isLoading: false,
           });
         }
       },
 
       logout: () => {
+        void api.logout().catch(() => {});
         socketService.disconnect();
         api.clearTokens();
         set({
@@ -218,12 +268,12 @@ export const useAuthStore = create<AuthState>()(
       clearError: () => set({ error: null }),
     }),
     {
-      name: 'teen-patti-auth',
+      name: "teen-patti-auth",
       partialize: (state) => ({
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 );

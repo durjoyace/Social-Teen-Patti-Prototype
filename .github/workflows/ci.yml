@@ -55,6 +55,8 @@ jobs:
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm build
+        env:
+          NODE_ENV: production
       - name: Validate release configuration
         env:
           APP_ENV: production
@@ -66,11 +68,13 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('packages/mobile/eas.json'))"
           pnpm --filter @teen-patti/mobile exec expo config --type public >/dev/null
       - name: Build production server container
-        run: docker build --tag teen-patti-server:ci server
-      - name: Export mobile bundle
+        run: docker build --file server/Dockerfile --tag teen-patti-server:ci .
+      - name: Export mobile bundles
+        env:
+          NODE_ENV: production
         run: |
           pnpm --filter @teen-patti/mobile exec expo install --check
-          pnpm --filter @teen-patti/mobile exec expo export --platform android --output-dir dist-ci
+          pnpm --filter @teen-patti/mobile exec expo export --platform android --platform ios --output-dir dist-ci
       - name: Audit web and server beta runtimes
         run: pnpm audit:web-beta
       - name: Mobile store dependency gate (release held)

@@ -1,8 +1,22 @@
-import { create } from 'zustand';
-import { Card, GameRoom, GamePlayer, ActionType, ChatMessage, GameVariant } from '../types';
-import { GameState, initializeGame, processAction, getAvailableActions, distributePot } from '../game/gameEngine';
-import { socketService } from '../services/socket';
-import { useAuthStore } from './authStore';
+import type { GameView, RoomView } from "../../../shared/src/rules/protocol.js";
+import { create } from "zustand";
+import {
+  Card,
+  GameRoom,
+  GamePlayer,
+  ActionType,
+  ChatMessage,
+  GameVariant,
+} from "../types";
+import {
+  GameState,
+  initializeGame,
+  processAction,
+  getAvailableActions,
+  distributePot,
+} from "../game/gameEngine";
+import { socketService } from "../services/socket";
+import { useAuthStore } from "./authStore";
 
 interface GameStore {
   // Connection mode
@@ -14,7 +28,8 @@ interface GameStore {
 
   // Game state (unified for online/offline)
   gameState: GameState | null;
-  serverGameState: any | null; // Raw server state
+  roomSnapshot: RoomView | null;
+  serverGameState: GameView | null; // Raw server state
   myCards: Card[];
   myPlayerId: string | null;
   isMyTurn: boolean;
@@ -35,16 +50,20 @@ interface GameStore {
   // Room actions
   setRooms: (rooms: GameRoom[]) => void;
   joinRoom: (room: GameRoom) => void;
-  leaveRoom: () => void;
+  leaveRoom: () => Promise<boolean>;
   createRoom: (room: Partial<GameRoom>) => void;
 
   // Game actions (offline mode)
-  startGame: (players: { userId: string; username: string; chips: number }[], bootAmount: number, variant?: GameVariant) => void;
+  startGame: (
+    players: { userId: string; username: string; chips: number }[],
+    bootAmount: number,
+    variant?: GameVariant,
+  ) => void;
   performAction: (action: ActionType, amount?: number) => void;
 
   // Game actions (online mode)
   performOnlineAction: (action: ActionType, amount?: number) => Promise<void>;
-  updateFromServer: (serverState: any) => void;
+  updateFromServer: (serverState: GameView) => void;
 
   // Quick play
   quickPlay: () => Promise<void>;
@@ -63,6 +82,7 @@ interface GameStore {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   isOnlineMode: false,
+  roomSnapshot: null,
   currentRoom: null,
   availableRooms: [],
   gameState: null,
@@ -75,7 +95,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectedAction: null,
   betAmount: 0,
   isProcessing: false,
-  gameMessage: '',
+  gameMessage: "",
   lastAction: null,
   chatMessages: [],
   isChatOpen: false,
@@ -84,9 +104,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   joinRoom: (room) => set({ currentRoom: room }),
 
-  leaveRoom: () => {
-    if (get().isOnlineMode) {
-      socketService.leaveRoom();
+  leaveRoom: async () => {
+    if (get().currentRoom) {
+      try {
+        const result = await socketService.leaveRoom();
+        if (!result.success)
+          throw new Error(result.error || "Could not leave table");
+        if (result.pending) {
+          set({
+            gameMessage:
+              "Your hand is packed. Your remaining chips return when this hand settles.",
+          });
+          return false;
+        }
+      } catch (error) {
+        set({
+          gameMessage:
+            error instanceof Error ? error.message : "Could not leave",
+        });
+        return false;
+      }
     }
     set({
       currentRoom: null,
@@ -98,23 +135,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       availableActions: [],
       chatMessages: [],
       isOnlineMode: false,
+      roomSnapshot: null,
     });
+    return true;
   },
 
   createRoom: (roomData) => {
     const newRoom: GameRoom = {
       id: crypto.randomUUID(),
-      name: roomData.name || 'New Table',
-      variant: roomData.variant || 'classic',
+      name: roomData.name || "New Table",
+      variant: roomData.variant || "classic",
       minBuyIn: roomData.minBuyIn || 100,
       maxBuyIn: roomData.maxBuyIn || 10000,
       minBet: roomData.minBet || 10,
       maxPlayers: roomData.maxPlayers || 6,
       currentPlayers: 0,
-      status: 'waiting',
+      status: "waiting",
       isPrivate: roomData.isPrivate || false,
-      roomCode: roomData.isPrivate ? Math.random().toString(36).substring(2, 8).toUpperCase() : undefined,
-      createdBy: roomData.createdBy || '',
+      roomCode: roomData.isPrivate
+        ? Math.random().toString(36).substring(2, 8).toUpperCase()
+        : undefined,
+      createdBy: roomData.createdBy || "",
     };
     set((state) => ({
       availableRooms: [...state.availableRooms, newRoom],
@@ -124,12 +165,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ─── Offline Game (AI opponents) ─────────────────────────────────────
 
-  startGame: (players, bootAmount, variant = 'classic') => {
+  startGame: (players, bootAmount, variant = "classic") => {
     const gameState = initializeGame(
       get().currentRoom?.id || crypto.randomUUID(),
       players,
       bootAmount,
-      variant
+      variant,
     );
 
     const myPlayer = gameState.session.players[0];
@@ -142,7 +183,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isMyTurn: myPlayer.isTurn,
       availableActions,
       betAmount: gameState.session.currentBet,
-      gameMessage: 'Game started! Good luck!',
+      gameMessage: "Game started! Good luck!",
       isOnlineMode: false,
     });
   },
@@ -154,26 +195,36 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ isProcessing: true });
 
     try {
-      const currentPlayer = gameState.session.players.find(p => p.isTurn);
-      if (!currentPlayer) throw new Error('No active player');
+      const currentPlayer = gameState.session.players.find((p) => p.isTurn);
+      if (!currentPlayer) throw new Error("No active player");
 
-      const newState = processAction(gameState, currentPlayer.id, action, amount);
+      const newState = processAction(
+        gameState,
+        currentPlayer.id,
+        action,
+        amount,
+      );
       const newActions = getAvailableActions(newState);
 
       if (newState.isGameOver) {
         const winnings = distributePot(newState);
         const AI_DISPLAY_NAMES: Record<string, string> = {
-          'ai-sharma': 'Sharma Ji', 'ai-priya': 'Priya', 'ai-bunty': 'Bunty',
-          'ai-meera': 'Meera', 'ai-raja': 'Raja', 'ai-anita': 'Anita',
-          'ai-vikram': 'Vikram', 'ai-deepa': 'Deepa',
+          "ai-sharma": "Sharma Ji",
+          "ai-priya": "Priya",
+          "ai-bunty": "Bunty",
+          "ai-meera": "Meera",
+          "ai-raja": "Raja",
+          "ai-anita": "Anita",
+          "ai-vikram": "Vikram",
+          "ai-deepa": "Deepa",
         };
         const winnerNames = newState.winners
-          .map(id => {
-            const p = newState.session.players.find(pl => pl.id === id);
-            if (!p) return 'Unknown';
+          .map((id) => {
+            const p = newState.session.players.find((pl) => pl.id === id);
+            if (!p) return "Unknown";
             return AI_DISPLAY_NAMES[p.userId] || p.user?.username || p.userId;
           })
-          .join(', ');
+          .join(", ");
 
         set({
           gameState: newState,
@@ -184,7 +235,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           lastAction: { playerId: currentPlayer.id, action },
         });
       } else {
-        const nextPlayer = newState.session.players.find(p => p.isTurn);
+        const nextPlayer = newState.session.players.find((p) => p.isTurn);
         const isMyTurn = nextPlayer?.seatPosition === 0;
 
         set({
@@ -200,7 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       }
     } catch (error) {
       set({
-        gameMessage: error instanceof Error ? error.message : 'Invalid action',
+        gameMessage: error instanceof Error ? error.message : "Invalid action",
         isProcessing: false,
       });
     }
@@ -209,13 +260,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ─── Online Game (Real server) ───────────────────────────────────────
 
   performOnlineAction: async (action, amount) => {
+    if (get().isProcessing) return;
     set({ isProcessing: true });
 
     try {
       const result = await socketService.sendAction(action, amount);
       if (!result.success) {
         set({
-          gameMessage: result.error || 'Action failed',
+          gameMessage: result.error || "Action failed",
           isProcessing: false,
         });
       }
@@ -223,7 +275,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ isProcessing: false });
     } catch (error) {
       set({
-        gameMessage: error instanceof Error ? error.message : 'Connection error',
+        gameMessage:
+          error instanceof Error ? error.message : "Connection error",
         isProcessing: false,
       });
     }
@@ -248,20 +301,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       user: { id: p.odic, username: p.username } as any,
     }));
 
-    const currentUserId = useAuthStore.getState().user?.id;
-    const myPlayer = players.find(p => p.id === serverState.viewerPlayerId)
-      || players.find(p => p.userId === currentUserId)
-      || players.find(p => serverState.availableActions?.length > 0 && p.isTurn)
-      || players.find(p => p.cards && p.cards.length > 0);
+    const myPlayer = players.find((p) => p.id === serverState.viewerPlayerId);
 
     set({
       serverGameState: serverState,
+      showCards: !myPlayer?.isBlind,
       myCards: myPlayer?.cards || [],
       myPlayerId: myPlayer?.id || null,
       isMyTurn: (serverState.availableActions?.length || 0) > 0,
-      availableActions: serverState.availableActions || [],
+      availableActions: serverState.availableActions.filter(
+        (a) => a !== "see_cards",
+      ),
       isOnlineMode: true,
-      gameMessage: serverState.status === 'finished' ? 'Game Over!' : '',
+      gameMessage: serverState.status === "finished" ? "Game Over!" : "",
       // Create a compatible game state for rendering
       gameState: {
         session: {
@@ -273,7 +325,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           pot: parseInt(serverState.pot),
           currentBet: parseInt(serverState.currentBet),
           bootAmount: parseInt(serverState.bootAmount),
-          status: serverState.status === 'finished' ? 'finished' : 'playing',
+          status: serverState.status === "finished" ? "finished" : "playing",
           roundNumber: serverState.roundNumber,
           round: serverState.roundNumber,
           players,
@@ -283,7 +335,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentPlayerIndex: serverState.currentPlayerIndex,
         showdownPlayers: [],
         winners: serverState.winners || [],
-        isGameOver: serverState.status === 'finished',
+        isGameOver: serverState.status === "finished",
       } as any,
     });
   },
@@ -308,25 +360,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setSelectedAction: (action) => set({ selectedAction: action }),
   setBetAmount: (amount) => set({ betAmount: amount }),
-  toggleShowCards: () => set((state) => ({ showCards: !state.showCards })),
+  toggleShowCards: () => {
+    if (get().isProcessing) return;
+    if (get().serverGameState?.canSeeCards) {
+      set({ isProcessing: true });
+      void socketService
+        .sendAction("see_cards")
+        .then((r) => {
+          if (!r.success)
+            set({ gameMessage: r.error || "Could not see cards" });
+        })
+        .catch((e) => set({ gameMessage: e.message }))
+        .finally(() => set({ isProcessing: false }));
+    } else set((s) => ({ showCards: !s.showCards }));
+  },
 
-  resetGame: () => set({
-    gameState: null,
-    serverGameState: null,
-    myCards: [],
-    myPlayerId: null,
-    isMyTurn: false,
-    availableActions: [],
-    showCards: false,
-    selectedAction: null,
-    betAmount: 0,
-    gameMessage: '',
-    lastAction: null,
-  }),
+  resetGame: () =>
+    set({
+      gameState: null,
+      serverGameState: null,
+      myCards: [],
+      myPlayerId: null,
+      isMyTurn: false,
+      availableActions: [],
+      showCards: false,
+      selectedAction: null,
+      betAmount: 0,
+      gameMessage: "",
+      lastAction: null,
+    }),
 
-  addChatMessage: (message) => set((state) => ({
-    chatMessages: [...state.chatMessages, message],
-  })),
+  addChatMessage: (message) =>
+    set((state) => ({
+      chatMessages: [...state.chatMessages, message].slice(-100),
+    })),
 
   toggleChat: () => set((state) => ({ isChatOpen: !state.isChatOpen })),
   setGameMessage: (message) => set({ gameMessage: message }),
@@ -334,10 +401,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
 // Selectors
 export const selectCurrentPlayer = (state: GameStore) =>
-  state.gameState?.session.players.find(p => p.isTurn);
+  state.gameState?.session.players.find((p) => p.isTurn);
 
 export const selectActivePlayers = (state: GameStore) =>
-  state.gameState?.session.players.filter(p => p.status === 'playing' || p.status === 'show') || [];
+  state.gameState?.session.players.filter(
+    (p) => p.status === "playing" || p.status === "show",
+  ) || [];
 
 export const selectPot = (state: GameStore) =>
   state.gameState?.session.pot || 0;

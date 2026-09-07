@@ -1,7 +1,9 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { soundManager } from "../services/soundManager";
+import { premiumSounds } from "../services/premiumSounds";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
-type Theme = 'classic' | 'diwali' | 'holi' | 'royal';
+type Theme = "classic" | "diwali" | "holi" | "royal";
 
 interface UIState {
   // Theme
@@ -42,7 +44,7 @@ interface UIState {
 
   // Toast notifications
   toasts: Toast[];
-  addToast: (toast: Omit<Toast, 'id'>) => void;
+  addToast: (toast: Omit<Toast, "id">) => void;
   removeToast: (id: string) => void;
 
   // Animation preferences
@@ -53,7 +55,7 @@ interface UIState {
 interface Toast {
   id: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
+  type: "success" | "error" | "info" | "warning";
   duration?: number;
 }
 
@@ -61,7 +63,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
       // Theme
-      theme: 'diwali',
+      theme: "diwali",
       setTheme: (theme) => set({ theme }),
 
       // Sound
@@ -69,18 +71,22 @@ export const useUIStore = create<UIState>()(
       musicEnabled: true,
       musicVolume: 0.5,
       sfxVolume: 0.7,
-      toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
-      toggleMusic: () => set((state) => ({ musicEnabled: !state.musicEnabled })),
+      toggleSound: () =>
+        set((state) => ({ soundEnabled: !state.soundEnabled })),
+      toggleMusic: () =>
+        set((state) => ({ musicEnabled: !state.musicEnabled })),
       setMusicVolume: (volume) => set({ musicVolume: volume }),
       setSfxVolume: (volume) => set({ sfxVolume: volume }),
 
       // Haptics
       hapticsEnabled: true,
-      toggleHaptics: () => set((state) => ({ hapticsEnabled: !state.hapticsEnabled })),
+      toggleHaptics: () =>
+        set((state) => ({ hapticsEnabled: !state.hapticsEnabled })),
 
       // Notifications
       notificationsEnabled: true,
-      toggleNotifications: () => set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
+      toggleNotifications: () =>
+        set((state) => ({ notificationsEnabled: !state.notificationsEnabled })),
 
       // Tutorial
       hasSeenOnboarding: false,
@@ -93,31 +99,34 @@ export const useUIStore = create<UIState>()(
 
       // Loading
       isLoading: false,
-      loadingMessage: '',
-      setLoading: (loading, message = '') => set({ isLoading: loading, loadingMessage: message }),
+      loadingMessage: "",
+      setLoading: (loading, message = "") =>
+        set({ isLoading: loading, loadingMessage: message }),
 
       // Toasts
       toasts: [],
       addToast: (toast) => {
         const id = crypto.randomUUID();
         set((state) => ({
-          toasts: [...state.toasts, { ...toast, id }]
+          toasts: [...state.toasts, { ...toast, id }],
         }));
         // Auto remove after duration
         setTimeout(() => {
           get().removeToast(id);
         }, toast.duration || 3000);
       },
-      removeToast: (id) => set((state) => ({
-        toasts: state.toasts.filter(t => t.id !== id)
-      })),
+      removeToast: (id) =>
+        set((state) => ({
+          toasts: state.toasts.filter((t) => t.id !== id),
+        })),
 
       // Animation
       reducedMotion: false,
-      toggleReducedMotion: () => set((state) => ({ reducedMotion: !state.reducedMotion }))
+      toggleReducedMotion: () =>
+        set((state) => ({ reducedMotion: !state.reducedMotion })),
     }),
     {
-      name: 'teen-patti-ui',
+      name: "teen-patti-ui",
       partialize: (state) => ({
         theme: state.theme,
         soundEnabled: state.soundEnabled,
@@ -127,10 +136,10 @@ export const useUIStore = create<UIState>()(
         hapticsEnabled: state.hapticsEnabled,
         notificationsEnabled: state.notificationsEnabled,
         hasSeenOnboarding: state.hasSeenOnboarding,
-        reducedMotion: state.reducedMotion
-      })
-    }
-  )
+        reducedMotion: state.reducedMotion,
+      }),
+    },
+  ),
 );
 
 // Utility hooks
@@ -138,9 +147,25 @@ export const useToast = () => {
   const addToast = useUIStore((state) => state.addToast);
 
   return {
-    success: (message: string) => addToast({ message, type: 'success' }),
-    error: (message: string) => addToast({ message, type: 'error' }),
-    info: (message: string) => addToast({ message, type: 'info' }),
-    warning: (message: string) => addToast({ message, type: 'warning' })
+    success: (message: string) => addToast({ message, type: "success" }),
+    error: (message: string) => addToast({ message, type: "error" }),
+    info: (message: string) => addToast({ message, type: "info" }),
+    warning: (message: string) => addToast({ message, type: "warning" }),
   };
 };
+
+const syncAudio = (state: ReturnType<typeof useUIStore.getState>) => {
+  premiumSounds.setEnabled(state.soundEnabled);
+  premiumSounds.setVolume(state.sfxVolume);
+  soundManager.setEnabled(state.soundEnabled);
+  soundManager.setSfxVolume(state.sfxVolume);
+  soundManager.setMusicEnabled(state.musicEnabled);
+  soundManager.setMusicVolume(state.musicVolume);
+};
+syncAudio(useUIStore.getState());
+useUIStore.subscribe(syncAudio);
+
+document.addEventListener("visibilitychange", () => {
+  const state = useUIStore.getState();
+  soundManager.setMusicEnabled(!document.hidden && state.musicEnabled);
+});

@@ -44,3 +44,8 @@ Thumbs.db
 ios/
 android/
 Teen Paati/
+
+.node_modules-before-audit/
+
+.dist-before-audit/
+packages/mobile/dist-audit/

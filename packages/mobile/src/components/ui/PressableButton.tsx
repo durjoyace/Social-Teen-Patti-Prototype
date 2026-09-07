@@ -1,84 +1,62 @@
-import { type ReactNode } from 'react';
-import { StyleSheet, type ViewStyle, type TextStyle } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import * as Haptics from 'expo-haptics';
-import { APPLE_SPRING_SNAPPY } from '../../theme/animations';
-
-interface PressableButtonProps {
+import type { ReactNode } from "react";
+import { Pressable, StyleSheet, type ViewStyle } from "react-native";
+import { useHaptics } from "../../hooks/useHaptics";
+interface Props {
   children: ReactNode;
   onPress?: () => void;
   disabled?: boolean;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: "primary" | "secondary" | "danger" | "ghost";
   style?: ViewStyle;
+  accessibilityLabel?: string;
 }
-
-const variantStyles: Record<string, ViewStyle> = {
-  primary: { backgroundColor: '#d97706' },
-  secondary: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  danger: { backgroundColor: '#dc2626' },
-  ghost: { backgroundColor: 'transparent' },
+const variants: Record<string, ViewStyle> = {
+  primary: { backgroundColor: "#a9630b" },
+  secondary: {
+    backgroundColor: "#243244",
+    borderWidth: 1,
+    borderColor: "#718096",
+  },
+  danger: { backgroundColor: "#b91c1c" },
+  ghost: { backgroundColor: "transparent" },
 };
-
 export function PressableButton({
   children,
   onPress,
   disabled = false,
-  variant = 'primary',
+  variant = "primary",
   style,
-}: PressableButtonProps) {
-  const pressed = useSharedValue(false);
-
-  const gesture = Gesture.Tap()
-    .enabled(!disabled)
-    .onBegin(() => {
-      pressed.value = true;
-    })
-    .onFinalize(() => {
-      pressed.value = false;
-    })
-    .onEnd(() => {
-      if (onPress) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }
-    });
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: withSpring(pressed.value ? 0.97 : 1, APPLE_SPRING_SNAPPY) },
-    ],
-    opacity: disabled ? 0.4 : 1,
-  }));
-
+  accessibilityLabel,
+}: Props) {
+  const { onButtonPress } = useHaptics();
   return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View
-        style={[
-          styles.base,
-          variantStyles[variant],
-          style,
-          animatedStyle,
-        ]}
-      >
-        {children}
-      </Animated.View>
-    </GestureDetector>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={() => {
+        void onButtonPress();
+        onPress?.();
+      }}
+      style={({ pressed }) => [
+        styles.base,
+        variants[variant],
+        style,
+        { opacity: disabled ? 0.4 : pressed ? 0.8 : 1 },
+      ]}
+    >
+      {children}
+    </Pressable>
   );
 }
-
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 12,
-    paddingHorizontal: 20,
+    minHeight: 44,
+    minWidth: 44,
     paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

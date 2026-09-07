@@ -1310,3 +1310,14 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+[data-table-theme="monsoon-table"] { background-color: #071b36 !important; background-image: radial-gradient(ellipse at center, #163e63, #071b36) !important; }
+[data-avatar-frame="saffron-frame"] { outline: 3px solid #f5a524; outline-offset: 3px; }
+
+@media (max-width: 639px) {
+  .club-table-shell[data-active-table="true"] { min-height: 440px; }
+  .club-table-shell[data-active-table="true"] .club-seat:not(.club-seat--occupied) { display: none; }
+  .club-table-shell[data-active-table="true"] .club-table-center { top: 57%; }
+  .club-table-shell[data-active-table="true"] .club-seat--host { top: 22%; }
+  .club-table-shell[data-active-table="true"] .club-table-title { font-size: 2rem; }
+}

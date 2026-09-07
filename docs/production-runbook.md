@@ -2,7 +2,7 @@
 
 ## Release posture
 
-The repository is configured for a single real-time server replica. Rooms live in server memory; do not scale the Socket.io service horizontally until room state and Socket.io pub/sub use a shared durable/Redis-backed design. Place an edge or platform rate limit in front of the in-process limiter before a high-volume campaign.
+The repository is configured for a single real-time server replica. Rooms recover from encrypted PostgreSQL snapshots, but coordination remains single-process. Read [the durable-table release guide](durable-tables-release.md) for required draining, backup, secret preservation and migration steps; do not overlap coordinators or enable horizontal scaling. Place an edge or platform rate limit in front of the in-process limiter before a high-volume campaign.
 
 Purchases must remain disabled (`PURCHASES_ENABLED=false`, `VITE_PURCHASES_ENABLED=false`) until the responsible-play and legal gates are complete.
 
@@ -37,7 +37,7 @@ Web needs HTTPS `VITE_API_URL` and `VITE_SOCKET_URL`, `VITE_SENTRY_DSN`, an expl
 
 1. Take/verify a PostgreSQL backup and test restore evidence.
 2. Run `pnpm install --frozen-lockfile`, `pnpm audit:web-beta`, and `pnpm verify` on Node 22.
-3. Deploy `server/` to Railway from its Dockerfile. Railway runs `npm run db:deploy` as a pre-deploy command; do not run multiple application replicas. Require HTTP 200 from `/health` and database-backed `/ready`, and verify the reported `APP_VERSION`.
+3. Deploy from the repository root using `server/Dockerfile` and `server/railway.json`. Railway runs `npm run db:deploy` as a pre-deploy command; do not run multiple application replicas. Require HTTP 200 from `/health` and database-backed `/ready`, and verify the reported `APP_VERSION`.
 4. Run the non-mutating gate: `SMOKE_BASE_URL=https://<backend> SMOKE_WEB_URL=https://social-teen-patti.vercel.app pnpm smoke:production`.
 5. Run the self-cleaning auth/referral/WebSocket gate by adding `SMOKE_MUTATING=true`. It creates two guests, attributes an invite, joins both to a private table, then anonymizes both accounts in `finally` cleanup.
 6. Manually complete one multiplayer game, verify double-sided Club Points plus repeat-game idempotency, and redeem one cosmetic extra in the invite-only environment.

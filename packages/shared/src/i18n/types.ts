@@ -1,5 +1,13 @@
 /** All translation keys used in the app. Every locale file must satisfy this interface. */
 export interface TranslationKeys {
+  table_ready: string;
+  table_cancel_ready: string;
+  table_next_hand: string;
+  table_leave: string;
+  table_hide_cards: string;
+  table_ready_help: string;
+  table_late_join: string;
+
   // ── Navigation ──────────────────────────────────────────────
   nav_home: string;
   nav_profile: string;

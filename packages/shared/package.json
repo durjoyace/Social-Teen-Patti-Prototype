@@ -6,11 +6,12 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/game/*.test.ts"
+    "test": "node --import tsx --test src/game/*.test.ts src/rules/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "tsx": "^4.19.4",
     "typescript": "^5.5.4"
-  }
+  },
+  "type": "module"
 }

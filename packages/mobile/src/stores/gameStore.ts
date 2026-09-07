@@ -1,9 +1,23 @@
-import { create } from 'zustand';
-import { initializeGame, processAction, getAvailableActions, type GameState } from '@teen-patti/shared';
-import type { GameRoom, ActionType, Card, GameVariant } from '@teen-patti/shared';
-import { gameSocket } from '../services/socket';
+import type { GameView, RoomView } from "../../../shared/src/rules/protocol.js";
+import { create } from "zustand";
+import {
+  initializeGame,
+  processAction,
+  getAvailableActions,
+  type GameState,
+} from "@teen-patti/shared";
+import type {
+  GameRoom,
+  ActionType,
+  Card,
+  GameVariant,
+} from "@teen-patti/shared";
+import { gameSocket } from "../services/socket";
 
 interface GameStoreState {
+  serverGameState: GameView | null;
+  roomSnapshot: RoomView | null;
+  isProcessing: boolean;
   gameState: GameState | null;
   currentRoom: GameRoom | null;
   myCards: Card[];
@@ -17,12 +31,15 @@ interface GameStoreState {
   startQuickPlay: (userId: string, variant?: GameVariant) => void;
   performAction: (action: ActionType, amount?: number) => void;
   toggleShowCards: () => void;
-  leaveGame: () => void;
+  leaveGame: () => Promise<boolean>;
   setGameMessage: (msg: string | null) => void;
-  updateFromServer: (state: any) => void;
+  updateFromServer: (state: GameView) => void;
 }
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
+  serverGameState: null,
+  roomSnapshot: null,
+  isProcessing: false,
   gameState: null,
   currentRoom: null,
   myCards: [],
@@ -32,15 +49,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   gameMessage: null,
   isOnlineMode: false,
 
-  startQuickPlay: (userId, variant = 'classic') => {
+  startQuickPlay: (userId, variant = "classic") => {
     const players = [
-      { id: 'p1', name: 'You', isAI: false, userId },
-      { id: 'p2', name: 'Sharma Ji', isAI: true, userId: 'ai-sharma' },
-      { id: 'p3', name: 'Priya', isAI: true, userId: 'ai-priya' },
-      { id: 'p4', name: 'Bunty', isAI: true, userId: 'ai-bunty' },
+      { id: "p1", name: "You", isAI: false, userId },
+      { id: "p2", name: "Sharma Ji", isAI: true, userId: "ai-sharma" },
+      { id: "p3", name: "Priya", isAI: true, userId: "ai-priya" },
+      { id: "p4", name: "Bunty", isAI: true, userId: "ai-bunty" },
     ];
 
-    const state = initializeGame('quick-play', players as any, 10, variant);
+    const state = initializeGame("quick-play", players as any, 10, variant);
     const myPlayer = state.session.players[0];
     const actions = getAvailableActions(state);
 
@@ -50,23 +67,34 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       isMyTurn: myPlayer?.isTurn || false,
       availableActions: myPlayer?.isTurn ? actions : [],
       showCards: false,
-      gameMessage: 'Game started! Cards dealt.',
+      gameMessage: "Game started! Cards dealt.",
       isOnlineMode: false,
     });
   },
 
   performAction: (action, amount) => {
     const { gameState, isOnlineMode } = get();
-    if (!gameState) return;
+    if (!gameState || get().isProcessing) return;
 
     if (isOnlineMode) {
-      void gameSocket.action(action, amount).then(result => {
-        if (!result.success) set({ gameMessage: result.error || 'Action failed' });
-      }).catch(error => set({ gameMessage: error instanceof Error ? error.message : 'Connection error' }));
+      set({ isProcessing: true });
+      void gameSocket
+        .action(action, amount)
+        .then((result) => {
+          if (!result.success)
+            set({ gameMessage: result.error || "Action failed" });
+        })
+        .catch((error) =>
+          set({
+            gameMessage:
+              error instanceof Error ? error.message : "Connection error",
+          }),
+        )
+        .finally(() => set({ isProcessing: false }));
       return;
     }
 
-    const newState = processAction(gameState, 'p1', action, amount);
+    const newState = processAction(gameState, "p1", action, amount);
     const myPlayer = newState.session.players[0];
     const actions = getAvailableActions(newState);
 
@@ -78,12 +106,39 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     });
   },
 
-  toggleShowCards: () => set((s) => ({ showCards: !s.showCards })),
-
-  leaveGame: () => {
-    if (get().isOnlineMode) gameSocket.leave();
+  toggleShowCards: () => {
+    if (get().serverGameState?.canSeeCards) {
+      set({ isProcessing: true });
+      void gameSocket
+        .action("see_cards")
+        .then((r) => {
+          if (!r.success) throw new Error(r.error);
+        })
+        .catch((e) => set({ gameMessage: e.message }))
+        .finally(() => set({ isProcessing: false }));
+    } else set((s) => ({ showCards: !s.showCards }));
+  },
+  leaveGame: async () => {
+    try {
+      const r = await gameSocket.leave();
+      if (!r.success) throw new Error(r.error);
+      if (r.pending) {
+        set({
+          gameMessage:
+            "You packed. Your remaining chips return when this hand ends.",
+        });
+        return false;
+      }
+    } catch (e) {
+      set({
+        gameMessage: e instanceof Error ? e.message : "Could not leave table",
+      });
+      return false;
+    }
     set({
       gameState: null,
+      serverGameState: null,
+      roomSnapshot: null,
       currentRoom: null,
       myCards: [],
       isMyTurn: false,
@@ -92,6 +147,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       gameMessage: null,
       isOnlineMode: false,
     });
+    return true;
   },
 
   setGameMessage: (msg) => set({ gameMessage: msg }),
@@ -101,7 +157,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       id: player.id,
       sessionId: serverState.sessionId,
       userId: player.odic,
-      user: { id: player.odic, username: player.username },
+      user: {
+        id: player.odic,
+        username: player.username,
+      } as import("@teen-patti/shared").User,
       seatPosition: player.seatPosition,
       chipsInPlay: Number(player.chipsInPlay),
       currentBet: Number(player.currentBet),
@@ -112,8 +171,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       isDealer: player.isDealer,
       isTurn: player.isTurn,
     }));
-    const me = players.find((player: any) => Array.isArray(player.cards) && player.cards.length > 0);
+    const me = players.find(
+      (player) => player.id === serverState.viewerPlayerId,
+    );
     set({
+      serverGameState: serverState,
+      showCards: !me?.isBlind,
       gameState: {
         session: {
           id: serverState.sessionId,
@@ -124,7 +187,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           pot: Number(serverState.pot),
           currentBet: Number(serverState.currentBet),
           bootAmount: Number(serverState.bootAmount),
-          status: serverState.status === 'finished' ? 'finished' : 'playing',
+          status: serverState.status === "finished" ? "finished" : "playing",
           roundNumber: serverState.roundNumber,
           round: serverState.roundNumber,
           players,
@@ -134,13 +197,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         currentPlayerIndex: serverState.currentPlayerIndex,
         showdownPlayers: [],
         winners: serverState.winners || [],
-        isGameOver: serverState.status === 'finished',
+        isGameOver: serverState.status === "finished",
       } as GameState,
       myCards: me?.cards || [],
       isMyTurn: (serverState.availableActions?.length || 0) > 0,
-      availableActions: serverState.availableActions || [],
+      availableActions: serverState.availableActions.filter(
+        (a) => a !== "see_cards",
+      ),
       isOnlineMode: true,
-      gameMessage: serverState.status === 'finished' ? 'Game over' : null,
+      gameMessage: serverState.status === "finished" ? "Game over" : null,
     });
   },
 }));

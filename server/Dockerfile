@@ -3,16 +3,18 @@ FROM node:22-slim AS build
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
+WORKDIR /app/server
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-COPY prisma ./prisma
+COPY server/prisma ./prisma
 RUN npm run db:generate
 
-COPY tsconfig.json ./
-COPY src ./src
+COPY server/tsconfig.json ./
+COPY server/src ./src
+COPY packages/shared/src/rules /app/packages/shared/src/rules
+COPY packages/shared/package.json /app/packages/shared/package.json
 RUN npm run build
 
 FROM node:22-slim AS runtime
@@ -20,16 +22,17 @@ FROM node:22-slim AS runtime
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl \
   && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
+WORKDIR /app/server
 ENV NODE_ENV=production
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY server/package.json server/package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
 
-COPY prisma ./prisma
+COPY server/prisma ./prisma
 RUN npm run db:generate
 
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/server/dist ./dist
+COPY --from=build /app/packages /app/packages
 
 USER node
 EXPOSE 3001

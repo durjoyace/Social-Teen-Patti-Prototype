@@ -1,18 +1,46 @@
-import { Card, createDeck, shuffleDeck, dealToPlayers } from './deck.js';
-import { evaluateHand, compareHands, findWinners, HandResult, GameVariant } from './handRanking.js';
-import crypto from 'node:crypto';
+import { type Card, createDeck, shuffleDeck, dealToPlayers } from "./deck.js";
+import {
+  evaluateHand,
+  compareHands,
+  findWinners,
+  type HandResult,
+  type GameVariant,
+} from "./handRanking.js";
+import crypto from "node:crypto";
+import type {
+  GameView,
+  PlayerAction,
+} from "../../../packages/shared/src/rules/protocol.js";
+import { SUPPORTED_VARIANTS } from "../../../packages/shared/src/rules/ranking.js";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-export type PlayerStatus = 'waiting' | 'playing' | 'folded' | 'all_in' | 'show' | 'disconnected';
-export type ActionType = 'boot' | 'blind' | 'chaal' | 'raise' | 'pack' | 'show' | 'sideshow' | 'sideshow_accept' | 'sideshow_reject' | 'timeout';
+export type PlayerStatus =
+  | "waiting"
+  | "playing"
+  | "folded"
+  | "all_in"
+  | "show"
+  | "disconnected";
+export type ActionType =
+  | "see_cards"
+  | "boot"
+  | "blind"
+  | "chaal"
+  | "raise"
+  | "pack"
+  | "show"
+  | "sideshow"
+  | "sideshow_accept"
+  | "sideshow_reject"
+  | "timeout";
 
 export interface PlayerState {
-  id: string;        // Player session ID
-  odic: string;      // User ID
+  id: string; // Player session ID
+  odic: string; // User ID
   username: string;
   seatPosition: number;
-  chips: bigint;      // Total chips brought to table
+  chips: bigint; // Total chips brought to table
   chipsInPlay: bigint; // Current chips
   currentBet: bigint;
   cards: Card[];
@@ -28,6 +56,7 @@ export interface PlayerState {
 
 export interface GameState {
   sessionId: string;
+  version: number;
   roomId: string;
   variant: GameVariant;
 
@@ -41,14 +70,14 @@ export interface GameState {
   currentBet: bigint;
   bootAmount: bigint;
   minBet: bigint;
-  chalLimit: number;  // Max chaal rounds (0 = unlimited)
+  chalLimit: number; // Max chaal rounds (0 = unlimited)
   roundNumber: number;
 
   // Cards
   deck: Card[];
 
   // State
-  status: 'dealing' | 'playing' | 'showdown' | 'finished';
+  status: "dealing" | "playing" | "showdown" | "finished";
   winners: string[];
   showdownPlayers: string[];
   sideshowPending?: { requesterId: string; targetId: string };
@@ -91,12 +120,21 @@ export function initializeGame(
     chips: bigint;
     isBot?: boolean;
     botPersonality?: string;
-  }>
+  }>,
 ): GameState {
   if (players.length < 2 || players.length > 9) {
     throw new Error(`Invalid player count: ${players.length}. Must be 2-9.`);
   }
 
+  if (!SUPPORTED_VARIANTS.includes(config.variant))
+    throw new Error("This variant is not available yet");
+  if (
+    config.bootAmount <= 0n ||
+    players.some((p) => p.chips <= config.bootAmount)
+  )
+    throw new Error("Buy-in must exceed the boot");
+  if (new Set(players.map((p) => p.userId)).size !== players.length)
+    throw new Error("Duplicate player");
   const deck = shuffleDeck(createDeck());
   const { hands, remaining } = dealToPlayers(deck, players.length, 3);
   const sessionId = crypto.randomUUID();
@@ -111,7 +149,7 @@ export function initializeGame(
     chipsInPlay: p.chips - config.bootAmount,
     currentBet: config.bootAmount,
     cards: hands[index],
-    status: 'playing' as PlayerStatus,
+    status: "playing" as PlayerStatus,
     isBlind: true,
     isDealer: index === dealerIndex,
     isTurn: false,
@@ -127,6 +165,7 @@ export function initializeGame(
 
   return {
     sessionId,
+    version: 0,
     roomId: config.roomId,
     variant: config.variant,
     players: gamePlayers,
@@ -136,10 +175,10 @@ export function initializeGame(
     currentBet: config.bootAmount,
     bootAmount: config.bootAmount,
     minBet: config.minBet,
-    chalLimit: config.chalLimit ?? 0,
+    chalLimit: config.chalLimit ?? 50,
     roundNumber: 1,
     deck: remaining,
-    status: 'playing',
+    status: "playing",
     winners: [],
     showdownPlayers: [],
     turnStartedAt: now,
@@ -152,51 +191,51 @@ export function initializeGame(
 // ─── Helper Functions ──────────────────────────────────────────────────────
 
 export function getActivePlayers(state: GameState): PlayerState[] {
-  return state.players.filter(p => p.status === 'playing' || p.status === 'show');
+  return state.players.filter(
+    (p) => p.status === "playing" || p.status === "show",
+  );
 }
 
 export function getCurrentPlayer(state: GameState): PlayerState | null {
   const player = state.players[state.currentPlayerIndex];
-  if (!player || player.status !== 'playing') return null;
+  if (!player || player.status !== "playing") return null;
   return player;
 }
 
-function calculateBetAmount(state: GameState, player: PlayerState, isRaise = false): bigint {
+function calculateBetAmount(
+  state: GameState,
+  player: PlayerState,
+  isRaise = false,
+): bigint {
   const base = player.isBlind ? state.currentBet : state.currentBet * 2n;
   return isRaise ? base * 2n : base;
 }
 
-export function getAvailableActions(state: GameState): ActionType[] {
+export function getAvailableActions(
+  state: GameState,
+  viewerId?: string,
+): ActionType[] {
+  if (state.status !== "playing") return [];
+  if (state.sideshowPending)
+    return viewerId === state.sideshowPending.targetId
+      ? ["sideshow_accept", "sideshow_reject"]
+      : [];
   const player = getCurrentPlayer(state);
-  if (!player || state.status !== 'playing') return [];
-
-  const actions: ActionType[] = ['pack'];
-  const activePlayers = getActivePlayers(state);
-
-  if (player.isBlind) {
-    actions.push('blind');
+  if (!player || (viewerId && player.id !== viewerId)) return [];
+  const actions: ActionType[] = ["pack"];
+  const base = calculateBetAmount(state, player);
+  if (player.chipsInPlay >= base)
+    actions.push(player.isBlind ? "blind" : "chaal");
+  if (player.chipsInPlay >= base * 2n) actions.push("raise");
+  const active = getActivePlayers(state);
+  if (!player.isBlind && player.chipsInPlay >= base) {
+    if (active.length === 2) actions.push("show");
+    else if (
+      active.length > 2 &&
+      findPreviousActivePlayer(state)?.isBlind === false
+    )
+      actions.push("sideshow");
   }
-  actions.push('chaal');
-
-  // Raise
-  const raiseAmount = calculateBetAmount(state, player, true);
-  if (player.chipsInPlay >= raiseAmount) {
-    actions.push('raise');
-  }
-
-  // Show — only with 2 players, and current player must be seen
-  if (activePlayers.length === 2 && !player.isBlind) {
-    actions.push('show');
-  }
-
-  // Sideshow — more than 2 players, both current and previous must be seen
-  if (activePlayers.length > 2 && !player.isBlind) {
-    const prevActive = findPreviousActivePlayer(state);
-    if (prevActive && !prevActive.isBlind) {
-      actions.push('sideshow');
-    }
-  }
-
   return actions;
 }
 
@@ -205,7 +244,7 @@ function findPreviousActivePlayer(state: GameState): PlayerState | null {
   let idx = (currentPlayerIndex - 1 + players.length) % players.length;
   let attempts = 0;
   while (attempts < players.length) {
-    if (players[idx].status === 'playing') return players[idx];
+    if (players[idx].status === "playing") return players[idx];
     idx = (idx - 1 + players.length) % players.length;
     attempts++;
   }
@@ -213,17 +252,19 @@ function findPreviousActivePlayer(state: GameState): PlayerState | null {
 }
 
 function moveToNextPlayer(state: GameState): GameState {
-  const newPlayers = state.players.map(p => ({ ...p, isTurn: false }));
+  const newPlayers = state.players.map((p) => ({ ...p, isTurn: false }));
   let nextIndex = (state.currentPlayerIndex + 1) % state.players.length;
   let attempts = 0;
 
   while (attempts < state.players.length) {
-    if (newPlayers[nextIndex].status === 'playing') {
+    if (newPlayers[nextIndex].status === "playing") {
       newPlayers[nextIndex].isTurn = true;
       return {
         ...state,
         players: newPlayers,
         currentPlayerIndex: nextIndex,
+        roundNumber:
+          state.roundNumber + (nextIndex <= state.currentPlayerIndex ? 1 : 0),
         turnStartedAt: Date.now(),
       };
     }
@@ -235,11 +276,11 @@ function moveToNextPlayer(state: GameState): GameState {
 }
 
 function resolveShowdown(state: GameState): GameState {
-  const showdownPlayers = state.players.filter(p =>
-    state.showdownPlayers.includes(p.id) || p.status === 'playing'
+  const showdownPlayers = state.players.filter(
+    (p) => state.showdownPlayers.includes(p.id) || p.status === "playing",
   );
 
-  const hands = showdownPlayers.map(p => {
+  const hands = showdownPlayers.map((p) => {
     const hand = evaluateHand(p.cards, state.variant);
     return { playerId: p.id, hand };
   });
@@ -249,9 +290,10 @@ function resolveShowdown(state: GameState): GameState {
   const remainder = state.pot % BigInt(winnerIds.length);
 
   // Update winner chips
-  const newPlayers = state.players.map(p => {
+  const newPlayers = state.players.map((p) => {
     if (winnerIds.includes(p.id)) {
-      const winAmount = p.id === winnerIds[0] ? potPerWinner + remainder : potPerWinner;
+      const winAmount =
+        p.id === winnerIds[0] ? potPerWinner + remainder : potPerWinner;
       return {
         ...p,
         chipsInPlay: p.chipsInPlay + winAmount,
@@ -260,7 +302,10 @@ function resolveShowdown(state: GameState): GameState {
     }
     return {
       ...p,
-      handResult: p.status !== 'folded' ? evaluateHand(p.cards, state.variant) : undefined,
+      handResult:
+        p.status !== "folded"
+          ? evaluateHand(p.cards, state.variant)
+          : undefined,
     };
   });
 
@@ -268,7 +313,7 @@ function resolveShowdown(state: GameState): GameState {
     ...state,
     players: newPlayers,
     winners: winnerIds,
-    status: 'finished',
+    status: "finished",
     endedAt: Date.now(),
   };
 }
@@ -279,171 +324,163 @@ export function processAction(
   state: GameState,
   playerId: string,
   action: ActionType,
-  amount?: bigint
+  amount?: bigint,
 ): GameState {
-  // Validate it's this player's turn
-  const playerIndex = state.players.findIndex(p => p.id === playerId);
-  if (playerIndex === -1) throw new Error('Player not found in this game');
-
-  const player = state.players[playerIndex];
-
-  // Handle sideshow responses from target player (not their turn)
-  if (action === 'sideshow_accept' || action === 'sideshow_reject') {
+  if (state.status !== "playing")
+    throw new Error("Game is not in playing state");
+  const index = state.players.findIndex((p) => p.id === playerId);
+  if (index < 0 || state.players[index].status !== "playing")
+    throw new Error("Player cannot act");
+  const player = state.players[index];
+  if (action === "see_cards") {
+    if (state.sideshowPending)
+      throw new Error("Wait for the sideshow response");
+    if (!player.isBlind) return state;
+    const next = deepCloneState(state);
+    next.version++;
+    next.players[index].isBlind = false;
+    next.actions.push({
+      playerId,
+      action,
+      roundNumber: state.roundNumber,
+      timestamp: Date.now(),
+    });
+    return next;
+  }
+  if (!getAvailableActions(state, playerId).includes(action))
+    throw new Error("Action is not available");
+  if (action === "sideshow_accept" || action === "sideshow_reject")
     return processSideshowResponse(state, playerId, action);
-  }
-
-  if (!player.isTurn) throw new Error('Not your turn');
-  if (player.status !== 'playing') throw new Error('Player cannot act');
-  if (state.status !== 'playing') throw new Error('Game is not in playing state');
-
-  // Validate action is available
-  const available = getAvailableActions(state);
-  if (!available.includes(action)) {
-    throw new Error(`Action '${action}' is not available. Available: ${available.join(', ')}`);
-  }
-
-  let newState = deepCloneState(state);
-  const newPlayer = newState.players[playerIndex];
-
-  const gameAction: GameAction = {
+  let next = deepCloneState(state);
+  next.version++;
+  const actor = next.players[index];
+  const entry: GameAction = {
     playerId,
     action,
-    amount,
     roundNumber: state.roundNumber,
     timestamp: Date.now(),
   };
-
-  switch (action) {
-    case 'blind': {
-      const betAmount = amount ?? calculateBetAmount(state, player);
-      if (betAmount > newPlayer.chipsInPlay) throw new Error('Not enough chips');
-      newPlayer.currentBet += betAmount;
-      newPlayer.chipsInPlay -= betAmount;
-      newPlayer.isBlind = true;
-      newState.pot += betAmount;
-      newState.currentBet = bigintMax(newState.currentBet, betAmount);
-      gameAction.amount = betAmount;
-      break;
+  if (action === "pack") {
+    actor.status = "folded";
+    actor.isTurn = false;
+  } else {
+    const cost = calculateBetAmount(state, player, action === "raise");
+    if (amount !== undefined && amount !== cost)
+      throw new Error(`This action costs ${cost} chips`);
+    if (cost <= 0n || cost > actor.chipsInPlay)
+      throw new Error("Not enough chips");
+    actor.currentBet += cost;
+    actor.chipsInPlay -= cost;
+    next.pot += cost;
+    entry.amount = cost;
+    if (action === "raise") next.currentBet = state.currentBet * 2n;
+    if (action === "show") {
+      next.showdownPlayers = getActivePlayers(next).map((p) => p.id);
+      next = resolveShowdown(next);
     }
-
-    case 'chaal': {
-      const betAmount = amount ?? calculateBetAmount(state, player);
-      if (betAmount > newPlayer.chipsInPlay) throw new Error('Not enough chips');
-      newPlayer.currentBet += betAmount;
-      newPlayer.chipsInPlay -= betAmount;
-      newPlayer.isBlind = false;
-      newState.pot += betAmount;
-      newState.currentBet = bigintMax(newState.currentBet, betAmount / 2n);
-      gameAction.amount = betAmount;
-      break;
-    }
-
-    case 'raise': {
-      const betAmount = amount ?? calculateBetAmount(state, player, true);
-      if (betAmount > newPlayer.chipsInPlay) throw new Error('Not enough chips');
-      newPlayer.currentBet += betAmount;
-      newPlayer.chipsInPlay -= betAmount;
-      newPlayer.isBlind = false;
-      newState.pot += betAmount;
-      newState.currentBet = betAmount / 2n;
-      gameAction.amount = betAmount;
-      break;
-    }
-
-    case 'pack': {
-      newPlayer.status = 'folded';
-      newPlayer.isTurn = false;
-      break;
-    }
-
-    case 'show': {
-      const activePlayers = getActivePlayers(newState);
-      if (activePlayers.length !== 2) throw new Error('Show requires exactly 2 active players');
-
-      // Pay show cost (same as chaal)
-      const showCost = calculateBetAmount(state, player);
-      if (showCost > newPlayer.chipsInPlay) throw new Error('Not enough chips for show');
-      newPlayer.currentBet += showCost;
-      newPlayer.chipsInPlay -= showCost;
-      newPlayer.isBlind = false;
-      newState.pot += showCost;
-      gameAction.amount = showCost;
-
-      newPlayer.status = 'show';
-      newState.showdownPlayers = activePlayers.map(p => p.id);
-      newState.status = 'showdown';
-      newState = resolveShowdown(newState);
-      break;
-    }
-
-    case 'sideshow': {
-      const prevPlayer = findPreviousActivePlayer(newState);
-      if (!prevPlayer) throw new Error('No previous active player for sideshow');
-      if (player.isBlind || prevPlayer.isBlind) throw new Error('Both must be seen for sideshow');
-
-      // Pay sideshow cost
-      const sideshowCost = calculateBetAmount(state, player);
-      if (sideshowCost > newPlayer.chipsInPlay) throw new Error('Not enough chips');
-      newPlayer.currentBet += sideshowCost;
-      newPlayer.chipsInPlay -= sideshowCost;
-      newState.pot += sideshowCost;
-      gameAction.amount = sideshowCost;
-
-      // Set pending sideshow — target player must accept/reject
-      newState.sideshowPending = {
+    if (action === "sideshow") {
+      next.sideshowPending = {
         requesterId: playerId,
-        targetId: prevPlayer.id,
+        targetId: findPreviousActivePlayer(next)!.id,
       };
-
-      newState.actions.push(gameAction);
-      return newState; // Don't move to next player yet
-    }
-
-    case 'timeout': {
-      // Auto-fold on timeout
-      newPlayer.status = 'folded';
-      newPlayer.isTurn = false;
-      break;
+      next.turnStartedAt = Date.now();
+      next.actions.push(entry);
+      return next;
     }
   }
-
-  newState.actions.push(gameAction);
-
-  // Check for winner by last standing
-  const activePlayers = getActivePlayers(newState);
-  if (activePlayers.length === 1 && newState.status !== 'finished') {
-    // Last player standing wins
-    const winner = activePlayers[0];
-    const winnerIndex = newState.players.findIndex(p => p.id === winner.id);
-    newState.players[winnerIndex].chipsInPlay += newState.pot;
-    newState.winners = [winner.id];
-    newState.status = 'finished';
-    newState.endedAt = Date.now();
-  } else if (newState.status !== 'finished') {
-    // Increment round if we've gone around the table
-    newState = moveToNextPlayer(newState);
-
-    // Check chal limit
-    if (newState.chalLimit > 0 && newState.roundNumber >= newState.chalLimit) {
-      // Force showdown
-      newState.status = 'showdown';
-      newState.showdownPlayers = getActivePlayers(newState).map(p => p.id);
-      newState = resolveShowdown(newState);
-    }
-  }
-
-  return newState;
+  next.actions.push(entry);
+  return finishOrAdvance(next);
 }
 
-function processSideshowResponse(state: GameState, playerId: string, action: 'sideshow_accept' | 'sideshow_reject'): GameState {
-  if (!state.sideshowPending) throw new Error('No pending sideshow');
-  if (state.sideshowPending.targetId !== playerId) throw new Error('Not the sideshow target');
+function finishOrAdvance(state: GameState): GameState {
+  if (state.status === "finished") return state;
+  const active = getActivePlayers(state);
+  if (active.length === 1) {
+    active[0].chipsInPlay += state.pot;
+    state.winners = [active[0].id];
+    state.status = "finished";
+    state.endedAt = Date.now();
+    state.players.forEach((p) => {
+      p.isTurn = false;
+    });
+    return state;
+  }
+  const next = moveToNextPlayer(state);
+  if (next.chalLimit > 0 && next.roundNumber > next.chalLimit) {
+    next.showdownPlayers = getActivePlayers(next).map((p) => p.id);
+    return resolveShowdown(next);
+  }
+  return next;
+}
+
+/** Internal command only. The transport must never expose it as a player action. */
+export function processTimeout(state: GameState): GameState {
+  if (state.sideshowPending)
+    return processSideshowResponse(
+      state,
+      state.sideshowPending.targetId,
+      "sideshow_reject",
+    );
+  const player = getCurrentPlayer(state);
+  if (!player) throw new Error("No current player");
+  const next = processAction(state, player.id, "pack");
+  next.actions[next.actions.length - 1].action = "timeout";
+  return next;
+}
+
+/** A leaving player forfeits only their committed chips; other turns retain their deadline. */
+export function removeFromHand(state: GameState, playerId: string): GameState {
+  if (state.status !== "playing") return state;
+  let next = deepCloneState(state);
+  const player = next.players.find((p) => p.id === playerId);
+  if (!player || player.status !== "playing") return state;
+  if (
+    next.sideshowPending &&
+    [next.sideshowPending.targetId, next.sideshowPending.requesterId].includes(
+      playerId,
+    )
+  ) {
+    next = processSideshowResponse(
+      next,
+      next.sideshowPending.targetId,
+      "sideshow_reject",
+    );
+  }
+  const actor = next.players.find((p) => p.id === playerId)!;
+  const wasTurn = actor.isTurn;
+  actor.status = "folded";
+  actor.isTurn = false;
+  next.version++;
+  next.actions.push({
+    playerId,
+    action: "pack",
+    roundNumber: next.roundNumber,
+    timestamp: Date.now(),
+    metadata: { left: true },
+  });
+  if (wasTurn || getActivePlayers(next).length === 1)
+    return finishOrAdvance(next);
+  return next;
+}
+
+function processSideshowResponse(
+  state: GameState,
+  playerId: string,
+  action: "sideshow_accept" | "sideshow_reject",
+): GameState {
+  if (state.status !== "playing") throw new Error("Game is finished");
+  if (!state.sideshowPending) throw new Error("No pending sideshow");
+  if (state.sideshowPending.targetId !== playerId)
+    throw new Error("Not the sideshow target");
 
   let newState = deepCloneState(state);
+  newState.version++;
   const { requesterId, targetId } = newState.sideshowPending!;
 
-  const requesterIndex = newState.players.findIndex(p => p.id === requesterId);
-  const targetIndex = newState.players.findIndex(p => p.id === targetId);
+  const requesterIndex = newState.players.findIndex(
+    (p) => p.id === requesterId,
+  );
+  const targetIndex = newState.players.findIndex((p) => p.id === targetId);
 
   const gameAction: GameAction = {
     playerId,
@@ -452,11 +489,11 @@ function processSideshowResponse(state: GameState, playerId: string, action: 'si
     timestamp: Date.now(),
   };
 
-  if (action === 'sideshow_reject') {
+  if (action === "sideshow_reject") {
     // Sideshow rejected — continue game, requester already paid
     newState.sideshowPending = undefined;
     newState.actions.push(gameAction);
-    newState = moveToNextPlayer(newState);
+    newState = finishOrAdvance(newState);
     return newState;
   }
 
@@ -470,10 +507,10 @@ function processSideshowResponse(state: GameState, playerId: string, action: 'si
 
   if (cmp <= 0) {
     // Requester loses or ties (tie = requester loses in sideshow)
-    newState.players[requesterIndex].status = 'folded';
+    newState.players[requesterIndex].status = "folded";
   } else {
     // Target loses
-    newState.players[targetIndex].status = 'folded';
+    newState.players[targetIndex].status = "folded";
   }
 
   gameAction.metadata = {
@@ -487,13 +524,13 @@ function processSideshowResponse(state: GameState, playerId: string, action: 'si
   const active = getActivePlayers(newState);
   if (active.length === 1) {
     const winner = active[0];
-    const winnerIdx = newState.players.findIndex(p => p.id === winner.id);
+    const winnerIdx = newState.players.findIndex((p) => p.id === winner.id);
     newState.players[winnerIdx].chipsInPlay += newState.pot;
     newState.winners = [winner.id];
-    newState.status = 'finished';
+    newState.status = "finished";
     newState.endedAt = Date.now();
   } else {
-    newState = moveToNextPlayer(newState);
+    newState = finishOrAdvance(newState);
   }
 
   return newState;
@@ -504,12 +541,14 @@ function processSideshowResponse(state: GameState, playerId: string, action: 'si
 function deepCloneState(state: GameState): GameState {
   return {
     ...state,
-    players: state.players.map(p => ({ ...p, cards: [...p.cards] })),
+    players: state.players.map((p) => ({ ...p, cards: [...p.cards] })),
     deck: [...state.deck],
     winners: [...state.winners],
     showdownPlayers: [...state.showdownPlayers],
     actions: [...state.actions],
-    sideshowPending: state.sideshowPending ? { ...state.sideshowPending } : undefined,
+    sideshowPending: state.sideshowPending
+      ? { ...state.sideshowPending }
+      : undefined,
   };
 }
 
@@ -518,13 +557,32 @@ function bigintMax(a: bigint, b: bigint): bigint {
 }
 
 /** Get sanitized state for a specific player (hide other players' cards) */
-export function getPlayerView(state: GameState, playerId: string): Record<string, unknown> {
+export function getPlayerView(state: GameState, playerId: string): GameView {
   return {
     viewerPlayerId: playerId,
     sessionId: state.sessionId,
+    version: state.version,
+    serverTime: Date.now(),
+    canSeeCards:
+      state.status === "playing" &&
+      !state.sideshowPending &&
+      state.players.some(
+        (p) => p.id === playerId && p.isBlind && p.status === "playing",
+      ),
     roomId: state.roomId,
     variant: state.variant,
     status: state.status,
+    payouts:
+      state.status === "finished"
+        ? Object.fromEntries(
+            state.players
+              .filter((p) => state.winners.includes(p.id))
+              .map((p) => [
+                p.id,
+                (p.chipsInPlay - p.chips + p.currentBet).toString(),
+              ]),
+          )
+        : {},
     pot: state.pot.toString(),
     currentBet: state.currentBet.toString(),
     bootAmount: state.bootAmount.toString(),
@@ -535,7 +593,7 @@ export function getPlayerView(state: GameState, playerId: string): Record<string
     sideshowPending: state.sideshowPending,
     turnStartedAt: state.turnStartedAt,
     turnTimeoutMs: state.turnTimeoutMs,
-    players: state.players.map(p => ({
+    players: state.players.map((p) => ({
       id: p.id,
       odic: p.odic,
       username: p.username,
@@ -548,16 +606,26 @@ export function getPlayerView(state: GameState, playerId: string): Record<string
       isTurn: p.isTurn,
       isBot: p.isBot,
       // Only show cards to the player themselves, or during showdown/finished
-      cards: (p.id === playerId || state.status === 'finished' || state.status === 'showdown')
-        ? p.cards
-        : undefined,
-      handResult: (state.status === 'finished' || state.status === 'showdown')
-        ? p.handResult
-        : (p.id === playerId ? evaluateHand(p.cards, state.variant) : undefined),
+      cards:
+        (p.id === playerId && !p.isBlind) ||
+        ((state.status === "finished" || state.status === "showdown") &&
+          state.showdownPlayers.includes(p.id))
+          ? p.cards
+          : undefined,
+      handResult:
+        state.status === "finished" || state.status === "showdown"
+          ? p.handResult
+          : p.id === playerId && !p.isBlind
+            ? evaluateHand(p.cards, state.variant)
+            : undefined,
     })),
-    availableActions: getCurrentPlayer(state)?.id === playerId
-      ? getAvailableActions(state)
-      : [],
+    availableActions: getAvailableActions(state, playerId) as PlayerAction[],
+    lastAction: state.actions.length
+      ? {
+          ...state.actions[state.actions.length - 1],
+          amount: state.actions[state.actions.length - 1].amount?.toString(),
+        }
+      : null,
   };
 }
 

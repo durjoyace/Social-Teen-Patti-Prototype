@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Star, Sparkles, Crown, Coins } from 'lucide-react';
-import { cn } from '../utils/cn';
-import { formatChips } from '../game/gameEngine';
-import { HandRank } from '../types';
-import { getHandRankName } from '../game/handRanking';
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Trophy, Star, Sparkles, Crown, Coins } from "lucide-react";
+import { cn } from "../utils/cn";
+import { formatChips } from "../game/gameEngine";
+import { HandRank } from "../types";
+import { getHandRankName } from "../game/handRanking";
 
 // Confetti particle
 interface Particle {
@@ -17,7 +17,16 @@ interface Particle {
   delay: number;
 }
 
-const COLORS = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'];
+const COLORS = [
+  "#FFD700",
+  "#FF6B6B",
+  "#4ECDC4",
+  "#45B7D1",
+  "#96CEB4",
+  "#FFEAA7",
+  "#DDA0DD",
+  "#98D8C8",
+];
 
 function generateParticles(count: number): Particle[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -27,12 +36,18 @@ function generateParticles(count: number): Particle[] {
     rotation: Math.random() * 360,
     scale: 0.5 + Math.random() * 0.5,
     color: COLORS[Math.floor(Math.random() * COLORS.length)],
-    delay: Math.random() * 0.5
+    delay: Math.random() * 0.5,
   }));
 }
 
 // Confetti component
-export function Confetti({ isActive, duration = 3000 }: { isActive: boolean; duration?: number }) {
+export function Confetti({
+  isActive,
+  duration = 3000,
+}: {
+  isActive: boolean;
+  duration?: number;
+}) {
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
@@ -51,20 +66,20 @@ export function Confetti({ isActive, duration = 3000 }: { isActive: boolean; dur
             key={particle.id}
             initial={{
               x: `${particle.x}vw`,
-              y: '-10vh',
+              y: "-10vh",
               rotate: 0,
-              scale: particle.scale
+              scale: particle.scale,
             }}
             animate={{
-              y: '110vh',
+              y: "110vh",
               rotate: particle.rotation + 720,
-              x: `${particle.x + (Math.random() - 0.5) * 20}vw`
+              x: `${particle.x + (Math.random() - 0.5) * 20}vw`,
             }}
             exit={{ opacity: 0 }}
             transition={{
               duration: 2 + Math.random() * 2,
               delay: particle.delay,
-              ease: 'linear'
+              ease: "linear",
             }}
             className="absolute"
           >
@@ -81,14 +96,20 @@ export function Confetti({ isActive, duration = 3000 }: { isActive: boolean; dur
 
 // Fireworks effect
 export function Fireworks({ isActive }: { isActive: boolean }) {
-  const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>(
+    [],
+  );
 
   useEffect(() => {
     if (isActive) {
       const interval = setInterval(() => {
-        setBursts(prev => [
+        setBursts((prev) => [
           ...prev.slice(-5),
-          { id: Date.now(), x: 20 + Math.random() * 60, y: 20 + Math.random() * 40 }
+          {
+            id: Date.now(),
+            x: 20 + Math.random() * 60,
+            y: 20 + Math.random() * 40,
+          },
         ]);
       }, 300);
 
@@ -124,9 +145,9 @@ export function Fireworks({ isActive }: { isActive: boolean }) {
                 animate={{
                   scale: [0, 1, 0],
                   x: Math.cos((i * 30 * Math.PI) / 180) * 80,
-                  y: Math.sin((i * 30 * Math.PI) / 180) * 80
+                  y: Math.sin((i * 30 * Math.PI) / 180) * 80,
                 }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
                 className="absolute w-2 h-2 rounded-full"
                 style={{ backgroundColor: COLORS[i % COLORS.length] }}
               />
@@ -143,7 +164,7 @@ interface WinnerCelebrationProps {
   isVisible: boolean;
   winnerName: string;
   amount: number;
-  handRank: HandRank;
+  handRank?: HandRank;
   onClose: () => void;
 }
 
@@ -152,7 +173,7 @@ export function WinnerCelebration({
   winnerName,
   amount,
   handRank,
-  onClose
+  onClose,
 }: WinnerCelebrationProps) {
   return (
     <AnimatePresence>
@@ -174,7 +195,7 @@ export function WinnerCelebration({
               initial={{ scale: 0, rotate: -10 }}
               animate={{ scale: 1, rotate: 0 }}
               exit={{ scale: 0, rotate: 10 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
               onClick={(e) => e.stopPropagation()}
               className="relative p-8 max-w-sm mx-4"
             >
@@ -186,8 +207,8 @@ export function WinnerCelebration({
                 {/* Shine effect */}
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                  animate={{ x: ['-200%', '200%'] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+                  animate={{ x: ["-200%", "200%"] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
                 />
 
                 {/* Trophy */}
@@ -211,12 +232,17 @@ export function WinnerCelebration({
                         key={i}
                         initial={{ scale: 0 }}
                         animate={{ scale: [0, 1, 0] }}
-                        transition={{ delay: 0.5 + i * 0.1, duration: 1, repeat: Infinity, repeatDelay: 1 }}
+                        transition={{
+                          delay: 0.5 + i * 0.1,
+                          duration: 1,
+                          repeat: Infinity,
+                          repeatDelay: 1,
+                        }}
                         className="absolute"
                         style={{
-                          left: '50%',
-                          top: '50%',
-                          transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-60px)`
+                          left: "50%",
+                          top: "50%",
+                          transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-60px)`,
                         }}
                       >
                         <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
@@ -239,14 +265,20 @@ export function WinnerCelebration({
                   >
                     WINNER!
                   </motion.h2>
-                  <p className="text-xl text-white font-semibold mb-1">{winnerName}</p>
-                  <p className="text-yellow-500/80 text-sm mb-6">{getHandRankName(handRank)}</p>
+                  <p className="text-xl text-white font-semibold mb-1">
+                    {winnerName}
+                  </p>
+                  <p className="text-yellow-500/80 text-sm mb-6">
+                    {handRank
+                      ? getHandRankName(handRank)
+                      : "Won without showing cards"}
+                  </p>
 
                   {/* Amount */}
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ delay: 0.5, type: 'spring' }}
+                    transition={{ delay: 0.5, type: "spring" }}
                     className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30"
                   >
                     <Coins className="w-6 h-6 text-green-400" />
@@ -285,7 +317,12 @@ interface HandRevealProps {
   isWinner: boolean;
 }
 
-export function HandRevealBadge({ isVisible, playerName, handRank, isWinner }: HandRevealProps) {
+export function HandRevealBadge({
+  isVisible,
+  playerName,
+  handRank,
+  isWinner,
+}: HandRevealProps) {
   return (
     <AnimatePresence>
       {isVisible && (
@@ -294,14 +331,14 @@ export function HandRevealBadge({ isVisible, playerName, handRank, isWinner }: H
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0, y: -20 }}
           className={cn(
-            'absolute -top-8 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full',
-            'text-xs font-bold whitespace-nowrap',
+            "absolute -top-8 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full",
+            "text-xs font-bold whitespace-nowrap",
             isWinner
-              ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-yellow-900'
-              : 'bg-white/20 text-white/80'
+              ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-yellow-900"
+              : "bg-white/20 text-white/80",
           )}
         >
-          {getHandRankName(handRank).split(' ')[0]}
+          {getHandRankName(handRank).split(" ")[0]}
           {isWinner && <Crown className="inline-block w-3 h-3 ml-1" />}
         </motion.div>
       )}
@@ -314,7 +351,7 @@ export function ChipsFlying({
   from,
   to,
   amount,
-  onComplete
+  onComplete,
 }: {
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -332,18 +369,18 @@ export function ChipsFlying({
             x: from.x + (Math.random() - 0.5) * 30,
             y: from.y + (Math.random() - 0.5) * 30,
             scale: 1,
-            opacity: 1
+            opacity: 1,
           }}
           animate={{
             x: to.x,
             y: to.y,
             scale: 0.5,
-            opacity: 0
+            opacity: 0,
           }}
           transition={{
             duration: 0.5 + Math.random() * 0.3,
             delay: i * 0.05,
-            ease: 'easeInOut'
+            ease: "easeInOut",
           }}
           onAnimationComplete={i === chipCount - 1 ? onComplete : undefined}
           className="absolute"
@@ -356,7 +393,13 @@ export function ChipsFlying({
 }
 
 // Countdown timer with urgency
-export function CountdownTimer({ seconds, maxSeconds = 30 }: { seconds: number; maxSeconds?: number }) {
+export function CountdownTimer({
+  seconds,
+  maxSeconds = 30,
+}: {
+  seconds: number;
+  maxSeconds?: number;
+}) {
   const percentage = (seconds / maxSeconds) * 100;
   const isUrgent = seconds <= 5;
 
@@ -381,7 +424,9 @@ export function CountdownTimer({ seconds, maxSeconds = 30 }: { seconds: number; 
           cy="24"
           r="20"
           fill="none"
-          stroke={isUrgent ? '#ef4444' : percentage > 50 ? '#22c55e' : '#eab308'}
+          stroke={
+            isUrgent ? "#ef4444" : percentage > 50 ? "#22c55e" : "#eab308"
+          }
           strokeWidth="4"
           strokeLinecap="round"
           strokeDasharray={`${percentage * 1.26} 126`}
@@ -393,10 +438,12 @@ export function CountdownTimer({ seconds, maxSeconds = 30 }: { seconds: number; 
 
       {/* Number */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className={cn(
-          'text-sm font-bold',
-          isUrgent ? 'text-red-400' : 'text-white'
-        )}>
+        <span
+          className={cn(
+            "text-sm font-bold",
+            isUrgent ? "text-red-400" : "text-white",
+          )}
+        >
           {seconds}
         </span>
       </div>

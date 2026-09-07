@@ -1,6 +1,19 @@
 // Card Types
-export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
-export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
+export type Suit = "hearts" | "diamonds" | "clubs" | "spades";
+export type Rank =
+  | "A"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "10"
+  | "J"
+  | "Q"
+  | "K";
 
 export interface Card {
   suit: Suit;
@@ -9,7 +22,13 @@ export interface Card {
 }
 
 // Hand Rankings (lowest to highest)
-export type HandRank = 'high_card' | 'pair' | 'color' | 'sequence' | 'pure_sequence' | 'trail';
+export type HandRank =
+  | "high_card"
+  | "pair"
+  | "color"
+  | "sequence"
+  | "pure_sequence"
+  | "trail";
 
 export interface HandResult {
   rank: HandRank;
@@ -19,17 +38,26 @@ export interface HandResult {
 }
 
 // Game Variants
-export type GameVariant = 'classic' | 'joker' | 'muflis' | 'ak47' | 'hukam' | 'lowball' | 'best_of_four' | 'dealers_choice';
+export type GameVariant =
+  | "classic"
+  | "joker"
+  | "muflis"
+  | "ak47"
+  | "hukam"
+  | "lowball"
+  | "best_of_four"
+  | "dealers_choice";
 
 // Game Status
-export type GameStatus = 'waiting' | 'playing' | 'finished';
-export type PlayerStatus = 'waiting' | 'playing' | 'folded' | 'all_in' | 'show';
+export type GameStatus = "waiting" | "playing" | "finished";
+export type PlayerStatus = "waiting" | "playing" | "folded" | "all_in" | "show";
 
 // VIP Tiers
-export type VipTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'DIAMOND';
+export type VipTier = "BRONZE" | "SILVER" | "GOLD" | "PLATINUM" | "DIAMOND";
 
 // Player Types
 export interface User {
+  equippedItems?: Record<string, string>;
   id: string;
   username: string;
   email?: string;
@@ -108,10 +136,20 @@ export interface GameSession {
 }
 
 // Game Actions
-export type ActionType = 'boot' | 'blind' | 'chaal' | 'pack' | 'show' | 'sideshow' | 'sideshow_accept' | 'sideshow_reject' | 'raise' | 'timeout';
+export type ActionType =
+  | "boot"
+  | "blind"
+  | "chaal"
+  | "pack"
+  | "show"
+  | "sideshow"
+  | "sideshow_accept"
+  | "sideshow_reject"
+  | "raise"
+  | "timeout";
 
 // Player Status extended
-export type PlayerStatusExtended = PlayerStatus | 'disconnected';
+export type PlayerStatusExtended = PlayerStatus | "disconnected";
 
 export interface GameAction {
   id: string;
@@ -139,7 +177,7 @@ export interface Friendship {
   userId: string;
   friendId: string;
   friend?: User;
-  status: 'pending' | 'accepted' | 'blocked';
+  status: "pending" | "accepted" | "blocked";
   createdAt: Date;
 }
 
@@ -158,7 +196,7 @@ export interface LeaderboardEntry {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'win' | 'loss' | 'buy_in' | 'cash_out' | 'bonus' | 'daily_reward';
+  type: "win" | "loss" | "buy_in" | "cash_out" | "bonus" | "daily_reward";
   amount: number;
   balanceAfter: number;
   description?: string;
@@ -176,24 +214,24 @@ export interface DailyReward {
 
 // Socket Events
 export interface ServerToClientEvents {
-  'room:joined': (data: { room: GameRoom; player: GamePlayer }) => void;
-  'room:left': (data: { playerId: string }) => void;
-  'room:updated': (data: GameRoom) => void;
-  'game:started': (data: GameSession) => void;
-  'game:action': (data: { action: GameAction; session: GameSession }) => void;
-  'game:turn': (data: { playerId: string; timeLeft: number }) => void;
-  'game:ended': (data: { session: GameSession; winners: GamePlayer[] }) => void;
-  'cards:dealt': (data: { cards: Card[] }) => void;
-  'chat:message': (data: ChatMessage) => void;
-  'player:online': (data: { userId: string; isOnline: boolean }) => void;
-  'error': (data: { message: string }) => void;
+  "room:joined": (data: { room: GameRoom; player: GamePlayer }) => void;
+  "room:left": (data: { playerId: string }) => void;
+  "room:updated": (data: GameRoom) => void;
+  "game:started": (data: GameSession) => void;
+  "game:action": (data: { action: GameAction; session: GameSession }) => void;
+  "game:turn": (data: { playerId: string; timeLeft: number }) => void;
+  "game:ended": (data: { session: GameSession; winners: GamePlayer[] }) => void;
+  "cards:dealt": (data: { cards: Card[] }) => void;
+  "chat:message": (data: ChatMessage) => void;
+  "player:online": (data: { userId: string; isOnline: boolean }) => void;
+  error: (data: { message: string }) => void;
 }
 
 export interface ClientToServerEvents {
-  'room:join': (data: { roomId: string; buyIn: number }) => void;
-  'room:leave': () => void;
-  'room:create': (data: Partial<GameRoom>) => void;
-  'game:action': (data: { actionType: ActionType; amount?: number }) => void;
-  'game:start': () => void;
-  'chat:send': (data: { message: string }) => void;
+  "room:join": (data: { roomId: string; buyIn: number }) => void;
+  "room:leave": () => void;
+  "room:create": (data: Partial<GameRoom>) => void;
+  "game:action": (data: { actionType: ActionType; amount?: number }) => void;
+  "game:start": () => void;
+  "chat:send": (data: { message: string }) => void;
 }

@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node --import ./dist/instrument.js dist/index.js",
     "pretest": "prisma generate",
-    "test": "tsx --test src/services/*.test.ts src/game/*.test.ts",
+    "test": "node --import tsx --test src/services/*.test.ts src/game/*.test.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -43,6 +43,7 @@
     "typescript": "^5.8.3"
   },
   "overrides": {
-    "deepmerge-ts": "8.0.0"
+    "deepmerge-ts": "8.0.0",
+    "qs": "6.16.0"
   }
 }
