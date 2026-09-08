@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import {
+  useMotionActivity,
+  useMotionPreference,
+} from "../motion/useMotionActivity";
+import { motionTiming } from "../motion/tokens";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star, Sparkles, Crown, Coins } from "lucide-react";
 import { cn } from "../utils/cn";
@@ -48,47 +53,56 @@ export function Confetti({
   isActive: boolean;
   duration?: number;
 }) {
+  const reduced = useMotionPreference();
+  const particleRef = useRef<HTMLDivElement>(null);
+  const active = useMotionActivity(particleRef);
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    if (isActive) {
-      setParticles(generateParticles(50));
+    if (isActive && active) {
+      setParticles(generateParticles(18));
       const timer = setTimeout(() => setParticles([]), duration);
       return () => clearTimeout(timer);
     }
-  }, [isActive, duration]);
+    setParticles([]);
+  }, [isActive, duration, active]);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+    <div
+      ref={particleRef}
+      aria-hidden
+      className="fixed inset-0 pointer-events-none z-50 overflow-hidden"
+    >
       <AnimatePresence>
-        {particles.map((particle) => (
-          <motion.div
-            key={particle.id}
-            initial={{
-              x: `${particle.x}vw`,
-              y: "-10vh",
-              rotate: 0,
-              scale: particle.scale,
-            }}
-            animate={{
-              y: "110vh",
-              rotate: particle.rotation + 720,
-              x: `${particle.x + (Math.random() - 0.5) * 20}vw`,
-            }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: 2 + Math.random() * 2,
-              delay: particle.delay,
-              ease: "linear",
-            }}
-            className="absolute"
-          >
-            <div
-              className="w-3 h-3 rounded-sm"
-              style={{ backgroundColor: particle.color }}
-            />
-          </motion.div>
-        ))}
+        {!reduced &&
+          particles.map((particle) => (
+            <motion.div
+              key={particle.id}
+              initial={{
+                x: `${particle.x}vw`,
+                y: "-10vh",
+                rotate: 0,
+                scale: particle.scale,
+              }}
+              animate={{
+                y: "110vh",
+                rotate: particle.rotation + 720,
+                x: `${particle.x + (Math.random() - 0.5) * 20}vw`,
+              }}
+              exit={{ opacity: 0 }}
+              transition={{
+                duration: 1.4,
+                delay: particle.delay,
+                ease: "linear",
+              }}
+              className="absolute"
+            >
+              <div
+                className="w-3 h-3 rounded-sm"
+                style={{ backgroundColor: particle.color }}
+              />
+            </motion.div>
+          ))}
       </AnimatePresence>
     </div>
   );
@@ -175,135 +189,77 @@ export function WinnerCelebration({
   handRank,
   onClose,
 }: WinnerCelebrationProps) {
+  const reduced = useMotionPreference();
+  useEffect(() => {
+    if (!isVisible) return;
+    const previous = document.activeElement as HTMLElement | null;
+    return () => {
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [isVisible]);
   return (
     <AnimatePresence>
       {isVisible && (
-        <>
-          <Confetti isActive={true} />
-          <Fireworks isActive={true} />
-
-          {/* Overlay */}
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hand-winner-title"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduced ? 0 : motionTiming.state }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={onClose}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onClose();
+            if (e.key === "Tab") e.preventDefault();
+          }}
+        >
+          <Confetti isActive={!reduced} duration={1800} />
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md"
-            onClick={onClose}
+            initial={reduced ? false : { opacity: 0, y: 12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{
+              duration: motionTiming.entrance,
+              ease: motionTiming.ease,
+            }}
+            onClick={(e) => e.stopPropagation()}
+            data-winner-panel
+            className="relative z-[51] w-full max-w-sm rounded-3xl border border-[#E8B04A]/40 bg-[#101B17] p-8 text-center shadow-2xl"
           >
-            {/* Content */}
-            <motion.div
-              initial={{ scale: 0, rotate: -10 }}
-              animate={{ scale: 1, rotate: 0 }}
-              exit={{ scale: 0, rotate: 10 }}
-              transition={{ type: "spring", stiffness: 200, damping: 15 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative p-8 max-w-sm mx-4"
+            <Trophy
+              aria-hidden
+              className="mx-auto mb-4 h-14 w-14 text-[#E8B04A]"
+            />
+            <p className="mb-2 text-xs uppercase tracking-widest text-[#E0BD76]">
+              Hand complete
+            </p>
+            <h2
+              id="hand-winner-title"
+              className="text-2xl font-semibold text-[#FFFBEA]"
             >
-              {/* Glowing background */}
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-yellow-500/30 via-orange-500/20 to-red-500/30 blur-2xl" />
-
-              {/* Card */}
-              <div className="relative rounded-3xl bg-gradient-to-b from-gray-900 to-black border border-yellow-500/30 p-8 overflow-hidden">
-                {/* Shine effect */}
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                  animate={{ x: ["-200%", "200%"] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                />
-
-                {/* Trophy */}
-                <motion.div
-                  initial={{ y: -50, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="flex justify-center mb-4"
-                >
-                  <motion.div
-                    animate={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="relative"
-                  >
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-2xl shadow-yellow-500/50">
-                      <Trophy className="w-12 h-12 text-yellow-900" />
-                    </div>
-                    {/* Stars around trophy */}
-                    {[0, 60, 120, 180, 240, 300].map((angle, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ scale: 0 }}
-                        animate={{ scale: [0, 1, 0] }}
-                        transition={{
-                          delay: 0.5 + i * 0.1,
-                          duration: 1,
-                          repeat: Infinity,
-                          repeatDelay: 1,
-                        }}
-                        className="absolute"
-                        style={{
-                          left: "50%",
-                          top: "50%",
-                          transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-60px)`,
-                        }}
-                      >
-                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                </motion.div>
-
-                {/* Winner text */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="text-center"
-                >
-                  <motion.h2
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                    className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-400 to-yellow-400 mb-2"
-                  >
-                    WINNER!
-                  </motion.h2>
-                  <p className="text-xl text-white font-semibold mb-1">
-                    {winnerName}
-                  </p>
-                  <p className="text-yellow-500/80 text-sm mb-6">
-                    {handRank
-                      ? getHandRankName(handRank)
-                      : "Won without showing cards"}
-                  </p>
-
-                  {/* Amount */}
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.5, type: "spring" }}
-                    className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30"
-                  >
-                    <Coins className="w-6 h-6 text-green-400" />
-                    <span className="text-3xl font-bold text-green-400">
-                      +◉ {formatChips(amount)}
-                    </span>
-                  </motion.div>
-                </motion.div>
-
-                {/* Continue button */}
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onClose}
-                  className="w-full mt-6 py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-bold shadow-lg shadow-orange-500/30"
-                >
-                  Continue
-                </motion.button>
-              </div>
-            </motion.div>
+              {winnerName} won
+            </h2>
+            <p className="mt-2 text-sm text-[#C7D3CC]">
+              {handRank
+                ? getHandRankName(handRank)
+                : "Won without showing cards"}
+            </p>
+            <p className="my-6 text-3xl font-bold tabular-nums text-[#E8B04A]">
+              ◉ {formatChips(amount)}
+              <span className="mt-1 block text-sm font-normal text-[#C7D3CC]">
+                Pot payout
+              </span>
+            </p>
+            <button
+              autoFocus
+              onClick={onClose}
+              className="w-full rounded-xl bg-[#E8B04A] py-3 font-semibold text-[#171006] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            >
+              Continue
+            </button>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );

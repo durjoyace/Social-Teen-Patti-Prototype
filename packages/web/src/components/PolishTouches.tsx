@@ -1,3 +1,5 @@
+import { useMotionActivity, useMotionPreference } from "../motion/useMotionActivity";
+import { motionTiming } from "../motion/tokens";
 import {
   useEffect,
   useId,
@@ -46,7 +48,9 @@ export function AnimatedChipCount({
   className,
   duration = 400,
 }: AnimatedChipCountProps) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
+  const countRef = useRef<HTMLSpanElement>(null);
+  const active = useMotionActivity(countRef);
   const [display, setDisplay] = useState(value);
   const [flash, setFlash] = useState<'increase' | 'decrease' | null>(null);
   const prevRef = useRef(value);
@@ -56,15 +60,13 @@ export function AnimatedChipCount({
     const prev = prevRef.current;
     prevRef.current = value;
 
-    if (prev === value) return;
+    if (prev === value || !active || duration <= 0) {
+      setDisplay(value);
+      setFlash(null);
+      return;
+    }
     const direction = value > prev ? 'increase' : 'decrease';
     setFlash(direction);
-
-    if (reduced) {
-      setDisplay(value);
-      const t = setTimeout(() => setFlash(null), 200);
-      return () => clearTimeout(t);
-    }
 
     const start = performance.now();
     const from = prev;
@@ -86,10 +88,12 @@ export function AnimatedChipCount({
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [value, duration, reduced]);
+  }, [value, duration, reduced, active]);
 
   return (
     <motion.span
+      ref={countRef}
+      aria-label={`${prefix}${value.toLocaleString()}`}
       className={cn(
         'inline-block tabular-nums font-semibold transition-colors duration-200',
         flash === 'increase' && 'text-emerald-400',
@@ -777,21 +781,30 @@ export function ParallaxBackground({
   className,
   intensity = 1,
 }: ParallaxBackgroundProps) {
-  const reduced = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const particles = useMemo(generateParallaxParticles, []);
+  const active = useMotionActivity(containerRef);
 
   useEffect(() => {
-    if (reduced) return;
+    if (!active) return;
 
     let orientationSupported = false;
+    let frame = 0;
+    let nextOffset = { x: 0, y: 0 };
+    const queueOffset = (value: { x: number; y: number }) => {
+      nextOffset = value;
+      if (!frame) frame = requestAnimationFrame(() => {
+        frame = 0;
+        setOffset(nextOffset);
+      });
+    };
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
       orientationSupported = true;
       const x = ((e.gamma ?? 0) / 45) * 10 * intensity; // -10 to 10
       const y = ((e.beta ?? 0) / 45) * 10 * intensity;
-      setOffset({ x: Math.max(-10, Math.min(10, x)), y: Math.max(-10, Math.min(10, y)) });
+      queueOffset({ x: Math.max(-10, Math.min(10, x)), y: Math.max(-10, Math.min(10, y)) });
     };
 
     const handleMouse = (e: MouseEvent) => {
@@ -800,16 +813,17 @@ export function ParallaxBackground({
       const cy = window.innerHeight / 2;
       const x = ((e.clientX - cx) / cx) * 10 * intensity;
       const y = ((e.clientY - cy) / cy) * 10 * intensity;
-      setOffset({ x, y });
+      queueOffset({ x, y });
     };
 
     window.addEventListener('deviceorientation', handleOrientation);
     window.addEventListener('mousemove', handleMouse);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('mousemove', handleMouse);
     };
-  }, [intensity, reduced]);
+  }, [intensity, active]);
 
   return (
     <div
@@ -838,7 +852,7 @@ export function ParallaxBackground({
               height: p.size,
               opacity: p.opacity,
               filter: p.layer === 1 ? 'blur(20px)' : p.layer === 2 ? 'blur(1px)' : 'none',
-              transform: reduced
+              transform: !active
                 ? 'none'
                 : `translate(${dx}px, ${dy}px)`,
               transition: 'transform 0.15s ease-out',
@@ -862,14 +876,14 @@ interface SmoothPageTransitionProps {
 
 const PAGE_VARIANTS = {
   forward: {
-    initial: { x: '30%', scale: 0.97, opacity: 0 },
+    initial: { x: 16, scale: 1, opacity: 0 },
     animate: { x: 0, scale: 1, opacity: 1 },
-    exit: { x: '-15%', scale: 0.98, opacity: 0 },
+    exit: { x: -8, scale: 1, opacity: 0 },
   },
   back: {
-    initial: { x: '-30%', scale: 0.97, opacity: 0 },
+    initial: { x: -16, scale: 1, opacity: 0 },
     animate: { x: 0, scale: 1, opacity: 1 },
-    exit: { x: '15%', scale: 0.98, opacity: 0 },
+    exit: { x: 8, scale: 1, opacity: 0 },
   },
   modal: {
     initial: { scale: 0.85, opacity: 0 },
@@ -883,7 +897,7 @@ export function SmoothPageTransition({
   direction = 'forward',
   className,
 }: SmoothPageTransitionProps) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
   const variant = PAGE_VARIANTS[direction];
 
   return (
@@ -895,7 +909,7 @@ export function SmoothPageTransition({
       transition={
         reduced
           ? { duration: 0.1 }
-          : { type: 'spring', ...APPLE_SPRING }
+          : { duration: motionTiming.state, ease: motionTiming.ease }
       }
     >
       {children}

@@ -1,7 +1,12 @@
+import {
+  useMotionActivity,
+  useMotionPreference,
+} from "../motion/useMotionActivity";
+import { motionTiming } from "../motion/tokens";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, Suit } from "../types";
 import { cn } from "../utils/cn";
-import { useCallback, useId } from "react";
+import { useCallback, useId, useRef } from "react";
 
 // ─── Size System ──────────────────────────────────────────────────────────────
 
@@ -981,6 +986,7 @@ export function PremiumCard({
 }: PremiumCardProps) {
   const dims = SIZES[size];
   const patternId = useId();
+  const reduced = useMotionPreference();
 
   return (
     <motion.div
@@ -998,8 +1004,11 @@ export function PremiumCard({
       <motion.div
         className="relative w-full h-full"
         initial={false}
-        animate={{ rotateY: hidden ? 180 : 0 }}
-        transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+        animate={{ rotateY: !reduced && hidden ? 180 : 0 }}
+        transition={{
+          duration: reduced ? 0 : motionTiming.reveal,
+          ease: motionTiming.ease,
+        }}
         style={{ transformStyle: "preserve-3d" }}
       >
         {/* ── FRONT FACE ── */}
@@ -1007,6 +1016,7 @@ export function PremiumCard({
           className="absolute inset-0"
           style={{
             backfaceVisibility: "hidden",
+            visibility: reduced ? (hidden ? "hidden" : "visible") : undefined,
             borderRadius: dims.borderRadius,
             boxShadow: "0 2px 8px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.12)",
           }}
@@ -1029,7 +1039,8 @@ export function PremiumCard({
           className="absolute inset-0"
           style={{
             backfaceVisibility: "hidden",
-            transform: "rotateY(180deg)",
+            visibility: reduced ? (hidden ? "visible" : "hidden") : undefined,
+            transform: reduced ? "none" : "rotateY(180deg)",
             borderRadius: dims.borderRadius,
             boxShadow: "0 2px 8px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.15)",
           }}
@@ -1092,7 +1103,7 @@ const foldVariants = {
 // ─── PremiumCardFan Component ─────────────────────────────────────────────────
 
 interface PremiumCardFanProps {
-  cards: Card[];
+  cards: Array<Card | undefined>;
   hidden?: boolean;
   size?: CardSize;
   onCardTap?: (index: number) => void;
@@ -1107,6 +1118,9 @@ export function PremiumCardFan({
   isWinner = false,
 }: PremiumCardFanProps) {
   const dims = SIZES[size];
+  const fanRef = useRef<HTMLDivElement>(null);
+  const active = useMotionActivity(fanRef);
+  const reduced = useMotionPreference();
   const fanSpread = dims.w * 0.55;
   const fanAngle = 12;
 
@@ -1119,6 +1133,7 @@ export function PremiumCardFan({
 
   return (
     <div
+      ref={fanRef}
       className="relative"
       style={{
         width: dims.w + fanSpread * 2 + 8,
@@ -1135,10 +1150,14 @@ export function PremiumCardFan({
             filter: "blur(6px)",
           }}
           animate={{
-            opacity: [0.5, 1, 0.5],
-            scale: [0.98, 1.02, 0.98],
+            opacity: active ? [0.5, 1, 0.5] : 0.5,
+            scale: 1,
           }}
-          transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+          transition={{
+            repeat: active ? 1 : 0,
+            duration: active ? 0.7 : 0,
+            ease: "easeInOut",
+          }}
         />
       )}
 
@@ -1150,9 +1169,13 @@ export function PremiumCardFan({
 
           return (
             <motion.div
-              key={`${card?.suit || "hidden"}-${card?.rank || "back"}-${index}`}
+              key={index}
               className={cn("absolute", onCardTap && "cursor-pointer")}
-              initial={{ rotate: 0, x: 0, y: 20, opacity: 0, scale: 0.8 }}
+              initial={
+                reduced
+                  ? false
+                  : { rotate: 0, x: 0, y: 12, opacity: 0, scale: 0.98 }
+              }
               animate={{
                 rotate: angle,
                 x: xOffset,
@@ -1161,10 +1184,9 @@ export function PremiumCardFan({
                 scale: 1,
               }}
               transition={{
-                type: "spring",
-                stiffness: 250,
-                damping: 22,
-                delay: index * 0.12,
+                duration: reduced ? 0 : motionTiming.entrance,
+                ease: motionTiming.ease,
+                delay: reduced ? 0 : index * motionTiming.stagger,
               }}
               whileHover={
                 onCardTap ? { y: -yOffset - 12, scale: 1.08 } : undefined
@@ -1189,10 +1211,10 @@ export function PremiumCardFan({
                     boxShadow:
                       "0 0 12px rgba(212,175,55,0.5), inset 0 0 6px rgba(212,175,55,0.15)",
                   }}
-                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  animate={{ opacity: active ? [0.6, 1, 0.6] : 0.8 }}
                   transition={{
-                    repeat: Infinity,
-                    duration: 1.5,
+                    repeat: active ? 1 : 0,
+                    duration: active ? 0.7 : 0,
                     ease: "easeInOut",
                   }}
                 />

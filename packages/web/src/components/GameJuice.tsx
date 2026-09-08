@@ -1,3 +1,4 @@
+import { useMotionActivity, useMotionPreference } from "../motion/useMotionActivity";
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cn } from '../utils/cn';
@@ -393,131 +394,17 @@ interface PotGlowProps {
 }
 
 export function PotGlow({ amount, className, children }: PotGlowProps) {
-  const reduced = useReducedMotion();
-
-  const tier: 'none' | 'shimmer' | 'glow' | 'aura' =
-    amount >= 10_000
-      ? 'aura'
-      : amount >= 2_000
-        ? 'glow'
-        : amount >= 500
-          ? 'shimmer'
-          : 'none';
-
-  // Sparkle particles for aura tier (must be before any early return)
-  const sparkles = useMemo(() => {
-    if (tier !== 'aura') return [];
-    const r = seededRandom(amount);
-    return Array.from({ length: 10 }, (_, i) => ({
-      id: i,
-      angle: r() * 360,
-      distance: 30 + r() * 30,
-      delay: r() * 2,
-      size: 2 + r() * 3,
-    }));
-  }, [tier, amount]);
-
-  if (tier === 'none' || reduced) {
-    return <div className={className}>{children}</div>;
-  }
-
-  return (
-    <div className={cn('relative', className)}>
-      {/* Shimmer sweep */}
-      {tier === 'shimmer' && (
-        <motion.div
-          className="absolute inset-0 rounded-inherit overflow-hidden pointer-events-none"
-          style={{ borderRadius: 'inherit' }}
-        >
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-400/15 to-transparent"
-            animate={{ x: ['-150%', '150%'] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
-          />
-        </motion.div>
-      )}
-
-      {/* Glow ring */}
-      {(tier === 'glow' || tier === 'aura') && (
-        <motion.div
-          className="absolute -inset-2 rounded-full pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(ellipse at center, rgba(255,215,0,0.25) 0%, transparent 70%)',
-          }}
-          animate={{
-            scale: [1, 1.12, 1],
-            opacity: [0.5, 0.9, 0.5],
-          }}
-          transition={{
-            duration: tier === 'aura' ? 1.2 : 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      )}
-
-      {/* Aura pulsing outer ring */}
-      {tier === 'aura' && (
-        <>
-          <motion.div
-            className="absolute -inset-4 rounded-full pointer-events-none"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, rgba(255,180,0,0.15) 0%, transparent 70%)',
-            }}
-            animate={{
-              scale: [1, 1.25, 1],
-              opacity: [0.3, 0.7, 0.3],
-            }}
-            transition={{
-              duration: 1.5,
-              repeat: Infinity,
-              ease: 'easeInOut',
-              delay: 0.3,
-            }}
-          />
-
-          {/* Sparkle particles */}
-          {sparkles.map((s) => (
-            <motion.div
-              key={s.id}
-              className="absolute pointer-events-none"
-              style={{
-                left: '50%',
-                top: '50%',
-                width: s.size,
-                height: s.size,
-              }}
-              animate={{
-                x: [
-                  Math.cos((s.angle * Math.PI) / 180) * s.distance * 0.6,
-                  Math.cos((s.angle * Math.PI) / 180) * s.distance,
-                ],
-                y: [
-                  Math.sin((s.angle * Math.PI) / 180) * s.distance * 0.6,
-                  Math.sin((s.angle * Math.PI) / 180) * s.distance,
-                ],
-                opacity: [0, 1, 0],
-                scale: [0, 1, 0],
-              }}
-              transition={{
-                duration: 1.4,
-                delay: s.delay,
-                repeat: Infinity,
-                ease: 'easeOut',
-              }}
-            >
-              <div className="w-full h-full rounded-full bg-yellow-300 shadow-sm shadow-yellow-400/80" />
-            </motion.div>
-          ))}
-        </>
-      )}
-
-      {/* Actual content */}
-      <div className="relative z-10">{children}</div>
-    </div>
-  );
+  const ref = useRef<HTMLDivElement>(null);
+  const active = useMotionActivity(ref);
+  return <div ref={ref} className={cn('relative', className)} data-motion-active={active}>
+    {amount >= 500 && <motion.div key={amount} aria-hidden
+      className="absolute -inset-2 rounded-full pointer-events-none"
+      style={{background:'radial-gradient(ellipse at center, rgba(255,215,0,0.25), transparent 70%)'}}
+      initial={false}
+      animate={{opacity:active?[0.35,0.8,0.35]:0.35,scale:active?[1,1.08,1]:1}}
+      transition={{duration:active?0.45:0,ease:'easeOut'}} />}
+    <div className="relative z-10">{children}</div>
+  </div>;
 }
 
 // ---------------------------------------------------------------------------
@@ -681,7 +568,7 @@ interface TurnPulseProps {
 }
 
 export function TurnPulse({ isMyTurn, cycles = 2, className }: TurnPulseProps) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionPreference();
   const [active, setActive] = useState(false);
   const prevTurn = useRef(false);
 

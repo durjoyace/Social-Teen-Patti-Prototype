@@ -1,3 +1,5 @@
+import { motionTiming } from "../motion/tokens";
+import { useMotionPreference } from "../motion/useMotionActivity";
 import { useTranslation } from "../i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
@@ -71,6 +73,7 @@ export function LobbyScreen({
   onLeaveTable,
   onNavigate,
 }: LobbyScreenProps) {
+  const reduced = useMotionPreference();
   const { user } = useAuthStore();
   const { t } = useTranslation();
   const { addToast } = useUIStore();
@@ -391,17 +394,15 @@ export function LobbyScreen({
             <div className="clubhouse-grid">
               <motion.section
                 aria-labelledby="friend-table-title"
-                initial={{
-                  opacity: 0.85,
-                  y: 14,
-                  clipPath: "inset(0 0 7% 0 round 42px)",
-                }}
+                initial={reduced ? false : { opacity: 0, y: 12 }}
                 animate={{
                   opacity: 1,
                   y: 0,
-                  clipPath: "inset(0 0 0% 0 round 42px)",
                 }}
-                transition={{ duration: 0.62, ease: [0.16, 1, 0.3, 1] }}
+                transition={{
+                  duration: motionTiming.entrance,
+                  ease: motionTiming.ease,
+                }}
                 data-active-table={!!currentRoom}
                 className="club-table-shell"
               >

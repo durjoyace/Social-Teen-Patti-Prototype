@@ -225,6 +225,7 @@ export function BettingControls({
   return (
     <motion.section
       aria-label="Table actions"
+      data-betting-controls
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E8B04A]/20 bg-[#07110E]/95 shadow-[0_-18px_45px_rgba(0,0,0,0.42)] backdrop-blur-xl"

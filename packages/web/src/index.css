@@ -1321,3 +1321,47 @@
   .club-table-shell[data-active-table="true"] .club-seat--host { top: 22%; }
   .club-table-shell[data-active-table="true"] .club-table-title { font-size: 2rem; }
 }
+
+/* Short landscape screens keep the table and action panel side by side. */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 640px) {
+  [data-game-surface] {
+    width: calc(100% - 300px);
+    height: calc(100dvh - 64px) !important;
+    min-height: 0 !important;
+  }
+  [data-game-felt] {
+    width: min(82%, calc((100dvh - 100px) * 1.5));
+    aspect-ratio: 1.5 !important;
+  }
+  [data-self-seat="true"] { left: 14% !important; top: 70% !important; }
+  [data-my-cards] { left: calc((100% - 300px) / 2) !important; bottom: 12px !important; }
+  [data-pot-display], .game-pot-glow { left: 78% !important; top: 43% !important; }
+  [data-betting-controls] {
+    left: auto;
+    right: 12px;
+    top: 68px;
+    bottom: 12px;
+    width: 280px;
+    overflow-y: auto;
+    border-radius: 16px;
+  }
+  [data-betting-controls] > div { padding: 12px; }
+  [data-turn-clock] { left: 12px; right: auto; top: 68px; bottom: auto; }
+  [data-turn-clock] > span { display: none; }
+  [data-winner-panel] { padding: 16px; max-height: calc(100dvh - 24px); overflow-y: auto; }
+  [data-winner-panel] > svg { height: 32px; margin-bottom: 8px; }
+  [data-winner-panel] > p { margin-top: 8px; margin-bottom: 8px; }
+}
+
+/* Keep the local identity beside the hand in the common two-friend layout. */
+[data-game-felt][data-player-count="2"] [data-self-seat="true"] {
+  left: 16% !important;
+  top: 78% !important;
+}
+@media (min-width: 1024px) and (min-height: 501px) {
+  [data-game-surface] { height: calc(100dvh - 280px) !important; }
+  [data-game-felt] {
+    width: min(88%, calc((100dvh - 360px) * 1.4));
+    aspect-ratio: 1.4 !important;
+  }
+}

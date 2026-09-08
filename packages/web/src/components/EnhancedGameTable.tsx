@@ -1,3 +1,8 @@
+import {
+  useMotionActivity,
+  useMotionPreference,
+} from "../motion/useMotionActivity";
+import { motionTiming } from "../motion/tokens";
 import { useTranslation } from "../i18n";
 import { socketService } from "../services/socket";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -224,6 +229,9 @@ interface EnhancedGameTableProps {
 }
 
 export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
+  const tableRef = useRef<HTMLDivElement>(null);
+  const motionActive = useMotionActivity(tableRef);
+  const reduced = useMotionPreference();
   const {
     gameState,
     myCards,
@@ -283,7 +291,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   // The server owns the deadline. A reconnect never grants extra time.
   useEffect(() => {
-    if (!serverGameState || !isMyTurn) {
+    if (!serverGameState || serverGameState.status !== "playing") {
       setTurnAnnouncement("");
       return;
     }
@@ -303,7 +311,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       );
     tick();
     setTurnAnnouncement(
-      "Your turn. Choose an action before the timer expires.",
+      isMyTurn ? "Your turn. Choose an action before the timer expires." : "",
     );
     const timer = setInterval(tick, 250);
     return () => clearInterval(timer);
@@ -337,7 +345,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
         );
         const celebrationTimer = window.setTimeout(
           () => setShowWinCelebration(true),
-          800,
+          reduced ? 0 : 400,
         );
         return () => {
           revealTimers.forEach((timer) => window.clearTimeout(timer));
@@ -409,6 +417,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
   return (
     <div
+      ref={tableRef}
+      data-motion-active={motionActive}
       data-table-theme={user?.equippedItems?.TABLE_THEME}
       className="relative h-full w-full overflow-hidden bg-[var(--color-background)] text-[var(--color-text)]"
       role="main"
@@ -526,11 +536,14 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
 
       {/* ─── Game Table ───────────────────────────────────────────────── */}
       <div
+        data-game-surface
         className="relative z-10 flex-1"
         style={{ height: "calc(100dvh - 180px)", minHeight: "400px" }}
       >
         {/* Table felt (oval) */}
         <div
+          data-game-felt
+          data-player-count={orderedPlayers.length}
           className="absolute left-1/2 top-1/2 w-[88%] max-w-[360px] -translate-x-1/2 -translate-y-[52%] sm:max-w-[440px] lg:max-w-[560px] xl:max-w-[620px]"
           style={{ aspectRatio: "1 / 1.12" }}
         >
@@ -558,12 +571,14 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
           {/* Pot glow effect */}
           <PotGlow
             amount={session.pot}
-            className="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24"
+            className="game-pot-glow absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24"
           />
 
           {/* ─── Pot Display (center of table) ──────────────────────── */}
           <motion.div
-            className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10"
+            data-pot-display
+            className="absolute top-[40%] left-1/2 flex flex-col items-center z-10"
+            style={{ x: "-50%", y: "-50%" }}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.3, type: "spring" }}
@@ -649,15 +664,24 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
             return (
               <motion.div
                 key={player.id}
+                data-self-seat={isMe}
                 className="absolute -translate-x-1/2 -translate-y-1/2 z-10"
-                style={{ top: seat.top, left: seat.left }}
-                initial={{ opacity: 0, scale: 0.5 }}
+                style={{
+                  top: seat.top,
+                  left: seat.left,
+                  x: "-50%",
+                  y: "-50%",
+                  filter: isFolded ? "grayscale(0.8)" : undefined,
+                }}
+                initial={reduced ? false : { opacity: 0, scale: 0.98 }}
                 animate={{
                   opacity: isFolded ? 0.35 : 1,
                   scale: isFolded ? 0.9 : 1,
-                  filter: isFolded ? "grayscale(0.8)" : "grayscale(0)",
                 }}
-                transition={{ delay: index * 0.1, type: "spring" }}
+                transition={{
+                  duration: motionTiming.state,
+                  ease: motionTiming.ease,
+                }}
               >
                 {/* Player cards — premium design */}
                 {isActive && player.cards && !isMe && (
@@ -674,7 +698,10 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                         "top-1/2 -translate-y-1/2 -right-16",
                     )}
                   >
-                    {player.cards.map((card, ci) => (
+                    {(player.cards.length
+                      ? player.cards
+                      : [undefined, undefined, undefined]
+                    ).map((card, ci) => (
                       <motion.div
                         key={ci}
                         initial={{ y: -15, opacity: 0 }}
@@ -730,10 +757,12 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                           WebkitMask:
                             "radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2px))",
                         }}
-                        animate={{ rotate: 360 }}
+                        animate={{
+                          opacity: motionActive ? [0.4, 1, 0.7] : 0.7,
+                        }}
                         transition={{
-                          repeat: Infinity,
-                          duration: 3,
+                          repeat: motionActive ? 1 : 0,
+                          duration: motionActive ? 0.6 : 0,
                           ease: "linear",
                         }}
                       />
@@ -753,20 +782,11 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
                           }) &&
                           "drop-shadow-[0_0_12px_rgba(234,179,8,0.7)]",
                       )}
-                      animate={
-                        player.isTurn
-                          ? {
-                              filter: [
-                                "drop-shadow(0 0 8px rgba(234,179,8,0.3))",
-                                "drop-shadow(0 0 16px rgba(234,179,8,0.6))",
-                                "drop-shadow(0 0 8px rgba(234,179,8,0.3))",
-                              ],
-                            }
-                          : {}
-                      }
-                      transition={
-                        player.isTurn ? { repeat: Infinity, duration: 1.5 } : {}
-                      }
+                      style={{
+                        filter: player.isTurn
+                          ? "drop-shadow(0 0 8px rgba(234,179,8,0.35))"
+                          : undefined,
+                      }}
                     >
                       {!isMe && AI_AVATAR_IDS[player.userId] ? (
                         <CharacterAvatar
@@ -873,6 +893,7 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
       {(myCards.length > 0 || serverGameState?.canSeeCards) &&
         myPlayer?.status !== "folded" && (
           <motion.div
+            data-my-cards
             style={{ x: "-50%" }}
             initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -887,7 +908,10 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
           >
             {/* Premium card fan */}
             <PremiumCardFan
-              cards={myCards}
+              key={session.id}
+              cards={
+                myCards.length ? myCards : [undefined, undefined, undefined]
+              }
               hidden={!showCards}
               size="lg"
               isWinner={
@@ -975,8 +999,11 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
           <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10">
             <motion.div
               className="h-1.5 w-1.5 rounded-full bg-[#E8B04A]"
-              animate={{ scale: [1, 1.4, 1], opacity: [1, 0.5, 1] }}
-              transition={{ repeat: Infinity, duration: 1.2 }}
+              animate={{ opacity: motionActive ? [0.5, 1, 0.5] : 0.7 }}
+              transition={{
+                repeat: motionActive ? 1 : 0,
+                duration: motionActive ? 0.6 : 0,
+              }}
             />
             <span className="text-white/60 text-xs">
               {(() => {
@@ -995,7 +1022,8 @@ export function EnhancedGameTable({ onLeave }: EnhancedGameTableProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed bottom-[200px] right-4 z-20 flex items-center gap-2 rounded-[14px] bg-[#101B17] p-2 shadow-[0_14px_32px_rgba(0,0,0,0.32),inset_0_0_0_1px_#3A5145]"
+          data-turn-clock
+          className="fixed bottom-[260px] right-4 z-20 flex items-center gap-2 rounded-[14px] bg-[#101B17] p-2 shadow-[0_14px_32px_rgba(0,0,0,0.32),inset_0_0_0_1px_#3A5145]"
         >
           <div className="relative w-12 h-12">
             <svg className="w-full h-full -rotate-90">
