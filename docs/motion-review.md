@@ -39,3 +39,7 @@ These are bounded browser checks, not a production FPS, CPU, heap-leak or physic
 - https://github.com/MengTo/Skills/blob/main/agent-skills/web-design/animation-systems/SKILL.md
 - https://github.com/MengTo/Skills/blob/main/agent-skills/codex/optimize-web-animations/SKILL.md
 - https://github.com/MengTo/Skills/blob/main/agent-skills/game-development/test-playable-web-games/SKILL.md
+
+## Publication
+
+Web release `eaf5d3b` was committed and pushed to `codex/impeccable-10`, then published as Vercel deployment `dpl_5KcFknyJkwkafhvvHjZhqV7MarHs`. The established alias https://social-teen-patti-durjoy-ace.vercel.app was explicitly updated and verified. Authenticated HTTP checks confirmed the app HTML, new game bundle and landscape stylesheet. The unchanged backend reports ready at version `6041a39`; no backend deployment or database migration was needed. The review fixture is absent from the production build. Local review tabs, servers and the disposable database were stopped after verification.
