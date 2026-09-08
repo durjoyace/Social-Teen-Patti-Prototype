@@ -91,3 +91,18 @@ The blocking web/shared/server audit subsequently passed from a clean checkout. 
 The implementation and audit fix are pushed to `codex/impeccable-10`. Vercel built deployment `dpl_BNVtvixjjCvv8bh2xwn94HvxQZWX` successfully with production configuration. Although `--skip-domain` was requested, an alias lookup showed the live domain assigned to the new build; it was explicitly reassigned to the previous compatible deployment and verified. Its page was verified through authenticated Vercel access. The live API remains version `3843ef6` at `teen-patti-server-production-8150.up.railway.app`. Railway CLI authentication has expired; backend migration/deployment and web promotion await sign-in. Do not promote the new client independently of that backend upgrade.
 
 The live alias is confirmed on prior deployment `dpl_2JJc3tSDVsguTNKgqsfogKg31syK`. The new build remains available by its unique deployment URL, pending the coordinated backend release.
+
+
+## Production deployment completed — 8 September 2026 UTC
+
+Release `6041a39` is committed and pushed to `codex/impeccable-10`. The earlier sign-in blocker above is resolved.
+
+- PostgreSQL backup `a96ffa91-4e59-4bcf-b971-0d73a25ee74c` was created before migration. Existing secrets were preserved.
+- Railway deployment `1204823a-08b5-47f7-800d-dd55c2aebacc` replaced the stopped in-memory coordinator with one replica. The old server had one connected client at cutover; this was a service interruption, not a verified drain of old in-memory tables.
+- Production now has all three migrations, including `20260907010000_durable_tables` and `20260907020000_hand_audit`. The API readiness endpoint reports version `6041a39` at https://teen-patti-server-production-8150.up.railway.app/ready.
+- Vercel production deployment `dpl_6d2WwFNoG1RD9akNfigA92P3YTPv` serves the matching web release. The established alias https://social-teen-patti-durjoy-ace.vercel.app was explicitly updated. Its application HTML was verified through existing deployment protection.
+- The live synthetic-account smoke passed authentication, sockets, private-table join, readiness, hidden-card checks, two hands, duplicate-command handling, replay, cash-out balance conservation, referral attribution and account cleanup.
+- A read-only production check confirmed two settled hands, zero remaining rooms, zero reservations and zero pending referral jobs after the smoke.
+- The user-approved temporary Railway SSH key was revoked after verification, and its local private/public files were removed.
+
+Purchases remain disabled. Mobile store release, physical-device/accessibility verification, production alert delivery, restore rehearsal and regional capacity measurements remain separate open gates. No native store deployment was performed.

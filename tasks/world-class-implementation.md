@@ -16,4 +16,4 @@ Release gates remain separate from implemented code:
 - [ ] Production log dashboards, alert delivery, backup restore rehearsal and regional capacity measurements.
 - [x] Blocking web/shared/server dependency audit passed from a clean checkout after fixing pnpm action-path parsing.
 - [ ] Resolve seven current mobile-only advisory sets before store release.
-- [ ] Coordinated database migration and single-coordinator rollout with matching clients.
+- [x] Production database migrations, single-coordinator backend rollout and matching web release; two-hand production smoke and cleanup verified. Native store release remains held.
